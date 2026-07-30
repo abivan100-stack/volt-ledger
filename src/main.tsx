@@ -13,6 +13,7 @@ import '@fontsource/spline-sans-mono/500.css'
 import '@fontsource/spline-sans-mono/600.css'
 
 import './theme/theme.css'
+import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
 import App from './App.tsx'
 
 const rootElement = document.getElementById('root')
@@ -22,8 +23,10 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

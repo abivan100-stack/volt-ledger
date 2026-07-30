@@ -51,6 +51,7 @@ interface EnergyStoreState {
   rate: number
   prevRate: number
   rateHistory: number[]
+  tickCount: number
   selectedHouseIndex: number | null
   compromised: boolean
   invalidCount: number
@@ -153,11 +154,12 @@ function seedChain(
   return { households: nextHouseholds, chain, nextBlockId, totalKwh, totalCredit }
 }
 
-let tickHandle: ReturnType<typeof setInterval> | undefined
-let tradeHandle: ReturnType<typeof setInterval> | undefined
-let restoredFlashTimeout: ReturnType<typeof setTimeout> | undefined
+export const useEnergyStore = create<EnergyStoreState>((set, get) => {
+  let tickHandle: ReturnType<typeof setInterval> | undefined
+  let tradeHandle: ReturnType<typeof setInterval> | undefined
+  let restoredFlashTimeout: ReturnType<typeof setTimeout> | undefined
 
-export const useEnergyStore = create<EnergyStoreState>((set, get) => ({
+  return {
   config: { simSpeed: 4, startHour: 8, activity: 1 },
   dayType: 'sunny-weekday',
   initialized: false,
@@ -171,6 +173,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => ({
   rate: 5.5,
   prevRate: 5.5,
   rateHistory: new Array(44).fill(5.5),
+  tickCount: 0,
   selectedHouseIndex: null,
   compromised: false,
   invalidCount: 0,
@@ -289,7 +292,8 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => ({
       return { ...h, out, draw, net, gen: h.gen + out * dtHours, con: h.con + draw * dtHours }
     })
 
-    const rate = nextCommunityRate(state.rate, supply, demand)
+    const tickCount = state.tickCount + 1
+    const rate = nextCommunityRate(state.rate, supply, demand, tickCount)
     const prevRate = state.rateHistory[state.rateHistory.length - 6] ?? state.rate
     const rateHistory = [...state.rateHistory, rate].slice(-44)
 
@@ -310,7 +314,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => ({
       totalCreditToday = 0
     }
 
-    set({ simMinute, households, rate, prevRate, rateHistory, totalKwhToday, totalCreditToday })
+    set({ simMinute, households, rate, prevRate, rateHistory, totalKwhToday, totalCreditToday, tickCount })
   },
 
   tryTrade: () => {
@@ -350,4 +354,4 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => ({
       totalCreditToday: state.totalCreditToday + credit,
     })
   },
-}))
+}})

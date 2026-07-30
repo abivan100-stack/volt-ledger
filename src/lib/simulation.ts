@@ -24,7 +24,7 @@ function dayTypeKey(dayType: DayType): number {
 }
 
 // Deterministic FNV-1a style hash of a handful of integer keys, folded into [0, 1).
-function seededUnit(...keys: number[]): number {
+export function seededUnit(...keys: number[]): number {
   let h = 2166136261
   for (const key of keys) {
     h = Math.imul(h ^ Math.floor(key), 16777619)
@@ -123,7 +123,8 @@ export function tickHousehold(
   return { out, draw, net: out - draw }
 }
 
-export function nextCommunityRate(currentRate: number, supply: number, demand: number): number {
+export function nextCommunityRate(currentRate: number, supply: number, demand: number, tickCount: number): number {
   const target = Math.min(7.2, Math.max(4.4, 5.5 + (demand - supply) * 0.3))
-  return currentRate + (target - currentRate) * 0.25 + (Math.random() - 0.5) * 0.05
+  const jitter = (seededUnit(tickCount * 71) - 0.5) * 0.05
+  return currentRate + (target - currentRate) * 0.25 + jitter
 }
