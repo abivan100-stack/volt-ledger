@@ -54,21 +54,25 @@ function ComparisonTable() {
           Because a database would work — if everyone agreed to trust whoever runs it. Volt's bet is narrower:
           neighbors settling money with each other shouldn't have to.
         </p>
-        <div data-reveal className="comparison-table">
-          <div className="mono comparison-row comparison-header-row">
-            <span />
-            <span>A TRUSTED DATABASE</span>
-            <span className="comparison-header-volt">THE VOLT LEDGER</span>
-          </div>
-          {ROWS.map((row) => (
-            <div key={row.label} className="comparison-row comparison-data-row">
-              <span className={`mono comparison-row-label${row.labelAccent ? ' comparison-row-label-accent' : ''}`}>
-                {row.label}
-              </span>
-              <span className="comparison-cell comparison-cell-database">{row.database}</span>
-              <span className="comparison-cell">{row.volt}</span>
+        <div data-reveal role="table" className="comparison-table">
+          <div role="rowgroup">
+            <div className="mono comparison-row comparison-header-row">
+              <span role="columnheader" />
+              <span role="columnheader">A TRUSTED DATABASE</span>
+              <span role="columnheader" className="comparison-header-volt">THE VOLT LEDGER</span>
             </div>
-          ))}
+          </div>
+          <div role="rowgroup">
+            {ROWS.map((row) => (
+              <div key={row.label} role="row" className="comparison-row comparison-data-row">
+                <span role="cell" className={`mono comparison-row-label${row.labelAccent ? ' comparison-row-label-accent' : ''}`}>
+                  {row.label}
+                </span>
+                <span role="cell" className="comparison-cell comparison-cell-database">{row.database}</span>
+                <span role="cell" className="comparison-cell">{row.volt}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

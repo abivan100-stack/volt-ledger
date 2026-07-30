@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { buildDossier } from '../../lib/dossier'
 import './DossierDrawer.css'
+
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
 
 function DossierDrawer() {
   const selectedHouseIndex = useEnergyStore((state) => state.selectedHouseIndex)
@@ -10,14 +12,41 @@ function DossierDrawer() {
   const simMinute = useEnergyStore((state) => state.simMinute)
   const dayType = useEnergyStore((state) => state.dayType)
   const closeDossier = useEnergyStore((state) => state.closeDossier)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<Element | null>(null)
 
   useEffect(() => {
     if (selectedHouseIndex == null) return
+    triggerRef.current = document.activeElement
+    const sheet = sheetRef.current
+    if (sheet) {
+      const first = sheet.querySelector<HTMLElement>(FOCUSABLE)
+      first?.focus()
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') closeDossier()
+      if (event.key === 'Escape') {
+        closeDossier()
+        return
+      }
+      if (event.key !== 'Tab' || !sheet) return
+      const focusable = [...sheet.querySelectorAll<HTMLElement>(FOCUSABLE)]
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus()
+    }
   }, [selectedHouseIndex, closeDossier])
 
   if (selectedHouseIndex == null) return null

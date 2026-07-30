@@ -1,9 +1,52 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { fairnessSummary } from '../../lib/fairness'
 import { formatMoney } from '../../lib/format'
 import type { CSSVars } from '../ui/cssVars'
+import type { HouseholdBenefit } from '../../lib/fairness'
 import './FairnessScore.css'
+
+interface FairnessScoreRowProps {
+  household: HouseholdBenefit
+  maxAbs: number
+  isBest: boolean
+  isWorst: boolean
+}
+
+const FairnessScoreRow = memo(function FairnessScoreRow({
+  household,
+  maxAbs,
+  isBest,
+  isWorst,
+}: FairnessScoreRowProps) {
+  const pct = (Math.abs(household.netBenefit) / maxAbs) * 50
+  const rowClass = isBest
+    ? 'fairness-score-row-best'
+    : isWorst
+      ? 'fairness-score-row-worst'
+      : ''
+  return (
+    <div key={household.name} className={`fairness-score-row ${rowClass}`}>
+      <span className="mono fairness-score-row-name">
+        {household.name}
+        {isBest ? ' · BEST-OFF' : ''}
+        {isWorst ? ' · WORST-OFF' : ''}
+      </span>
+      <div className="fairness-score-row-track">
+        <div className="fairness-score-row-zero" />
+        <div
+          className={
+            household.netBenefit >= 0
+              ? 'fairness-score-row-bar fairness-score-row-bar-positive'
+              : 'fairness-score-row-bar fairness-score-row-bar-negative'
+          }
+          style={{ '--bar-pct': pct } as CSSVars}
+        />
+      </div>
+      <span className="mono fairness-score-row-value">{formatMoney(household.netBenefit)}</span>
+    </div>
+  )
+})
 
 function FairnessScore() {
   const households = useEnergyStore((state) => state.households)
@@ -38,37 +81,15 @@ function FairnessScore() {
       </div>
 
       <div className="fairness-score-rows">
-        {sorted.map((household) => {
-          const isBest = household.name === summary.best.name
-          const isWorst = household.name === summary.worst.name
-          const pct = (Math.abs(household.netBenefit) / maxAbs) * 50
-          const rowClass = isBest
-            ? 'fairness-score-row-best'
-            : isWorst
-              ? 'fairness-score-row-worst'
-              : ''
-          return (
-            <div key={household.name} className={`fairness-score-row ${rowClass}`}>
-              <span className="mono fairness-score-row-name">
-                {household.name}
-                {isBest ? ' · BEST-OFF' : ''}
-                {isWorst ? ' · WORST-OFF' : ''}
-              </span>
-              <div className="fairness-score-row-track">
-                <div className="fairness-score-row-zero" />
-                <div
-                  className={
-                    household.netBenefit >= 0
-                      ? 'fairness-score-row-bar fairness-score-row-bar-positive'
-                      : 'fairness-score-row-bar fairness-score-row-bar-negative'
-                  }
-                  style={{ '--bar-pct': pct } as CSSVars}
-                />
-              </div>
-              <span className="mono fairness-score-row-value">{formatMoney(household.netBenefit)}</span>
-            </div>
-          )
-        })}
+        {sorted.map((household) => (
+          <FairnessScoreRow
+            key={household.name}
+            household={household}
+            maxAbs={maxAbs}
+            isBest={household.name === summary.best.name}
+            isWorst={household.name === summary.worst.name}
+          />
+        ))}
       </div>
     </div>
   )

@@ -23,27 +23,41 @@ function dayTypeKey(dayType: DayType): number {
   return DAY_TYPES.indexOf(dayType)
 }
 
+const FNV_OFFSET_BASIS = 2166136261
+const FNV_PRIME = 16777619
+const FNV_FOLD = 1_000_000
+
 // Deterministic FNV-1a style hash of a handful of integer keys, folded into [0, 1).
 export function seededUnit(...keys: number[]): number {
-  let h = 2166136261
+  let h = FNV_OFFSET_BASIS
   for (const key of keys) {
-    h = Math.imul(h ^ Math.floor(key), 16777619)
+    h = Math.imul(h ^ Math.floor(key), FNV_PRIME)
     h ^= h >>> 13
   }
   h ^= h >>> 16
-  return ((h >>> 0) % 1_000_000) / 1_000_000
+  return ((h >>> 0) % FNV_FOLD) / FNV_FOLD
 }
 
 function bump(hour: number, center: number, width: number): number {
   return Math.exp(-(((hour - center) / width) ** 2))
 }
 
+const SOLAR_START_HOUR = 6
+const SOLAR_END_HOUR = 18.5
+const SOLAR_DAYLIGHT_HOURS = SOLAR_END_HOUR - SOLAR_START_HOUR
+
+const CLOUDY_SCALE = 0.45
+const HEATWAVE_SCALE = 1.08
+
+const INVERTER_EFFICIENCY = 0.9
+const TICK_INTERVAL_HOURS = 10 / 60
+
 /** Bell-shaped solar capacity factor for `hour` (0-23.99), zero outside ~06:00-18:30. */
 export function solarCurve(hour: number, dayType: DayType): number {
-  if (hour < 6 || hour > 18.5) return 0
-  const shape = Math.max(0, Math.sin((Math.PI * (hour - 6)) / 12.5))
-  if (dayType === 'cloudy') return shape * 0.45
-  if (dayType === 'heatwave') return shape * 1.08
+  if (hour < SOLAR_START_HOUR || hour > SOLAR_END_HOUR) return 0
+  const shape = Math.max(0, Math.sin((Math.PI * (hour - SOLAR_START_HOUR)) / SOLAR_DAYLIGHT_HOURS))
+  if (dayType === 'cloudy') return shape * CLOUDY_SCALE
+  if (dayType === 'heatwave') return shape * HEATWAVE_SCALE
   return shape
 }
 
@@ -79,9 +93,23 @@ export interface DemandHousehold {
 }
 
 /** Household demand in kW at `hour` (0-23.99) — its own shape, independent of solar. */
+const DEMAND_JITTER_MIN = 0.92
+const DEMAND_JITTER_RANGE = 0.16
+const DEMAND_SEED_DAYTYPE = 97
+const DEMAND_SEED_HOUR = 13
+const DEMAND_SEED_HOUSEHOLD = 31
+
+const CLOUD_JITTER_MIN = 0.94
+const CLOUD_JITTER_RANGE = 0.12
+const CLOUD_SEED_DAYTYPE = 53
+const CLOUD_SEED_SUBMINUTE = 12
+const CLOUD_SEED_HOUSEHOLD = 17
+
+const RATE_SEED_TICK = 71
+
 export function demandCurve(hour: number, household: DemandHousehold, dayType: DayType): number {
   const shape = demandShape(hour, dayType)
-  const jitter = 0.92 + 0.16 * seededUnit(dayTypeKey(dayType) * 97, Math.floor(hour) * 13, household.id * 31)
+  const jitter = DEMAND_JITTER_MIN + DEMAND_JITTER_RANGE * seededUnit(dayTypeKey(dayType) * DEMAND_SEED_DAYTYPE, Math.floor(hour) * DEMAND_SEED_HOUR, household.id * DEMAND_SEED_HOUSEHOLD)
   return household.base * shape * jitter
 }
 
@@ -96,8 +124,8 @@ export function integrateGenerationAndConsumption(
   let con = 0
   for (let minute = 0; minute < uptoMinute; minute += 10) {
     const hour = minute / 60
-    gen += pv * solarCurve(hour, dayType) * 0.9 * (10 / 60)
-    con += demandCurve(hour, { id: householdId, base: baseLoad }, dayType) * (10 / 60)
+    gen += pv * solarCurve(hour, dayType) * INVERTER_EFFICIENCY * TICK_INTERVAL_HOURS
+    con += demandCurve(hour, { id: householdId, base: baseLoad }, dayType) * TICK_INTERVAL_HOURS
   }
   return { gen, con }
 }
@@ -117,14 +145,21 @@ export function tickHousehold(
 ): HouseholdTick {
   const hour = simMinute / 60
   const sun = solarCurve(hour, dayType)
-  const cloudJitter = 0.94 + 0.12 * seededUnit(dayTypeKey(dayType) * 53, Math.floor(hour * 12), householdId * 17)
-  const out = Math.max(0, pv * sun * 0.9 * cloudJitter)
+  const cloudJitter = CLOUD_JITTER_MIN + CLOUD_JITTER_RANGE * seededUnit(dayTypeKey(dayType) * CLOUD_SEED_DAYTYPE, Math.floor(hour * CLOUD_SEED_SUBMINUTE), householdId * CLOUD_SEED_HOUSEHOLD)
+  const out = Math.max(0, pv * sun * INVERTER_EFFICIENCY * cloudJitter)
   const draw = demandCurve(hour, { id: householdId, base: baseLoad }, dayType)
   return { out, draw, net: out - draw }
 }
 
+const RATE_MIN = 4.4
+const RATE_MAX = 7.2
+const RATE_BASE = 5.5
+const RATE_SUPPLY_DEMAND_FACTOR = 0.3
+const RATE_SMOOTHING = 0.25
+const RATE_JITTER_AMPLITUDE = 0.05
+
 export function nextCommunityRate(currentRate: number, supply: number, demand: number, tickCount: number): number {
-  const target = Math.min(7.2, Math.max(4.4, 5.5 + (demand - supply) * 0.3))
-  const jitter = (seededUnit(tickCount * 71) - 0.5) * 0.05
-  return currentRate + (target - currentRate) * 0.25 + jitter
+  const target = Math.min(RATE_MAX, Math.max(RATE_MIN, RATE_BASE + (demand - supply) * RATE_SUPPLY_DEMAND_FACTOR))
+  const jitter = (seededUnit(tickCount * RATE_SEED_TICK) - 0.5) * RATE_JITTER_AMPLITUDE
+  return currentRate + (target - currentRate) * RATE_SMOOTHING + jitter
 }

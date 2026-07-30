@@ -2,14 +2,13 @@ import { useEnergyStore } from '../../store/useEnergyStore'
 import { autonomyPct } from '../../lib/gridDependence'
 import { DAY_TYPE_LABELS } from '../../lib/simulation'
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber'
-import { useDailyGridDependence } from '../../hooks/useDailyGridDependence'
 import './AutonomyScore.css'
 
 const TWEEN_DURATION_SECONDS = 0.7
 
 function AutonomyScore() {
   const dayType = useEnergyStore((state) => state.dayType)
-  const breakdown = useDailyGridDependence()
+  const breakdown = useEnergyStore((state) => state.dailyBreakdown)
   const targetPct = autonomyPct(breakdown)
   const displayPct = useAnimatedNumber(targetPct, TWEEN_DURATION_SECONDS)
 

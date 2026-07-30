@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { hourlyGridDependence } from '../../lib/gridDependence'
-import { useDailyGridDependence } from '../../hooks/useDailyGridDependence'
 import type { CSSVars } from '../ui/cssVars'
 import './GridDependenceMeter.css'
 
@@ -16,8 +15,7 @@ function GridDependenceMeter() {
   const households = useEnergyStore((state) => state.households)
   const dayType = useEnergyStore((state) => state.dayType)
   const simMinute = useEnergyStore((state) => state.simMinute)
-
-  const daily = useDailyGridDependence()
+  const daily = useEnergyStore((state) => state.dailyBreakdown)
   const hourly = useMemo(
     () => hourlyGridDependence(households, simMinute / 60, dayType),
     [households, simMinute, dayType],

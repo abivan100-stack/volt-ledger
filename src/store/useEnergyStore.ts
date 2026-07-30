@@ -7,6 +7,7 @@ import {
   type DayType,
 } from '../lib/simulation'
 import { appendBlock, validateChain, type ChainBlock } from '../lib/hashChain'
+import { dailyGridDependence, type GridDependenceBreakdown } from '../lib/gridDependence'
 
 export interface Household {
   id: number
@@ -58,6 +59,7 @@ interface EnergyStoreState {
   restoredFlash: boolean
   editingBlockId: number | null
   editValue: string
+  dailyBreakdown: GridDependenceBreakdown
 
   start: () => void
   stop: () => void
@@ -180,6 +182,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
   restoredFlash: false,
   editingBlockId: null,
   editValue: '',
+  dailyBreakdown: dailyGridDependence(createInitialHouseholds(), 'sunny-weekday'),
 
   selectHouse: (index: number) => set({ selectedHouseIndex: index }),
   closeDossier: () => set({ selectedHouseIndex: null }),
@@ -232,7 +235,8 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
       const { gen, con } = integrateGenerationAndConsumption(h.pv, h.base, h.id, dayType, state.simMinute)
       return { ...h, out, draw, net, gen, con }
     })
-    set({ dayType, households })
+    const dailyBreakdown = dailyGridDependence(households, dayType)
+    set({ dayType, households, dailyBreakdown })
   },
 
   start: () => {
@@ -252,6 +256,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
         nextBlockId: seeded.nextBlockId,
         totalKwhToday: seeded.totalKwh,
         totalCreditToday: seeded.totalCredit,
+        dailyBreakdown: dailyGridDependence(seeded.households, state.dayType),
       })
     }
     if (!get().running) {

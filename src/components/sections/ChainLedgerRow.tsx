@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { ChainBlock } from '../../lib/hashChain'
 import './ChainLedgerRow.css'
 
@@ -63,4 +64,4 @@ function ChainLedgerRow({
   )
 }
 
-export default ChainLedgerRow
+export default memo(ChainLedgerRow)
