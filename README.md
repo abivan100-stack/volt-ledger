@@ -85,6 +85,19 @@ npm run preview   # preview production build locally
 npm run lint      # lint with oxlint
 ```
 
+## Deployment
+
+The project includes a `vercel.json` for one-click deployment on Vercel.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyour-org%2Fvolt-ledger)
+
+Manual deploy:
+
+```bash
+npm run build
+npx vercel --prod
+```
+
 ## Project Structure
 
 ```
@@ -125,6 +138,8 @@ Simulation parameters are configurable in `src/store/useEnergyStore.ts`:
 | `activity` | Network animation density on the landing page hero |
 
 Day types can be switched at runtime: **Sunny Weekday**, **Cloudy**, **Weekend**, and **Heatwave**. Each alters solar generation curves and demand profiles independently.
+
+All simulation randomness is deterministic — `Math.random()` is never used at runtime. Every stochastic value is derived from `seededUnit`, a pure function of its integer keys. This guarantees byte-identical replay for the same inputs.
 
 ## Architecture Notes
 

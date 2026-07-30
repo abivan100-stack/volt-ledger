@@ -3,11 +3,18 @@ import { formatClock } from '../lib/format'
 import {
   integrateGenerationAndConsumption,
   nextCommunityRate,
+  seededUnit,
   tickHousehold,
   type DayType,
 } from '../lib/simulation'
 import { appendBlock, validateChain, type ChainBlock } from '../lib/hashChain'
 import { dailyGridDependence, type GridDependenceBreakdown } from '../lib/gridDependence'
+
+const TICK_INTERVAL_MS = 1000
+const TRADE_INTERVAL_MS = 3200
+const TOTAL_DAILY_MINUTES = 24 * 60
+const RATE_HISTORY_LENGTH = 44
+const INITIAL_RATE = 5.5
 
 export interface Household {
   id: number
@@ -130,8 +137,8 @@ function seedChain(
     const [fromIndex, toIndex] = SEED_PAIRS[i]
     const from = nextHouseholds[fromIndex]
     const to = nextHouseholds[toIndex]
-    const kwh = Math.round((0.3 + Math.random() * 1.1) * 100) / 100
-    const credit = Math.round(kwh * (5.3 + Math.random() * 0.5) * 100) / 100
+    const kwh = Math.round((0.3 + seededUnit(i * 101) * 1.1) * 100) / 100
+    const credit = Math.round(kwh * (5.3 + seededUnit(i * 103) * 0.5) * 100) / 100
     nextHouseholds = nextHouseholds.map((h, index) => {
       if (index === fromIndex) {
         return { ...h, balance: h.balance + credit, exp: h.exp + kwh, earned: h.earned + credit, trades: h.trades + 1 }
@@ -172,9 +179,9 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
   nextBlockId: 1,
   totalKwhToday: 0,
   totalCreditToday: 0,
-  rate: 5.5,
-  prevRate: 5.5,
-  rateHistory: new Array(44).fill(5.5),
+  rate: INITIAL_RATE,
+  prevRate: INITIAL_RATE,
+  rateHistory: new Array(RATE_HISTORY_LENGTH).fill(INITIAL_RATE),
   tickCount: 0,
   selectedHouseIndex: null,
   compromised: false,
@@ -260,8 +267,8 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
       })
     }
     if (!get().running) {
-      tickHandle = setInterval(() => get().tick(), 1000)
-      tradeHandle = setInterval(() => get().tryTrade(), 3200)
+      tickHandle = setInterval(() => get().tick(), TICK_INTERVAL_MS)
+      tradeHandle = setInterval(() => get().tryTrade(), TRADE_INTERVAL_MS)
       set({ running: true })
     }
   },
@@ -282,8 +289,8 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
     const prevMinute = state.simMinute
     let simMinute = prevMinute + 2 * state.config.simSpeed
     let rolled = false
-    if (simMinute >= 24 * 60) {
-      simMinute -= 24 * 60
+    if (simMinute >= TOTAL_DAILY_MINUTES) {
+      simMinute -= TOTAL_DAILY_MINUTES
       rolled = true
     }
     const dtHours = rolled ? 0 : (simMinute - prevMinute) / 60
@@ -300,7 +307,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
     const tickCount = state.tickCount + 1
     const rate = nextCommunityRate(state.rate, supply, demand, tickCount)
     const prevRate = state.rateHistory[state.rateHistory.length - 6] ?? state.rate
-    const rateHistory = [...state.rateHistory, rate].slice(-44)
+    const rateHistory = [...state.rateHistory, rate].slice(-RATE_HISTORY_LENGTH)
 
     let totalKwhToday = state.totalKwhToday
     let totalCreditToday = state.totalCreditToday
@@ -328,9 +335,10 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
     const exporters = state.households.filter((h) => h.net > 0.2)
     const importers = state.households.filter((h) => h.net < -0.1)
     if (!exporters.length || !importers.length) return
-    const from = exporters[Math.floor(Math.random() * exporters.length)]
-    const to = importers[Math.floor(Math.random() * importers.length)]
-    const kwh = Math.round(Math.min(0.25 + Math.random() * 1.15, Math.max(0.2, from.net)) * 100) / 100
+    const tradeSeed = state.nextBlockId
+    const from = exporters[Math.floor(seededUnit(tradeSeed, 2) * exporters.length)]
+    const to = importers[Math.floor(seededUnit(tradeSeed, 3) * importers.length)]
+    const kwh = Math.round(Math.min(0.25 + seededUnit(tradeSeed, 5) * 1.15, Math.max(0.2, from.net)) * 100) / 100
     const credit = Math.round(kwh * state.rate * 100) / 100
 
     const households = state.households.map((h) => {
