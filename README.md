@@ -57,8 +57,7 @@ Live hash recomputation for any selected transaction in the ledger. Shows the bl
 |---|---|
 | ![The hash chain](screenshots/ledger-chain.png) | ![Household dossier](screenshots/dossier.png) |
 | Tamper-evident hash chain | Per-household dossier |
-| ![Neighbourhood map](screenshots/map2d.png) | ![The street](screenshots/ledger-names.png) |
-| Live neighbourhood map | Ten households, live |
+
 
 ## Tech Stack
 
