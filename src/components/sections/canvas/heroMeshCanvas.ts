@@ -3,9 +3,9 @@
  * (Volt.dc.html). Pure canvas drawing/animation — touches the DOM directly,
  * which is why it lives next to Hero.tsx rather than in lib/.
  */
-import { readCssVar } from '../ui/cssVars'
-import { easeInOut } from '../../lib/easing'
-import { rgb } from '../../theme/tokens'
+import { readCssVar } from '../../ui/cssVars'
+import { easeInOut } from '../../../lib/easing'
+import { rgb } from '../../../theme/tokens'
 
 interface MeshNode {
   nx: number

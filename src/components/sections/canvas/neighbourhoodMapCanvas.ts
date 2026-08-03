@@ -7,10 +7,10 @@
  * it re-measures getBoundingClientRect() on every frame instead; preserved
  * as-is rather than unified with the other canvas's approach.
  */
-import { useEnergyStore } from '../../store/useEnergyStore'
-import { readCssVar } from '../ui/cssVars'
-import { easeInOut } from '../../lib/easing'
-import { rgb } from '../../theme/tokens'
+import { useEnergyStore } from '../../../store/useEnergyStore'
+import { readCssVar } from '../../ui/cssVars'
+import { easeInOut } from '../../../lib/easing'
+import { rgb } from '../../../theme/tokens'
 
 interface Point {
   x: number

@@ -5,7 +5,7 @@ import { scrollToId } from '../../utils/scrollToId'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
-import { startHeroMesh } from './heroMeshCanvas'
+import { startHeroMesh } from './canvas/heroMeshCanvas'
 import './Hero.css'
 
 function Hero() {
