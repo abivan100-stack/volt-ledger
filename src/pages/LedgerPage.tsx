@@ -23,21 +23,23 @@ function LedgerPage() {
   return (
     <>
       <Header />
-      <section className="ledger-page-wrap">
-        <div ref={containerRef} className="container ledger-page-inner">
-          <LedgerIntro />
-          <AutonomyScore />
-          <DayTypeSelector />
-          <StatsStrip />
-          <CarbonCounter />
-          <GridDependenceMeter />
-          <NeighbourhoodMap />
-          <HouseholdGrid />
-          <FairnessScore />
-          <ChainLedger />
-          <ProofInspector />
-        </div>
-      </section>
+      <main id="main">
+        <section className="ledger-page-wrap">
+          <div ref={containerRef} className="container ledger-page-inner">
+            <LedgerIntro />
+            <AutonomyScore />
+            <DayTypeSelector />
+            <StatsStrip />
+            <CarbonCounter />
+            <GridDependenceMeter />
+            <NeighbourhoodMap />
+            <HouseholdGrid />
+            <FairnessScore />
+            <ChainLedger />
+            <ProofInspector />
+          </div>
+        </section>
+      </main>
       <Footer />
       <DossierDrawer />
     </>

@@ -10,11 +10,13 @@ function VoltPage() {
   return (
     <>
       <Header />
-      <Hero />
-      <Spread />
-      <HowItWorks />
-      <LedgerCta />
-      <ComparisonTable />
+      <main id="main">
+        <Hero />
+        <Spread />
+        <HowItWorks />
+        <LedgerCta />
+        <ComparisonTable />
+      </main>
       <Footer />
     </>
   )

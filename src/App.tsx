@@ -16,18 +16,23 @@ function App() {
   }, [])
 
   return (
-    <Suspense
-      fallback={
-        <div className="container app-loading">
-          <div className="mono">LOADING…</div>
-        </div>
-      }
-    >
-      <Routes>
-        <Route path="/" element={<VoltPage />} />
-        <Route path="/ledger" element={<LedgerPage />} />
-      </Routes>
-    </Suspense>
+    <>
+      <a href="#main" className="mono skip-link">
+        SKIP TO CONTENT
+      </a>
+      <Suspense
+        fallback={
+          <div className="container app-loading">
+            <div className="mono">LOADING…</div>
+          </div>
+        }
+      >
+        <Routes>
+          <Route path="/" element={<VoltPage />} />
+          <Route path="/ledger" element={<LedgerPage />} />
+        </Routes>
+      </Suspense>
+    </>
   )
 }
 

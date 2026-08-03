@@ -48,7 +48,7 @@ function Hero() {
           </Link>
         </div>
         <div className="hero-canvas-wrap">
-          <canvas ref={canvasRef} className="hero-canvas" />
+          <canvas ref={canvasRef} aria-hidden="true" className="hero-canvas" />
         </div>
       </div>
     </section>
