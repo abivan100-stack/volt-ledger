@@ -23,7 +23,7 @@
 - `npm run dev` — Start dev server
 - `npm run build` — Type-check + production build
 - `npm run lint` — oxlint
-- `npm test` — Vitest (tests in `src/lib/__tests__/`)
+- `npm test` — Vitest (tests co-located under `src/lib/__tests__/`, `src/store/__tests__/`, `src/hooks/__tests__/`)
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:coverage` — Vitest with coverage
 
@@ -39,6 +39,6 @@
 - `seededUnit` provides deterministic randomness for all stochastic calculations
 
 ## Testing
-- All tests are in `src/lib/__tests__/`
-- Each lib module has a corresponding test file (9 files, 108 tests)
-- No store-level tests
+- Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/` (happy-dom, `@testing-library/react`)
+- Each lib module has a corresponding test file (9 lib files + 4 store/hook files, 139 tests)
+- Store tests reset the singleton store to its pristine state before each case
