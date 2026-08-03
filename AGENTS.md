@@ -6,7 +6,6 @@
 - Zustand 5 for state management
 - js-sha256 for synchronous hash chain
 - Fontsource (Archivo, Instrument Serif, Spline Sans Mono)
-- Lucide React icons
 - Vitest for testing
 - oxlint for linting
 

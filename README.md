@@ -68,9 +68,8 @@ Live hash recomputation for any selected transaction in the ledger. Shows the bl
 | UI framework | React 18 |
 | Styling | Tailwind CSS 3 with co-located component stylesheets |
 | State management | Zustand 5 |
-| Animation | Framer Motion 12 |
+| Animation | Custom rAF tween (`src/utils/animateProgress.ts`) |
 | Hashing | js-sha256 (synchronous, in-browser) |
-| Icons | Lucide React |
 | Fonts | Fontsource (Archivo, Instrument Serif, Spline Sans Mono) |
 | Linting | oxlint |
 
@@ -86,14 +85,19 @@ npm run lint      # lint with oxlint
 
 ## Deployment
 
-The project includes a `vercel.json` for deployment on Vercel.
+The project targets [Render](https://render.com) for static deployment. Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
 
-Manual deploy:
-
-```bash
-npm run build
-npx vercel --prod
+```text
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
 ```
+
+`style-src 'unsafe-inline'` is required — the app sets runtime CSS custom properties via inline `style` attributes. The `vercel.json` at the repo root is retained as the canonical definition of these headers (used if the project is ever hosted on Vercel); it is not read by a Render deployment.
+
+### Known dependency advisory
+
+`react-router-dom` 7.x currently falls inside advisory [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) (RSC-mode CSRF bypass). **This app is not affected** — it uses `BrowserRouter` with client-side rendering only, no React Server Components or SSR. No patched 7.x release exists yet; do not run `npm audit fix --force` (it downgrades to 7.11.0). Re-check on a release cadence and bump once a fixed 7.x ships.
 
 ## Project Structure
 
@@ -112,9 +116,13 @@ src/
     householdStatus.ts    #   Household status helpers
   store/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)
+    types.ts              # Shared state/types for the three store slices
+    simSlice.ts           # Simulation slice (config, households, ticking, trading)
+    ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)
+    uiSlice.ts            # UI slice (dossier selection, block editing)
   components/
     sections/             # Page-section components with co-located CSS
-    ui/                   # Reusable UI primitives
+    ui/                   # Reusable UI primitives (ErrorBoundary, SectionHeading, ...)
   pages/
     VoltPage.tsx          # Landing page route composition
     LedgerPage.tsx        # Live ledger route composition
@@ -122,11 +130,12 @@ src/
     tokens.ts             # Design tokens (colours, fonts, spacing, easing)
     theme.css             # Global stylesheet
   hooks/                  # Custom React hooks
+  utils/                  # Framework-free helpers (animateProgress, scrollToId, ...)
 ```
 
 ## Configuration
 
-Simulation parameters are configurable in `src/store/useEnergyStore.ts`:
+Simulation parameters are configurable in `src/store/simSlice.ts` (exposed through `useEnergyStore`):
 
 | Parameter | Description |
 |---|---|
