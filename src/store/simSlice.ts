@@ -39,6 +39,15 @@ type HouseholdSeed = Omit<
   'id' | 'out' | 'draw' | 'net' | 'gen' | 'con' | 'exp' | 'imp' | 'earned' | 'spent' | 'trades'
 >
 
+type TradeSide = 'seller' | 'buyer'
+
+function applyTrade(h: Household, side: TradeSide, kwh: number, credit: number): Household {
+  if (side === 'seller') {
+    return { ...h, balance: h.balance + credit, exp: h.exp + kwh, earned: h.earned + credit, trades: h.trades + 1 }
+  }
+  return { ...h, balance: h.balance - credit, imp: h.imp + kwh, spent: h.spent + credit, trades: h.trades + 1 }
+}
+
 // Ported verbatim from the original prototype's `this.houses` constructor data.
 const RAW_HOUSEHOLDS: HouseholdSeed[] = [
   { name: 'Nikil Sundaram', pv: 4.2, base: 0.6, balance: 1240.4, orient: 'South-south-west', tilt: 12, batt: 5.0, since: '2021', meter: 'NB-0417' },
@@ -92,12 +101,8 @@ function seedChain(
     const kwh = Math.round((SEED_KWH_MIN + seededUnit(i * SEED_KWH_SALT) * SEED_KWH_RANGE) * 100) / 100
     const credit = Math.round(kwh * (SEED_RATE_MIN + seededUnit(i * SEED_RATE_SALT) * SEED_RATE_RANGE) * 100) / 100
     nextHouseholds = nextHouseholds.map((h, index) => {
-      if (index === fromIndex) {
-        return { ...h, balance: h.balance + credit, exp: h.exp + kwh, earned: h.earned + credit, trades: h.trades + 1 }
-      }
-      if (index === toIndex) {
-        return { ...h, balance: h.balance - credit, imp: h.imp + kwh, spent: h.spent + credit, trades: h.trades + 1 }
-      }
+      if (index === fromIndex) return applyTrade(h, 'seller', kwh, credit)
+      if (index === toIndex) return applyTrade(h, 'buyer', kwh, credit)
       return h
     })
     const block = appendBlock(chain, nextBlockId, {
@@ -237,12 +242,8 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const credit = Math.round(kwh * state.rate * 100) / 100
 
     const households = state.households.map((h) => {
-      if (h === from) {
-        return { ...h, balance: h.balance + credit, exp: h.exp + kwh, earned: h.earned + credit, trades: h.trades + 1 }
-      }
-      if (h === to) {
-        return { ...h, balance: h.balance - credit, imp: h.imp + kwh, spent: h.spent + credit, trades: h.trades + 1 }
-      }
+      if (h === from) return applyTrade(h, 'seller', kwh, credit)
+      if (h === to) return applyTrade(h, 'buyer', kwh, credit)
       return h
     })
 
