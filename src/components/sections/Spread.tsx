@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type { CSSVars } from '../ui/cssVars'
-import { useScrollReveal } from '../ui/useScrollReveal'
-import { useSpreadTween } from './useSpreadTween'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useSpreadTween } from '../../hooks/useSpreadTween'
 import './Spread.css'
 
 function Spread() {

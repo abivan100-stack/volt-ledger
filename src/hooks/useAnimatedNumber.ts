@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate } from 'framer-motion'
-import { prefersReducedMotion } from '../components/ui/prefersReducedMotion'
+import { prefersReducedMotion } from '../utils/prefersReducedMotion'
 import { cubicEaseOut } from '../lib/easing'
 
 /**

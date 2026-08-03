@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { MouseEvent, PointerEvent } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { startNeighbourhoodMap } from './neighbourhoodMapCanvas'
-import { prefersReducedMotion } from '../ui/prefersReducedMotion'
+import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 import './NeighbourhoodMap.css'
 
 function NeighbourhoodMap() {

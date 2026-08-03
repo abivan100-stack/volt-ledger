@@ -13,7 +13,7 @@ import ChainLedger from '../components/sections/ChainLedger'
 import ProofInspector from '../components/sections/ProofInspector'
 import Footer from '../components/sections/Footer'
 import DossierDrawer from '../components/sections/DossierDrawer'
-import { useScrollReveal } from '../components/ui/useScrollReveal'
+import { useScrollReveal } from '../hooks/useScrollReveal'
 
 function LedgerPage() {
   const containerRef = useRef<HTMLDivElement>(null)

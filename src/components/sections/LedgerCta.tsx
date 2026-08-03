@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { useScrollReveal } from '../ui/useScrollReveal'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
 import './LedgerCta.css'
 

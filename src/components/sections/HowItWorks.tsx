@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useScrollReveal } from '../ui/useScrollReveal'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
 import './HowItWorks.css'
 
 interface Step {

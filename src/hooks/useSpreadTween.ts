@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { animate } from 'framer-motion'
-import { prefersReducedMotion } from '../ui/prefersReducedMotion'
-import { cubicEaseOut } from '../../lib/easing'
+import { prefersReducedMotion } from '../utils/prefersReducedMotion'
+import { cubicEaseOut } from '../lib/easing'
 
 export type SpreadMode = 'today' | 'volt'
 export type Tween = { sell: number; buy: number }

@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { scrollToId } from '../ui/scrollToId'
+import { scrollToId } from '../../utils/scrollToId'
 import './Header.css'
 
 function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
