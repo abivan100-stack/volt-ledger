@@ -4,6 +4,7 @@
  * which is why it lives next to Hero.tsx rather than in lib/.
  */
 import { readCssVar } from '../ui/cssVars'
+import { easeInOut } from '../../lib/easing'
 
 interface MeshNode {
   nx: number
@@ -41,8 +42,6 @@ const EDGES: Array<[number, number]> = [
 ]
 const AMBER = '178,106,18'
 const TEAL = '36,92,67'
-
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
 export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOptions): () => void {
   const ctx = canvas.getContext('2d')

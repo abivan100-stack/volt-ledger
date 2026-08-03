@@ -9,6 +9,7 @@
  */
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { readCssVar } from '../ui/cssVars'
+import { easeInOut } from '../../lib/easing'
 
 interface Point {
   x: number
@@ -36,8 +37,6 @@ const TEAL = '36,92,67'
 const INK = '23,20,15'
 const RULE = '190,178,155'
 const COLS = 5
-
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
 export function startNeighbourhoodMap(
   canvas: HTMLCanvasElement,

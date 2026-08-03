@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate } from 'framer-motion'
 import { prefersReducedMotion } from '../components/ui/prefersReducedMotion'
-
-const cubicEaseOut = (t: number) => 1 - (1 - t) ** 3
+import { cubicEaseOut } from '../lib/easing'
 
 /**
  * Tweens a display value toward `target` whenever it changes, respecting

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { animate } from 'framer-motion'
 import { prefersReducedMotion } from '../ui/prefersReducedMotion'
+import { cubicEaseOut } from '../../lib/easing'
 
 export type SpreadMode = 'today' | 'volt'
 export type Tween = { sell: number; buy: number }
@@ -9,7 +10,6 @@ const TODAY_TARGETS: Tween = { sell: 3.0, buy: 8.0 }
 const VOLT_TARGETS: Tween = { sell: 5.5, buy: 5.9 }
 const TWEEN_DURATION_SECONDS = 0.85
 const AUTO_SWITCH_DELAY_MS = 3600
-const cubicEaseOut = (t: number) => 1 - (1 - t) ** 3
 
 export interface SpreadTweenState {
   mode: SpreadMode
