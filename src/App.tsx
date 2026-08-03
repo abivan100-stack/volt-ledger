@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom'
 import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
 import VoltPage from './pages/VoltPage'
+import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
 
@@ -17,7 +18,7 @@ function App() {
   return (
     <Suspense
       fallback={
-        <div className="container pt-16 pb-32">
+        <div className="container app-loading">
           <div className="mono">LOADING…</div>
         </div>
       }
