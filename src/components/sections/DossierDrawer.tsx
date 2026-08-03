@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { buildDossier } from '../../lib/dossier'
 import './DossierDrawer.css'
@@ -49,11 +49,13 @@ function DossierDrawer() {
     }
   }, [selectedHouseIndex, closeDossier])
 
-  if (selectedHouseIndex == null) return null
-  const household = households[selectedHouseIndex]
-  if (!household) return null
+  const household = selectedHouseIndex == null ? undefined : households[selectedHouseIndex]
+  const dossier = useMemo(
+    () => (household ? buildDossier(household, chain, simMinute, dayType) : null),
+    [household, chain, simMinute, dayType],
+  )
 
-  const dossier = buildDossier(household, chain, simMinute, dayType)
+  if (!dossier) return null
   const accentClass = `dossier-accent-${dossier.status.toLowerCase()}`
 
   return (
