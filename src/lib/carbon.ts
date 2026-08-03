@@ -1,4 +1,4 @@
-/**
+/*
  * Emissions avoided by settling energy peer-to-peer instead of drawing the
  * same kWh from the grid. This is an avoided-emissions figure, not a
  * total-emissions or net-zero claim — it says nothing about emissions

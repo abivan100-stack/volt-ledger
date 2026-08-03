@@ -4,9 +4,9 @@
 
 /*
  * Global tokens + base styles, extracted verbatim from the original
- * prototype's <style> block (legacy/Volt.dc.html + legacy/Ledger.dc.html).
- * Mirrors src/theme/tokens.ts as CSS custom properties for hand-written
- * component CSS that isn't expressed through Tailwind utilities.
+ * prototype's <style> block. Mirrors src/theme/tokens.ts as CSS custom
+ * properties for hand-written component CSS that isn't expressed through
+ * Tailwind utilities.
  */
 
 :root {

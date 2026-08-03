@@ -1,7 +1,7 @@
 /**
  * Design tokens extracted verbatim from the original prototype's :root block
- * (legacy/Volt.dc.html and legacy/Ledger.dc.html — the two <style> blocks were
- * byte-identical for these values). This file is the single source of truth:
+ * (the two <style> blocks were byte-identical for these values). This file is
+ * the single source of truth:
  * tailwind.config.ts reads it for utility classes, theme.css mirrors it as
  * CSS custom properties for hand-written component CSS.
  */

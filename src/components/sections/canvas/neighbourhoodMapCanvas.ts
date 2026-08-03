@@ -1,7 +1,7 @@
 /**
- * Ported verbatim from the original prototype's `setupMap`/`mapPick` methods
- * (Ledger.dc.html). Unlike the hero mesh, this canvas reads *live* household
- * data every frame — via useEnergyStore.getState(), the store's non-reactive
+ * Ported verbatim from the original prototype's `setupMap`/`mapPick` methods.
+ * Unlike the hero mesh, this canvas reads *live* household data every frame —
+ * via useEnergyStore.getState(), the store's non-reactive
  * "read right now" escape hatch, so the rAF loop never needs a React re-render.
  * The original never used a ResizeObserver here (unlike the hero mesh) —
  * it re-measures getBoundingClientRect() on every frame instead; preserved

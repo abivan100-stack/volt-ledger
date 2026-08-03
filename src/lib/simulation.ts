@@ -1,5 +1,5 @@
 /**
- * Full 24h day model (Phase 1 of VOLT_BUILD_PLAN.md).
+ * Full 24h day model.
  *
  * Every export here is a pure function of its arguments: (dayType, hour,
  * householdId) in, a number out, nothing accumulated across ticks. This is

@@ -26,7 +26,7 @@ const FairnessScoreRow = memo(function FairnessScoreRow({
       ? 'fairness-score-row-worst'
       : ''
   return (
-    <div key={household.name} className={`fairness-score-row ${rowClass}`}>
+    <div className={`fairness-score-row ${rowClass}`}>
       <span className="mono fairness-score-row-name">
         {household.name}
         {isBest ? ' · BEST-OFF' : ''}

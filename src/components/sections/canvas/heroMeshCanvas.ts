@@ -1,7 +1,7 @@
 /**
- * Ported verbatim from the original prototype's `setupCanvas` method
- * (Volt.dc.html). Pure canvas drawing/animation — touches the DOM directly,
- * which is why it lives next to Hero.tsx rather than in lib/.
+ * Ported verbatim from the original prototype's `setupCanvas` method. Pure
+ * canvas drawing/animation — touches the DOM directly, which is why it lives
+ * next to Hero.tsx rather than in lib/.
  */
 import { readCssVar } from '../../ui/cssVars'
 import { easeInOut } from '../../../lib/easing'
@@ -89,9 +89,8 @@ export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOption
     const my = (a.y + b.y) / 2
     const dx = b.x - a.x
     const dy = b.y - a.y
-    const len = Math.hypot(dx, dy) || 1
-    const cx = mx - (dy / len) * len * 0.1
-    const cy = my + (dx / len) * len * 0.1
+    const cx = mx - dy * 0.1
+    const cy = my + dx * 0.1
     const u = 1 - t
     return { x: u * u * a.x + 2 * u * t * cx + t * t * b.x, y: u * u * a.y + 2 * u * t * cy + t * t * b.y }
   }
