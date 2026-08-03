@@ -39,5 +39,5 @@
 
 ## Testing
 - Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (9 lib files + 5 store/hook files, 142 tests)
+- Each lib module has a corresponding test file (11 lib files + 5 store/hook files, 164 tests)
 - Store tests reset the singleton store to its pristine state before each case
