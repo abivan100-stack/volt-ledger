@@ -21,6 +21,8 @@ export function formatClock(minuteOfDay: number): string {
   return `${hours}:${minutes}`
 }
 
-export function shortHash(hash: string, length = 10): string {
+export const HASH_PREVIEW_LENGTH = 10
+
+export function shortHash(hash: string, length = HASH_PREVIEW_LENGTH): string {
   return hash.slice(0, length)
 }

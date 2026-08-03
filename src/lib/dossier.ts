@@ -82,6 +82,11 @@ const CHART_PAD_TOP = 12
 const CHART_Y_BASE = 112
 const CHART_MIN_MINUTE = 300
 const CHART_MAX_MINUTE = 1200
+const PANEL_KW = 0.4
+const PANEL_AREA_M2 = 1.9
+const INVERTER_KW_STEP = 0.5
+/** Chart-rendering approximation of array output — slightly above INVERTER_EFFICIENCY, kept distinct deliberately. */
+const CHART_GEN_FACTOR = 0.94
 
 export function buildDossier(
   household: DossierHouseholdInput,
@@ -92,10 +97,10 @@ export function buildDossier(
   const netValue = household.out - household.draw
   const status = statusForNet(netValue)
 
-  const panelCount = household.pv > 0 ? Math.round(household.pv / 0.4) : 0
-  const arrayArea = panelCount ? `${(panelCount * 1.9).toFixed(0)} m²` : '—'
+  const panelCount = household.pv > 0 ? Math.round(household.pv / PANEL_KW) : 0
+  const arrayArea = panelCount ? `${(panelCount * PANEL_AREA_M2).toFixed(0)} m²` : '—'
   const inverter = household.pv > 0
-    ? `${household.batt > 0 ? 'Hybrid ' : 'String '}${(Math.ceil(household.pv * 2) / 2).toFixed(1)} kW`
+    ? `${household.batt > 0 ? 'Hybrid ' : 'String '}${(Math.ceil(household.pv / INVERTER_KW_STEP) * INVERTER_KW_STEP).toFixed(1)} kW`
     : '—'
   const batteryLabel = household.batt > 0 ? `${household.batt.toFixed(1)} kWh` : 'None'
   const selfConsumedPct = household.gen > 0
@@ -113,7 +118,7 @@ export function buildDossier(
     const hour = minute / 60
     const consumption = demandCurve(hour, { id: household.id, base: household.base }, dayType)
     if (consumption > peakConsumption) peakConsumption = consumption
-    genPoints.push([minute, household.pv * solarCurve(hour, dayType) * 0.94])
+    genPoints.push([minute, household.pv * solarCurve(hour, dayType) * CHART_GEN_FACTOR])
     conPoints.push([minute, consumption])
   }
   const scale = Math.max(household.pv, peakConsumption, 1.2) * 1.12

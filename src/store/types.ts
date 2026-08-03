@@ -1,0 +1,79 @@
+import type { DayType } from '../lib/simulation'
+import type { GridDependenceBreakdown } from '../lib/gridDependence'
+import type { ChainBlock } from '../lib/hashChain'
+
+export interface Household {
+  id: number
+  name: string
+  pv: number
+  base: number
+  balance: number
+  orient: string
+  tilt: number
+  batt: number
+  since: string
+  meter: string
+  out: number
+  draw: number
+  net: number
+  gen: number
+  con: number
+  exp: number
+  imp: number
+  earned: number
+  spent: number
+  trades: number
+}
+
+export interface SimulationConfig {
+  simSpeed: number
+  startHour: number
+  activity: number
+}
+
+export interface SimSlice {
+  config: SimulationConfig
+  dayType: DayType
+  initialized: boolean
+  running: boolean
+  simMinute: number
+  households: Household[]
+  rate: number
+  prevRate: number
+  rateHistory: number[]
+  tickCount: number
+  dailyBreakdown: GridDependenceBreakdown
+
+  tick: () => void
+  tryTrade: () => void
+  setDayType: (dayType: DayType) => void
+  start: () => void
+  stop: () => void
+}
+
+export interface LedgerSlice {
+  chain: ChainBlock[]
+  nextBlockId: number
+  totalKwhToday: number
+  totalCreditToday: number
+  compromised: boolean
+  invalidCount: number
+  restoredFlash: boolean
+
+  commitEdit: () => void
+  restoreChain: () => void
+}
+
+export interface UiSlice {
+  selectedHouseIndex: number | null
+  editingBlockId: number | null
+  editValue: string
+
+  selectHouse: (index: number) => void
+  closeDossier: () => void
+  startEdit: (id: number) => void
+  setEditValue: (value: string) => void
+  cancelEdit: () => void
+}
+
+export type EnergyStoreState = SimSlice & LedgerSlice & UiSlice

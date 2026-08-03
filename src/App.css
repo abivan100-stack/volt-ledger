@@ -1,0 +1,23 @@
+.app-loading {
+  padding-top: 4rem;
+  padding-bottom: 8rem;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translate(-50%, -200%);
+  z-index: 100;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--rule-2);
+  padding: 10px 18px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.skip-link:focus {
+  transform: translate(-50%, 0);
+}

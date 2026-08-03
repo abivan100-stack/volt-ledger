@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { animate } from 'framer-motion'
-import { prefersReducedMotion } from '../components/ui/prefersReducedMotion'
-
-const cubicEaseOut = (t: number) => 1 - (1 - t) ** 3
+import { animateProgress } from '../utils/animateProgress'
+import { prefersReducedMotion } from '../utils/prefersReducedMotion'
 
 /**
  * Tweens a display value toward `target` whenever it changes, respecting
@@ -24,17 +22,15 @@ export function useAnimatedNumber(target: number, durationSeconds: number): numb
       return
     }
     const from = displayRef.current
-    const controls = animate(0, 1, {
-      duration: durationSeconds,
-      ease: cubicEaseOut,
+    stopRef.current = animateProgress({
+      durationSeconds,
       onUpdate: (progress) => {
         const value = from + (target - from) * progress
         displayRef.current = value
         setDisplay(value)
       },
     })
-    stopRef.current = () => controls.stop()
-    return () => controls.stop()
+    return () => stopRef.current()
   }, [target, durationSeconds])
 
   return display

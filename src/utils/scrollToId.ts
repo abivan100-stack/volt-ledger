@@ -9,3 +9,8 @@ export function scrollToId(id: string): void {
   if (!target) return
   target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
 }
+
+/** Smoothly scrolls the document back to the top, honouring the same reduced-motion preference. */
+export function scrollToTop(): void {
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+}

@@ -1,4 +1,8 @@
+import { HASH_PREVIEW_LENGTH, shortHash } from './format'
+
 export type ChainStatusVariant = 'compromised' | 'restored' | 'verified'
+
+const HASH_PLACEHOLDER = '·'.repeat(HASH_PREVIEW_LENGTH)
 
 export interface ChainStatusInput {
   compromised: boolean
@@ -24,6 +28,6 @@ export function chainStatusFor(input: ChainStatusInput): ChainStatus {
   if (restoredFlash) {
     return { variant: 'restored', text: `LEDGER RE-SEALED — ALL ${chainLength} ENTRIES VERIFIED` }
   }
-  const head = headHash ? headHash.slice(0, 10) : '··········'
+  const head = headHash ? shortHash(headHash) : HASH_PLACEHOLDER
   return { variant: 'verified', text: `CHAIN VERIFIED — ${chainLength} ENTRIES · HEAD ${head}` }
 }

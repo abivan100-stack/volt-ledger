@@ -19,11 +19,29 @@
   gap: 9px;
 }
 
+/* Button reset for the homepage logo, which smooth-scrolls to the top instead
+   of navigating. The Link variant (Ledger page) picks up --ink/--sun from the
+   global `a` rules; the button gets the same hover/focus treatment here. */
+.header-logo-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.header-logo-btn:hover .header-logo-word,
+.header-logo-btn:hover .header-logo-suffix,
+.header-logo-btn:focus-visible .header-logo-word,
+.header-logo-btn:focus-visible .header-logo-suffix {
+  color: var(--sun);
+}
+
 .header-logo-dot {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--sun);
+  background: var(--volt);
   align-self: center;
 }
 

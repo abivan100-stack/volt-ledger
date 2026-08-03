@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { scrollToId } from '../ui/scrollToId'
-import { useScrollReveal } from '../ui/useScrollReveal'
-import { prefersReducedMotion } from '../ui/prefersReducedMotion'
+import { scrollToId } from '../../utils/scrollToId'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
-import { startHeroMesh } from './heroMeshCanvas'
+import { startHeroMesh } from './canvas/heroMeshCanvas'
 import './Hero.css'
 
 function Hero() {
@@ -48,7 +48,7 @@ function Hero() {
           </Link>
         </div>
         <div className="hero-canvas-wrap">
-          <canvas ref={canvasRef} className="hero-canvas" />
+          <canvas ref={canvasRef} aria-hidden="true" className="hero-canvas" />
         </div>
       </div>
     </section>

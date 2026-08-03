@@ -13,7 +13,8 @@ import ChainLedger from '../components/sections/ChainLedger'
 import ProofInspector from '../components/sections/ProofInspector'
 import Footer from '../components/sections/Footer'
 import DossierDrawer from '../components/sections/DossierDrawer'
-import { useScrollReveal } from '../components/ui/useScrollReveal'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import './LedgerPage.css'
 
 function LedgerPage() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -22,21 +23,23 @@ function LedgerPage() {
   return (
     <>
       <Header />
-      <section className="border-b border-rule-2">
-        <div ref={containerRef} className="container pt-16 pb-32">
-          <LedgerIntro />
-          <AutonomyScore />
-          <DayTypeSelector />
-          <StatsStrip />
-          <CarbonCounter />
-          <GridDependenceMeter />
-          <NeighbourhoodMap />
-          <HouseholdGrid />
-          <FairnessScore />
-          <ChainLedger />
-          <ProofInspector />
-        </div>
-      </section>
+      <main id="main">
+        <section className="ledger-page-wrap">
+          <div ref={containerRef} className="container ledger-page-inner">
+            <LedgerIntro />
+            <AutonomyScore />
+            <DayTypeSelector />
+            <StatsStrip />
+            <CarbonCounter />
+            <GridDependenceMeter />
+            <NeighbourhoodMap />
+            <HouseholdGrid />
+            <FairnessScore />
+            <ChainLedger />
+            <ProofInspector />
+          </div>
+        </section>
+      </main>
       <Footer />
       <DossierDrawer />
     </>

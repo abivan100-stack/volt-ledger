@@ -2,10 +2,9 @@ import { sha256 } from 'js-sha256'
 
 /**
  * Ported verbatim from the original prototype's `sha`/`payloadStr`/
- * `queueBlock`/`validateChain` methods (Ledger.dc.html), with the async
- * Web Crypto call replaced by js-sha256's synchronous API per the target
- * stack. Load-bearing — do not modify without a phase that explicitly
- * calls for it (see VOLT_BUILD_PLAN.md).
+ * `queueBlock`/`validateChain` methods, with the async Web Crypto call
+ * replaced by js-sha256's synchronous API per the target stack.
+ * Load-bearing — do not modify without an explicitly planned phase.
  */
 
 export interface TradePayload {

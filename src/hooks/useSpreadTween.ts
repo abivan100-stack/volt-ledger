@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { animate } from 'framer-motion'
-import { prefersReducedMotion } from '../ui/prefersReducedMotion'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { animateProgress } from '../utils/animateProgress'
+import { prefersReducedMotion } from '../utils/prefersReducedMotion'
 
 export type SpreadMode = 'today' | 'volt'
 export type Tween = { sell: number; buy: number }
@@ -9,7 +9,6 @@ const TODAY_TARGETS: Tween = { sell: 3.0, buy: 8.0 }
 const VOLT_TARGETS: Tween = { sell: 5.5, buy: 5.9 }
 const TWEEN_DURATION_SECONDS = 0.85
 const AUTO_SWITCH_DELAY_MS = 3600
-const cubicEaseOut = (t: number) => 1 - (1 - t) ** 3
 
 export interface SpreadTweenState {
   mode: SpreadMode
@@ -34,39 +33,43 @@ export function useSpreadTween(containerRef: RefObject<HTMLDivElement>): SpreadT
   const userToggledRef = useRef(false)
   const autoSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  function setTween(next: Tween) {
+  const setTween = useCallback((next: Tween) => {
     tweenRef.current = next
     setTweenState(next)
-  }
+  }, [])
 
-  function runTween(target: Tween, reducedMotion: boolean) {
-    stopTweenRef.current()
-    const from = tweenRef.current
-    if (reducedMotion) {
-      setTween(target)
-      return
-    }
-    const controls = animate(0, 1, {
-      duration: TWEEN_DURATION_SECONDS,
-      ease: cubicEaseOut,
-      onUpdate: (progress) => {
-        setTween({
-          sell: from.sell + (target.sell - from.sell) * progress,
-          buy: from.buy + (target.buy - from.buy) * progress,
-        })
-      },
-    })
-    stopTweenRef.current = () => controls.stop()
-  }
+  const runTween = useCallback(
+    (target: Tween, reducedMotion: boolean) => {
+      stopTweenRef.current()
+      const from = tweenRef.current
+      if (reducedMotion) {
+        setTween(target)
+        return
+      }
+      stopTweenRef.current = animateProgress({
+        durationSeconds: TWEEN_DURATION_SECONDS,
+        onUpdate: (progress) => {
+          setTween({
+            sell: from.sell + (target.sell - from.sell) * progress,
+            buy: from.buy + (target.buy - from.buy) * progress,
+          })
+        },
+      })
+    },
+    [setTween],
+  )
 
-  function setMode(mode: SpreadMode, isUserAction: boolean) {
-    if (isUserAction) {
-      userToggledRef.current = true
-      clearTimeout(autoSwitchTimeoutRef.current)
-    }
-    setSpreadMode(mode)
-    runTween(mode === 'today' ? TODAY_TARGETS : VOLT_TARGETS, prefersReducedMotion())
-  }
+  const setMode = useCallback(
+    (mode: SpreadMode, isUserAction: boolean) => {
+      if (isUserAction) {
+        userToggledRef.current = true
+        clearTimeout(autoSwitchTimeoutRef.current)
+      }
+      setSpreadMode(mode)
+      runTween(mode === 'today' ? TODAY_TARGETS : VOLT_TARGETS, prefersReducedMotion())
+    },
+    [runTween],
+  )
 
   useEffect(() => {
     const container = containerRef.current
@@ -93,8 +96,7 @@ export function useSpreadTween(containerRef: RefObject<HTMLDivElement>): SpreadT
       clearTimeout(autoSwitchTimeoutRef.current)
       stopTweenRef.current()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [containerRef, runTween, setMode])
 
   return { mode: spreadMode, tween, setMode }
 }

@@ -1,5 +1,5 @@
 /**
- * Full 24h day model (Phase 1 of VOLT_BUILD_PLAN.md).
+ * Full 24h day model.
  *
  * Every export here is a pure function of its arguments: (dayType, hour,
  * householdId) in, a number out, nothing accumulated across ticks. This is
@@ -49,7 +49,7 @@ const SOLAR_DAYLIGHT_HOURS = SOLAR_END_HOUR - SOLAR_START_HOUR
 const CLOUDY_SCALE = 0.45
 const HEATWAVE_SCALE = 1.08
 
-const INVERTER_EFFICIENCY = 0.9
+export const INVERTER_EFFICIENCY = 0.9
 const TICK_INTERVAL_HOURS = 10 / 60
 
 /** Bell-shaped solar capacity factor for `hour` (0-23.99), zero outside ~06:00-18:30. */
@@ -153,7 +153,7 @@ export function tickHousehold(
 
 const RATE_MIN = 4.4
 const RATE_MAX = 7.2
-const RATE_BASE = 5.5
+export const RATE_BASE = 5.5
 const RATE_SUPPLY_DEMAND_FACTOR = 0.3
 const RATE_SMOOTHING = 0.25
 const RATE_JITTER_AMPLITUDE = 0.05

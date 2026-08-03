@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F2EEE4"/>
+  <rect width="1200" height="630" fill="url(#g)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d6625" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#B26A12" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="120" cy="180" r="34" fill="#0d6625"/>
+  <text x="180" y="216" font-family="Archivo, Helvetica, Arial, sans-serif" font-weight="800" font-size="120" letter-spacing="2" fill="#17140F">VOLT</text>
+  <text x="180" y="296" font-family="Georgia, serif" font-style="italic" font-size="64" fill="#6B6454">Ledger</text>
+
+  <line x1="120" y1="390" x2="1080" y2="390" stroke="#BEB49B" stroke-width="2"/>
+  <text x="120" y="470" font-family="'Spline Sans Mono', monospace" font-size="34" letter-spacing="6" fill="#245C43">A TAMPER-EVIDENT LEDGER FOR</text>
+  <text x="120" y="524" font-family="'Spline Sans Mono', monospace" font-size="34" letter-spacing="6" fill="#245C43">PEER-TO-PEER ROOFTOP SOLAR.</text>
+</svg>

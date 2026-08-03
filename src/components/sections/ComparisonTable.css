@@ -7,19 +7,6 @@
   padding-bottom: 128px;
 }
 
-.comparison-kicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 26px;
-}
-
-.comparison-kicker-number {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--sun);
-}
-
 .comparison-heading {
   font-size: clamp(32px, 4.4vw, 60px);
   line-height: 1.03;

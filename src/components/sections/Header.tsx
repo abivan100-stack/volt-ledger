@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { scrollToId } from '../ui/scrollToId'
+import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import './Header.css'
 
 function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -26,9 +26,18 @@ function Header() {
     <header className="header">
       <div className="container header-bar">
         {isLedgerPage ? (
-          <Link to="/" className="header-logo">{logo}</Link>
+          <Link to="/" className="header-logo" aria-label="Volt — back to home">
+            {logo}
+          </Link>
         ) : (
-          <div className="header-logo">{logo}</div>
+          <button
+            type="button"
+            className="header-logo header-logo-btn"
+            onClick={scrollToTop}
+            aria-label="Volt — back to top"
+          >
+            {logo}
+          </button>
         )}
         <nav className="header-nav">
           {isLedgerPage ? (

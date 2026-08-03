@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { useScrollReveal } from '../ui/useScrollReveal'
+import SectionHeading from '../ui/SectionHeading'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
 import './HowItWorks.css'
 
 interface Step {
@@ -37,10 +38,7 @@ function HowItWorks() {
   return (
     <section id="how" ref={sectionRef} className="how">
       <div className="container how-container">
-        <div data-reveal className="how-kicker">
-          <span className="mono how-kicker-number">02</span>
-          <span className="eyebrow">How it works</span>
-        </div>
+        <SectionHeading kicker="02" label="How it works" />
         <h2 data-reveal className="serif how-heading">Three steps. No middleman.</h2>
         <div className="how-grid">
           {STEPS.map((step, index) => (

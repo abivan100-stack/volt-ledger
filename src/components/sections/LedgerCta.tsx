@@ -1,7 +1,9 @@
 import { useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { useScrollReveal } from '../ui/useScrollReveal'
+import { HOUSEHOLD_COUNT } from '../../store/simSlice'
+import { useScrollReveal } from '../../hooks/useScrollReveal'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
+import SectionHeading from '../ui/SectionHeading'
 import './LedgerCta.css'
 
 function LedgerCta() {
@@ -13,10 +15,7 @@ function LedgerCta() {
     <section ref={sectionRef} className="ledger-cta">
       <div className="container ledger-cta-row">
         <div data-reveal className="ledger-cta-copy">
-          <div className="ledger-cta-kicker">
-            <span className="mono ledger-cta-kicker-number">03</span>
-            <span className="eyebrow">Live Ledger</span>
-          </div>
+          <SectionHeading kicker="03" label="Live Ledger" />
           <h2 className="serif ledger-cta-heading">Ten households. One shared, tamper-proof record.</h2>
           <p className="ledger-cta-body">
             Open the live ledger to watch a Nolambur street settle through a solar afternoon — real balances, a
@@ -27,7 +26,7 @@ function LedgerCta() {
         <div data-reveal className="ledger-cta-stats">
           <div>
             <div className="eyebrow ledger-cta-stat-label">Households</div>
-            <div className="serif ledger-cta-stat-value">10</div>
+            <div className="serif ledger-cta-stat-value">{HOUSEHOLD_COUNT}</div>
           </div>
           <div className="ledger-cta-stat-divider">
             <div className="eyebrow ledger-cta-stat-label">Community Rate</div>

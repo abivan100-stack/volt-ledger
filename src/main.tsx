@@ -13,8 +13,8 @@ import '@fontsource/spline-sans-mono/500.css'
 import '@fontsource/spline-sans-mono/600.css'
 
 import './theme/theme.css'
-import ErrorBoundary from './components/ui/ErrorBoundary.tsx'
-import App from './App.tsx'
+import ErrorBoundary from './components/ui/ErrorBoundary'
+import App from './App'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {

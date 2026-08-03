@@ -4,9 +4,9 @@
 
 /*
  * Global tokens + base styles, extracted verbatim from the original
- * prototype's <style> block (legacy/Volt.dc.html + legacy/Ledger.dc.html).
- * Mirrors src/theme/tokens.ts as CSS custom properties for hand-written
- * component CSS that isn't expressed through Tailwind utilities.
+ * prototype's <style> block. Mirrors src/theme/tokens.ts as CSS custom
+ * properties for hand-written component CSS that isn't expressed through
+ * Tailwind utilities.
  */
 
 :root {
@@ -19,6 +19,7 @@
   --rule-2: #BEB49B;
   --sun: #B26A12;
   --settle: #245C43;
+  --volt: #0d6625;
   --void: #A31E17;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --container-max: 1200px;

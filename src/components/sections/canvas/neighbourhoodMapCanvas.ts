@@ -1,14 +1,17 @@
 /**
- * Ported verbatim from the original prototype's `setupMap`/`mapPick` methods
- * (Ledger.dc.html). Unlike the hero mesh, this canvas reads *live* household
- * data every frame — via useEnergyStore.getState(), the store's non-reactive
+ * Ported verbatim from the original prototype's `setupMap`/`mapPick` methods.
+ * Unlike the hero mesh, this canvas reads *live* household data every frame —
+ * via useEnergyStore.getState(), the store's non-reactive
  * "read right now" escape hatch, so the rAF loop never needs a React re-render.
  * The original never used a ResizeObserver here (unlike the hero mesh) —
  * it re-measures getBoundingClientRect() on every frame instead; preserved
  * as-is rather than unified with the other canvas's approach.
  */
-import { useEnergyStore } from '../../store/useEnergyStore'
-import { readCssVar } from '../ui/cssVars'
+import { useEnergyStore } from '../../../store/useEnergyStore'
+import { HOUSEHOLD_COUNT } from '../../../store/simSlice'
+import { readCssVar } from '../../ui/cssVars'
+import { easeInOut } from '../../../lib/easing'
+import { rgb } from '../../../theme/tokens'
 
 interface Point {
   x: number
@@ -29,22 +32,28 @@ export interface NeighbourhoodMapOptions {
 export interface NeighbourhoodMapHandle {
   stop: () => void
   pick: (x: number, y: number) => number
+  setPaused: (paused: boolean) => void
 }
 
-const SUN = '178,106,18'
-const TEAL = '36,92,67'
-const INK = '23,20,15'
-const RULE = '190,178,155'
+const SUN = rgb.sun
+const TEAL = rgb.settle
+const INK = rgb.ink
+const RULE = rgb['rule-2']
 const COLS = 5
 
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
+/** |net| above which a household is drawn as actively exporting/importing. */
+const ACTIVE_NET_THRESHOLD = 0.12
+/** net above which a household is a packet source. */
+const PACKET_EXPORT_THRESHOLD = 0.2
+/** net below which a household is a packet sink. */
+const PACKET_IMPORT_THRESHOLD = -0.1
 
 export function startNeighbourhoodMap(
   canvas: HTMLCanvasElement,
   options: NeighbourhoodMapOptions,
 ): NeighbourhoodMapHandle {
   const ctx = canvas.getContext('2d')
-  if (!ctx) return { stop: () => {}, pick: () => -1 }
+  if (!ctx) return { stop: () => {}, pick: () => -1, setPaused: () => {} }
 
   const inkSoftColor = readCssVar('--ink-soft')
   const cardColor = readCssVar('--card')
@@ -67,7 +76,7 @@ export function startNeighbourhoodMap(
     return true
   }
 
-  const projections: Array<Point | undefined> = new Array(10)
+  const projections: Array<Point | undefined> = new Array(HOUSEHOLD_COUNT)
   let packets: MapPacket[] = []
   let lastSpawn = 0
 
@@ -122,13 +131,13 @@ export function startNeighbourhoodMap(
       ctx.fillText('SHARED BUS', busX1 + 9, busY - 5)
     }
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const net = households[i].net
-      const color = net > 0.12 ? SUN : net < -0.12 ? TEAL : RULE
-      const alpha = net > 0.12 ? 0.58 : net < -0.12 ? 0.52 : 0.22
+      const color = net > ACTIVE_NET_THRESHOLD ? SUN : net < -ACTIVE_NET_THRESHOLD ? TEAL : RULE
+      const alpha = net > ACTIVE_NET_THRESHOLD ? 0.58 : net < -ACTIVE_NET_THRESHOLD ? 0.52 : 0.22
       ctx.strokeStyle = `rgba(${color},${alpha})`
-      ctx.lineWidth = net > 0.12 || net < -0.12 ? 1.6 : 1
+      ctx.lineWidth = net > ACTIVE_NET_THRESHOLD || net < -ACTIVE_NET_THRESHOLD ? 1.6 : 1
       ctx.beginPath()
       ctx.moveTo(p.x, edgeY(p))
       ctx.lineTo(p.x, busY)
@@ -143,9 +152,9 @@ export function startNeighbourhoodMap(
         lastSpawn = t
         const exporters: number[] = []
         const importers: number[] = []
-        for (let i = 0; i < 10; i++) {
-          if (households[i].net > 0.2) exporters.push(i)
-          if (households[i].net < -0.1) importers.push(i)
+        for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
+          if (households[i].net > PACKET_EXPORT_THRESHOLD) exporters.push(i)
+          if (households[i].net < PACKET_IMPORT_THRESHOLD) importers.push(i)
         }
         if (exporters.length && importers.length) {
           packets.push({
@@ -198,14 +207,14 @@ export function startNeighbourhoodMap(
       })
     }
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const h = households[i]
       const net = h.net
       const cx = p.x
       const cy = p.y
 
-      if (net > 0.12) {
+      if (net > ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, net / 2.4)
         const breathe = options.reducedMotion ? 1 : 0.86 + 0.14 * Math.sin(t / 700 + i)
         const radius = (houseSize * 0.85 + mag * houseSize * 1.6) * breathe
@@ -216,7 +225,7 @@ export function startNeighbourhoodMap(
         ctx.beginPath()
         ctx.arc(cx, cy, radius, 0, 7)
         ctx.fill()
-      } else if (net < -0.12) {
+      } else if (net < -ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, -net / 2)
         const phase = options.reducedMotion ? 0.4 : (t / 1400) % 1
         const ringRadius = houseSize * (1.35 - phase * 0.72)
@@ -276,7 +285,7 @@ export function startNeighbourhoodMap(
     }
 
     ctx.textAlign = 'center'
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const h = households[i]
       const net = h.net
@@ -287,10 +296,10 @@ export function startNeighbourhoodMap(
       ctx.fillStyle = inkSoftColor
       ctx.fillText(h.name.split(' ')[0].toUpperCase(), cx, nameY)
       ctx.font = '600 9.5px "Spline Sans Mono",monospace'
-      if (net > 0.12) {
+      if (net > ACTIVE_NET_THRESHOLD) {
         ctx.fillStyle = `rgba(${SUN},0.95)`
         ctx.fillText(`▲ ${net.toFixed(1)} kW`, cx, valueY)
-      } else if (net < -0.12) {
+      } else if (net < -ACTIVE_NET_THRESHOLD) {
         ctx.fillStyle = `rgba(${TEAL},0.95)`
         ctx.fillText(`▼ ${Math.abs(net).toFixed(1)} kW`, cx, valueY)
       } else {
@@ -318,11 +327,14 @@ export function startNeighbourhoodMap(
   let rafHandle: number | undefined
   let intervalHandle: ReturnType<typeof setInterval> | undefined
   let visibilityHandler: (() => void) | undefined
+  let startLoop: (() => void) | undefined
+  let isPaused = false
   let dead = false
 
   if (options.reducedMotion) {
     let tries = 0
     const once = () => {
+      if (isPaused) return
       if (refresh()) {
         draw(performance.now())
       } else if (tries++ < 180) {
@@ -341,21 +353,25 @@ export function startNeighbourhoodMap(
     }
     let warmTries = 0
     const warm = () => {
-      if (dead || paintOnce()) return
+      if (dead || isPaused || paintOnce()) return
       if (warmTries++ < 240) setTimeout(warm, 60)
     }
     warm()
     const loop = (t: number) => {
       if (dead) return
+      if (isPaused || document.hidden) return
       if (refresh()) draw(t)
+      rafHandle = requestAnimationFrame(loop)
+    }
+    startLoop = () => {
+      if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
       rafHandle = requestAnimationFrame(loop)
     }
     rafHandle = requestAnimationFrame(loop)
     visibilityHandler = () => {
-      if (!document.hidden && !dead) {
+      if (!document.hidden && !dead && !isPaused) {
         paintOnce()
-        if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
-        rafHandle = requestAnimationFrame(loop)
+        startLoop?.()
       }
     }
     document.addEventListener('visibilitychange', visibilityHandler)
@@ -363,6 +379,11 @@ export function startNeighbourhoodMap(
 
   return {
     pick,
+    setPaused: (paused: boolean) => {
+      if (paused === isPaused || dead) return
+      isPaused = paused
+      if (!paused && !options.reducedMotion && !document.hidden) startLoop?.()
+    },
     stop: () => {
       dead = true
       if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)

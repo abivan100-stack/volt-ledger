@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { useEnergyStore, type Household } from '../../store/useEnergyStore'
+import { HOUSEHOLD_COUNT } from '../../store/simSlice'
 import { formatMoney } from '../../lib/format'
 import { statusForNet, type HouseholdStatus } from '../../lib/householdStatus'
 import './HouseholdGrid.css'
@@ -77,7 +78,7 @@ function HouseholdGrid() {
     <div>
       <div className="household-grid-header">
         <h2 className="serif household-grid-title">
-          The street <span className="household-grid-title-sub">· ten households</span>
+          The street <span className="household-grid-title-sub">· {HOUSEHOLD_COUNT} households</span>
         </h2>
         <div className="household-grid-legend">
           <span className="mono household-grid-legend-item">

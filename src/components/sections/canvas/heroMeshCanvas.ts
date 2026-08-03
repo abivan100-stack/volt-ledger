@@ -1,9 +1,11 @@
 /**
- * Ported verbatim from the original prototype's `setupCanvas` method
- * (Volt.dc.html). Pure canvas drawing/animation — touches the DOM directly,
- * which is why it lives next to Hero.tsx rather than in lib/.
+ * Ported verbatim from the original prototype's `setupCanvas` method. Pure
+ * canvas drawing/animation — touches the DOM directly, which is why it lives
+ * next to Hero.tsx rather than in lib/.
  */
-import { readCssVar } from '../ui/cssVars'
+import { readCssVar } from '../../ui/cssVars'
+import { easeInOut } from '../../../lib/easing'
+import { rgb } from '../../../theme/tokens'
 
 interface MeshNode {
   nx: number
@@ -39,10 +41,8 @@ const NODE_NAMES = ['Iyer', 'Murugan', 'Krishnan', 'Natarajan', 'Sundaram', 'Cha
 const EDGES: Array<[number, number]> = [
   [0, 1], [1, 2], [0, 3], [1, 4], [2, 5], [3, 4], [4, 5], [3, 6], [4, 7], [6, 7], [5, 7], [2, 4],
 ]
-const AMBER = '178,106,18'
-const TEAL = '36,92,67'
-
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
+const AMBER = rgb.sun
+const TEAL = rgb.settle
 
 export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOptions): () => void {
   const ctx = canvas.getContext('2d')
@@ -89,9 +89,8 @@ export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOption
     const my = (a.y + b.y) / 2
     const dx = b.x - a.x
     const dy = b.y - a.y
-    const len = Math.hypot(dx, dy) || 1
-    const cx = mx - (dy / len) * len * 0.1
-    const cy = my + (dx / len) * len * 0.1
+    const cx = mx - dy * 0.1
+    const cy = my + dx * 0.1
     const u = 1 - t
     return { x: u * u * a.x + 2 * u * t * cx + t * t * b.x, y: u * u * a.y + 2 * u * t * cy + t * t * b.y }
   }

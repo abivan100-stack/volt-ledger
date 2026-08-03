@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { MouseEvent, PointerEvent } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { startNeighbourhoodMap } from './neighbourhoodMapCanvas'
-import { prefersReducedMotion } from '../ui/prefersReducedMotion'
+import { startNeighbourhoodMap } from './canvas/neighbourhoodMapCanvas'
+import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 import './NeighbourhoodMap.css'
 
 function NeighbourhoodMap() {
@@ -15,7 +15,15 @@ function NeighbourhoodMap() {
     if (!canvas) return
     const handle = startNeighbourhoodMap(canvas, { reducedMotion: prefersReducedMotion() })
     pickRef.current = handle.pick
-    return handle.stop
+    const observer = new IntersectionObserver(
+      ([entry]) => handle.setPaused(!entry.isIntersecting),
+      { threshold: 0 },
+    )
+    observer.observe(canvas)
+    return () => {
+      handle.stop()
+      observer.disconnect()
+    }
   }, [])
 
   function handleClick(event: MouseEvent<HTMLCanvasElement>) {

@@ -1,4 +1,4 @@
-import { solarCurve, demandCurve, type DayType } from './simulation'
+import { solarCurve, demandCurve, INVERTER_EFFICIENCY, type DayType } from './simulation'
 
 /**
  * Grid dependence: the share of total community demand still met by grid
@@ -68,7 +68,7 @@ function sampleHousehold(
   hour: number,
   dayType: DayType,
 ): { out: number; draw: number } {
-  const out = household.pv * solarCurve(hour, dayType) * 0.9
+  const out = household.pv * solarCurve(hour, dayType) * INVERTER_EFFICIENCY
   const draw = demandCurve(hour, { id: household.id, base: household.base }, dayType)
   return { out, draw }
 }
