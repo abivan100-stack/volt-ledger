@@ -14,6 +14,7 @@ const TICK_INTERVAL_MS = 1000
 const TRADE_INTERVAL_MS = 3200
 const TOTAL_DAILY_MINUTES = 24 * 60
 const RATE_HISTORY_LENGTH = 44
+const PREV_RATE_OFFSET = 6
 const INITIAL_RATE = 5.5
 const TRADE_EXPORT_THRESHOLD = 0.2
 const TRADE_IMPORT_THRESHOLD = -0.1
@@ -308,7 +309,7 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
 
     const tickCount = state.tickCount + 1
     const rate = nextCommunityRate(state.rate, supply, demand, tickCount)
-    const prevRate = state.rateHistory[state.rateHistory.length - 6] ?? state.rate
+    const prevRate = state.rateHistory[state.rateHistory.length - PREV_RATE_OFFSET] ?? state.rate
     const rateHistory = [...state.rateHistory, rate].slice(-RATE_HISTORY_LENGTH)
 
     let totalKwhToday = state.totalKwhToday
