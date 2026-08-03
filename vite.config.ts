@@ -6,5 +6,16 @@ export default defineConfig({
   plugins: [react()],
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/lib/**'],
+      reporter: ['text', 'html'],
+      thresholds: {
+        statements: 90,
+        functions: 90,
+        lines: 90,
+        branches: 85,
+      },
+    },
   },
 })
