@@ -41,6 +41,24 @@ describe('DossierDrawer', () => {
     expect(sheet?.contains(document.activeElement)).toBe(true)
   })
 
+  it('exposes dialog semantics and locks body scroll while open', () => {
+    const { rerender } = renderDrawer()
+    act(() => useEnergyStore.getState().selectHouse(0))
+    rerender(<DossierDrawer />)
+
+    const sheet = document.querySelector<HTMLElement>('.dossier-sheet')
+    expect(sheet?.getAttribute('role')).toBe('dialog')
+    expect(sheet?.getAttribute('aria-modal')).toBe('true')
+    expect(sheet?.getAttribute('aria-labelledby')).toBe('dossier-title')
+    const title = document.querySelector('#dossier-title')
+    expect(title?.textContent).toBe(useEnergyStore.getState().households[0].name)
+    expect(document.body.style.overflow).toBe('hidden')
+
+    act(() => useEnergyStore.getState().closeDossier())
+    rerender(<DossierDrawer />)
+    expect(document.body.style.overflow).toBe('')
+  })
+
   it('closes via the close button and restores the trigger focus', () => {
     const trigger = document.createElement('button')
     document.body.appendChild(trigger)

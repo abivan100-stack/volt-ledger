@@ -18,6 +18,8 @@ function DossierDrawer() {
   useEffect(() => {
     if (selectedHouseIndex == null) return
     triggerRef.current = document.activeElement
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const sheet = sheetRef.current
     if (sheet) {
       const first = sheet.querySelector<HTMLElement>(FOCUSABLE)
@@ -45,6 +47,7 @@ function DossierDrawer() {
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
       if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus()
     }
   }, [selectedHouseIndex, closeDossier])
@@ -61,14 +64,14 @@ function DossierDrawer() {
   return (
     <div className="dossier-overlay">
       <button type="button" onClick={closeDossier} aria-label="Close dossier" className="dossier-scrim" />
-      <div ref={sheetRef} className="dossier-sheet">
+      <div ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby="dossier-title" className="dossier-sheet">
         <div className="dossier-sheet-header">
           <div className="dossier-header-info">
             <div className={`dossier-status-row ${accentClass}`}>
               <span className="dossier-status-dot" />
               <span className="mono dossier-status-label">{dossier.status}</span>
             </div>
-            <div className="serif dossier-name">{dossier.name}</div>
+            <div id="dossier-title" className="serif dossier-name">{dossier.name}</div>
             <div className="mono dossier-sub">{dossier.sub}</div>
           </div>
           <button type="button" onClick={closeDossier} aria-label="Close dossier" className="mono dossier-close-button">
