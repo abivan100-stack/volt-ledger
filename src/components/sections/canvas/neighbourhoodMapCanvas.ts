@@ -32,6 +32,7 @@ export interface NeighbourhoodMapOptions {
 export interface NeighbourhoodMapHandle {
   stop: () => void
   pick: (x: number, y: number) => number
+  setPaused: (paused: boolean) => void
 }
 
 const SUN = rgb.sun
@@ -52,7 +53,7 @@ export function startNeighbourhoodMap(
   options: NeighbourhoodMapOptions,
 ): NeighbourhoodMapHandle {
   const ctx = canvas.getContext('2d')
-  if (!ctx) return { stop: () => {}, pick: () => -1 }
+  if (!ctx) return { stop: () => {}, pick: () => -1, setPaused: () => {} }
 
   const inkSoftColor = readCssVar('--ink-soft')
   const cardColor = readCssVar('--card')
@@ -326,11 +327,14 @@ export function startNeighbourhoodMap(
   let rafHandle: number | undefined
   let intervalHandle: ReturnType<typeof setInterval> | undefined
   let visibilityHandler: (() => void) | undefined
+  let startLoop: (() => void) | undefined
+  let isPaused = false
   let dead = false
 
   if (options.reducedMotion) {
     let tries = 0
     const once = () => {
+      if (isPaused) return
       if (refresh()) {
         draw(performance.now())
       } else if (tries++ < 180) {
@@ -349,21 +353,25 @@ export function startNeighbourhoodMap(
     }
     let warmTries = 0
     const warm = () => {
-      if (dead || paintOnce()) return
+      if (dead || isPaused || paintOnce()) return
       if (warmTries++ < 240) setTimeout(warm, 60)
     }
     warm()
     const loop = (t: number) => {
       if (dead) return
+      if (isPaused || document.hidden) return
       if (refresh()) draw(t)
+      rafHandle = requestAnimationFrame(loop)
+    }
+    startLoop = () => {
+      if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
       rafHandle = requestAnimationFrame(loop)
     }
     rafHandle = requestAnimationFrame(loop)
     visibilityHandler = () => {
-      if (!document.hidden && !dead) {
+      if (!document.hidden && !dead && !isPaused) {
         paintOnce()
-        if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
-        rafHandle = requestAnimationFrame(loop)
+        startLoop?.()
       }
     }
     document.addEventListener('visibilitychange', visibilityHandler)
@@ -371,6 +379,11 @@ export function startNeighbourhoodMap(
 
   return {
     pick,
+    setPaused: (paused: boolean) => {
+      if (paused === isPaused || dead) return
+      isPaused = paused
+      if (!paused && !options.reducedMotion && !document.hidden) startLoop?.()
+    },
     stop: () => {
       dead = true
       if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
