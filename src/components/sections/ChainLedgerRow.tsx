@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import type { ChainBlock } from '../../lib/hashChain'
+import { shortHash } from '../../lib/format'
 import './ChainLedgerRow.css'
 
 interface ChainLedgerRowProps {
@@ -51,14 +52,14 @@ function ChainLedgerRow({
       )}
       <span className="chain-row-credit">+₹{block.payload.credit.toFixed(2)}</span>
       <span className="chain-row-seal">
-        {block.invalid ? (
-          <>
-            <span className="chain-void-badge">VOID</span>
-            <span className="chain-row-calc">{(block.calc || '').slice(0, 10)}</span>
-          </>
-        ) : (
-          <span className="chain-row-hash">{block.hash.slice(0, 10)}</span>
-        )}
+          {block.invalid ? (
+            <>
+              <span className="chain-void-badge">VOID</span>
+              <span className="chain-row-calc">{shortHash(block.calc || '')}</span>
+            </>
+          ) : (
+            <span className="chain-row-hash">{shortHash(block.hash)}</span>
+          )}
       </span>
     </div>
   )
