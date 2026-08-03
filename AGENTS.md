@@ -29,7 +29,7 @@
 ## Key Conventions
 - Logic stays pure: lib/*.ts must not import React, store, or touch DOM
 - Every component gets its own co-located .css file (no inline styles)
-- Simulation is deterministic: pure functions of (dayType, hour, householdId)
+- Simulation is deterministic: every value is a pure function of (dayType, hour, householdId), and stochastic variation flows only through `seededUnit` (an FNV-1a hash folded into [0,1)) — never `Math.random()` or `performance.now()`
 - hashChain.ts is load-bearing — do not modify unless explicitly planned
 
 ## State Shape
@@ -38,6 +38,6 @@
 - `seededUnit` provides deterministic randomness for all stochastic calculations
 
 ## Testing
-- Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (11 lib files + 5 store/hook files, 164 tests)
+- Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
+- Each lib module has a corresponding test file (11 lib files + 5 store/hook + 2 component test files, 173 tests)
 - Store tests reset the singleton store to its pristine state before each case
