@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
 import VoltPage from './pages/VoltPage'
@@ -8,12 +8,18 @@ import './App.css'
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
 
 function App() {
+  const location = useLocation()
   usePauseSimOnHidden()
 
   useEffect(() => {
     useEnergyStore.getState().start()
     return () => useEnergyStore.getState().stop()
   }, [])
+
+  useEffect(() => {
+    document.title =
+      location.pathname === '/ledger' ? 'Volt Ledger — Live Energy Exchange' : 'Volt — Local Energy Ledger'
+  }, [location.pathname])
 
   return (
     <>
