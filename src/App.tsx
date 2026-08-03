@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
 import VoltPage from './pages/VoltPage'
-import LedgerPage from './pages/LedgerPage'
+
+const LedgerPage = lazy(() => import('./pages/LedgerPage'))
 
 function App() {
   usePauseSimOnHidden()
@@ -14,10 +15,18 @@ function App() {
   }, [])
 
   return (
-    <Routes>
-      <Route path="/" element={<VoltPage />} />
-      <Route path="/ledger" element={<LedgerPage />} />
-    </Routes>
+    <Suspense
+      fallback={
+        <div className="container pt-16 pb-32">
+          <div className="mono">LOADING…</div>
+        </div>
+      }
+    >
+      <Routes>
+        <Route path="/" element={<VoltPage />} />
+        <Route path="/ledger" element={<LedgerPage />} />
+      </Routes>
+    </Suspense>
   )
 }
 
