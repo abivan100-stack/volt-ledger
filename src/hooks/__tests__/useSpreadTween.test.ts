@@ -4,10 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSpreadTween } from '../useSpreadTween'
 import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 
-vi.mock('framer-motion', () => ({
-  animate: vi.fn(() => ({ stop: vi.fn() })),
-}))
-
 vi.mock('../../utils/prefersReducedMotion', () => ({
   prefersReducedMotion: vi.fn(() => true),
 }))

@@ -4,7 +4,6 @@
 - Vite 8 + React 18 + TypeScript 6 (strict)
 - Tailwind CSS 3 (co-located component stylesheets, no inline styles)
 - Zustand 5 for state management
-- Framer Motion 12 for animation
 - js-sha256 for synchronous hash chain
 - Fontsource (Archivo, Instrument Serif, Spline Sans Mono)
 - Lucide React icons

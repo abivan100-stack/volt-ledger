@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { animate } from 'framer-motion'
+import { animateProgress } from '../utils/animateProgress'
 import { prefersReducedMotion } from '../utils/prefersReducedMotion'
-import { cubicEaseOut } from '../lib/easing'
 
 export type SpreadMode = 'today' | 'volt'
 export type Tween = { sell: number; buy: number }
@@ -46,9 +45,8 @@ export function useSpreadTween(containerRef: RefObject<HTMLDivElement>): SpreadT
       setTween(target)
       return
     }
-    const controls = animate(0, 1, {
-      duration: TWEEN_DURATION_SECONDS,
-      ease: cubicEaseOut,
+    stopTweenRef.current = animateProgress({
+      durationSeconds: TWEEN_DURATION_SECONDS,
       onUpdate: (progress) => {
         setTween({
           sell: from.sell + (target.sell - from.sell) * progress,
@@ -56,7 +54,6 @@ export function useSpreadTween(containerRef: RefObject<HTMLDivElement>): SpreadT
         })
       },
     })
-    stopTweenRef.current = () => controls.stop()
   }
 
   function setMode(mode: SpreadMode, isUserAction: boolean) {
