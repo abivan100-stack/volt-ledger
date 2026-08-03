@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import type { CSSVars } from '../ui/cssVars'
+import SectionHeading from '../ui/SectionHeading'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { useSpreadTween } from '../../hooks/useSpreadTween'
 import './Spread.css'
@@ -19,10 +20,7 @@ function Spread() {
   return (
     <section className="spread">
       <div ref={containerRef} className="container spread-container">
-        <div data-reveal className="spread-kicker">
-          <span className="mono spread-kicker-number">01</span>
-          <span className="eyebrow">The Spread</span>
-        </div>
+        <SectionHeading kicker="01" label="The Spread" />
         <h2 data-reveal className="serif spread-heading">
           You sell low. Your neighbor buys high. The grid keeps the difference.
         </h2>

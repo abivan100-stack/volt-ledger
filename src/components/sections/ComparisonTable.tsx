@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import SectionHeading from '../ui/SectionHeading'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import './ComparisonTable.css'
 
@@ -45,10 +46,7 @@ function ComparisonTable() {
   return (
     <section ref={sectionRef} className="comparison">
       <div className="container comparison-container">
-        <div data-reveal className="comparison-kicker">
-          <span className="mono comparison-kicker-number">04</span>
-          <span className="eyebrow">Trade-offs</span>
-        </div>
+        <SectionHeading kicker="04" label="Trade-offs" />
         <h2 data-reveal className="serif comparison-heading">Why not just a database?</h2>
         <p data-reveal className="comparison-intro">
           Because a database would work — if everyone agreed to trust whoever runs it. Volt's bet is narrower:

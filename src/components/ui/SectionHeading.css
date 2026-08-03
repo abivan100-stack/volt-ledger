@@ -1,0 +1,12 @@
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.section-heading-kicker {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--sun);
+}

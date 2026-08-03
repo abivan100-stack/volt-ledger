@@ -16,19 +16,6 @@
   max-width: 640px;
 }
 
-.ledger-cta-kicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 26px;
-}
-
-.ledger-cta-kicker-number {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--sun);
-}
-
 .ledger-cta-heading {
   font-size: clamp(32px, 4.4vw, 58px);
   line-height: 1.03;

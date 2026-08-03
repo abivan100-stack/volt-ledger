@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
+import SectionHeading from '../ui/SectionHeading'
 import './LedgerCta.css'
 
 function LedgerCta() {
@@ -13,10 +14,7 @@ function LedgerCta() {
     <section ref={sectionRef} className="ledger-cta">
       <div className="container ledger-cta-row">
         <div data-reveal className="ledger-cta-copy">
-          <div className="ledger-cta-kicker">
-            <span className="mono ledger-cta-kicker-number">03</span>
-            <span className="eyebrow">Live Ledger</span>
-          </div>
+          <SectionHeading kicker="03" label="Live Ledger" />
           <h2 className="serif ledger-cta-heading">Ten households. One shared, tamper-proof record.</h2>
           <p className="ledger-cta-body">
             Open the live ledger to watch a Nolambur street settle through a solar afternoon — real balances, a
