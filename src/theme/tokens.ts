@@ -16,6 +16,7 @@ export const colors = {
   'rule-2': '#BEB49B',
   sun: '#B26A12',
   settle: '#245C43',
+  volt: '#0d6625',
   void: '#A31E17',
 } as const
 
