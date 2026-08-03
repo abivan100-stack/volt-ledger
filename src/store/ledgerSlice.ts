@@ -2,6 +2,8 @@ import type { StateCreator } from 'zustand'
 import { validateChain } from '../lib/hashChain'
 import type { EnergyStoreState, LedgerSlice } from './types'
 
+const RESTORED_FLASH_MS = 3000
+
 let restoredFlashTimeout: ReturnType<typeof setTimeout> | undefined
 
 export function clearRestoredFlashTimer(): void {
@@ -45,7 +47,7 @@ export const createLedgerSlice: StateCreator<EnergyStoreState, [], [], LedgerSli
     set({ chain: blocks, compromised: invalidCount > 0, invalidCount, restoredFlash: afterRestore })
     if (afterRestore) {
       clearRestoredFlashTimer()
-      restoredFlashTimeout = setTimeout(() => set({ restoredFlash: false }), 3000)
+      restoredFlashTimeout = setTimeout(() => set({ restoredFlash: false }), RESTORED_FLASH_MS)
     }
   },
 })

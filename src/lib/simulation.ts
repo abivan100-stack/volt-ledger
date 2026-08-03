@@ -153,7 +153,7 @@ export function tickHousehold(
 
 const RATE_MIN = 4.4
 const RATE_MAX = 7.2
-const RATE_BASE = 5.5
+export const RATE_BASE = 5.5
 const RATE_SUPPLY_DEMAND_FACTOR = 0.3
 const RATE_SMOOTHING = 0.25
 const RATE_JITTER_AMPLITUDE = 0.05

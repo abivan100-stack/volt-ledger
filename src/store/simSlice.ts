@@ -3,6 +3,7 @@ import { formatClock } from '../lib/format'
 import {
   integrateGenerationAndConsumption,
   nextCommunityRate,
+  RATE_BASE,
   seededUnit,
   tickHousehold,
   type DayType,
@@ -15,11 +16,23 @@ import type { EnergyStoreState, Household, SimSlice } from './types'
 const TICK_INTERVAL_MS = 1000
 const TRADE_INTERVAL_MS = 3200
 const TOTAL_DAILY_MINUTES = 24 * 60
+const MINUTES_PER_TICK_UNIT = 2
 const RATE_HISTORY_LENGTH = 44
 const PREV_RATE_OFFSET = 6
-const INITIAL_RATE = 5.5
+const INITIAL_RATE = RATE_BASE
 const TRADE_EXPORT_THRESHOLD = 0.2
 const TRADE_IMPORT_THRESHOLD = -0.1
+const TRADE_FROM_SALT = 2
+const TRADE_TO_SALT = 3
+const TRADE_KWH_SALT = 5
+const TRADE_KWH_MIN = 0.25
+const TRADE_KWH_RANGE = 1.15
+const SEED_KWH_MIN = 0.3
+const SEED_KWH_RANGE = 1.1
+const SEED_KWH_SALT = 101
+const SEED_RATE_MIN = 5.3
+const SEED_RATE_RANGE = 0.5
+const SEED_RATE_SALT = 103
 
 type HouseholdSeed = Omit<
   Household,
@@ -76,8 +89,8 @@ function seedChain(
     const [fromIndex, toIndex] = SEED_PAIRS[i]
     const from = nextHouseholds[fromIndex]
     const to = nextHouseholds[toIndex]
-    const kwh = Math.round((0.3 + seededUnit(i * 101) * 1.1) * 100) / 100
-    const credit = Math.round(kwh * (5.3 + seededUnit(i * 103) * 0.5) * 100) / 100
+    const kwh = Math.round((SEED_KWH_MIN + seededUnit(i * SEED_KWH_SALT) * SEED_KWH_RANGE) * 100) / 100
+    const credit = Math.round(kwh * (SEED_RATE_MIN + seededUnit(i * SEED_RATE_SALT) * SEED_RATE_RANGE) * 100) / 100
     nextHouseholds = nextHouseholds.map((h, index) => {
       if (index === fromIndex) {
         return { ...h, balance: h.balance + credit, exp: h.exp + kwh, earned: h.earned + credit, trades: h.trades + 1 }
@@ -169,7 +182,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const state = get()
     const dayType = state.dayType
     const prevMinute = state.simMinute
-    let simMinute = prevMinute + 2 * state.config.simSpeed
+    let simMinute = prevMinute + MINUTES_PER_TICK_UNIT * state.config.simSpeed
     let rolled = false
     if (simMinute >= TOTAL_DAILY_MINUTES) {
       simMinute -= TOTAL_DAILY_MINUTES
@@ -218,9 +231,9 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const importers = state.households.filter((h) => h.net < TRADE_IMPORT_THRESHOLD)
     if (!exporters.length || !importers.length) return
     const tradeSeed = state.nextBlockId
-    const from = exporters[Math.floor(seededUnit(tradeSeed, 2) * exporters.length)]
-    const to = importers[Math.floor(seededUnit(tradeSeed, 3) * importers.length)]
-    const kwh = Math.round(Math.min(0.25 + seededUnit(tradeSeed, 5) * 1.15, Math.max(0.2, from.net)) * 100) / 100
+    const from = exporters[Math.floor(seededUnit(tradeSeed, TRADE_FROM_SALT) * exporters.length)]
+    const to = importers[Math.floor(seededUnit(tradeSeed, TRADE_TO_SALT) * importers.length)]
+    const kwh = Math.round(Math.min(TRADE_KWH_MIN + seededUnit(tradeSeed, TRADE_KWH_SALT) * TRADE_KWH_RANGE, Math.max(TRADE_EXPORT_THRESHOLD, from.net)) * 100) / 100
     const credit = Math.round(kwh * state.rate * 100) / 100
 
     const households = state.households.map((h) => {
