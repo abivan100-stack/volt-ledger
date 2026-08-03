@@ -62,6 +62,8 @@ const RAW_HOUSEHOLDS: HouseholdSeed[] = [
   { name: 'Surya Selvaraj', pv: 3.9, base: 1.0, balance: -58.9, orient: 'South-west', tilt: 13, batt: 5.0, since: '2022', meter: 'NB-0641' },
 ]
 
+export const HOUSEHOLD_COUNT = RAW_HOUSEHOLDS.length
+
 function createInitialHouseholds(): Household[] {
   return RAW_HOUSEHOLDS.map((seed, id) => ({
     ...seed,

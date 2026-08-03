@@ -8,6 +8,7 @@
  * as-is rather than unified with the other canvas's approach.
  */
 import { useEnergyStore } from '../../../store/useEnergyStore'
+import { HOUSEHOLD_COUNT } from '../../../store/simSlice'
 import { readCssVar } from '../../ui/cssVars'
 import { easeInOut } from '../../../lib/easing'
 import { rgb } from '../../../theme/tokens'
@@ -74,7 +75,7 @@ export function startNeighbourhoodMap(
     return true
   }
 
-  const projections: Array<Point | undefined> = new Array(10)
+  const projections: Array<Point | undefined> = new Array(HOUSEHOLD_COUNT)
   let packets: MapPacket[] = []
   let lastSpawn = 0
 
@@ -129,7 +130,7 @@ export function startNeighbourhoodMap(
       ctx.fillText('SHARED BUS', busX1 + 9, busY - 5)
     }
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const net = households[i].net
       const color = net > ACTIVE_NET_THRESHOLD ? SUN : net < -ACTIVE_NET_THRESHOLD ? TEAL : RULE
@@ -150,7 +151,7 @@ export function startNeighbourhoodMap(
         lastSpawn = t
         const exporters: number[] = []
         const importers: number[] = []
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
           if (households[i].net > PACKET_EXPORT_THRESHOLD) exporters.push(i)
           if (households[i].net < PACKET_IMPORT_THRESHOLD) importers.push(i)
         }
@@ -205,7 +206,7 @@ export function startNeighbourhoodMap(
       })
     }
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const h = households[i]
       const net = h.net
@@ -283,7 +284,7 @@ export function startNeighbourhoodMap(
     }
 
     ctx.textAlign = 'center'
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const h = households[i]
       const net = h.net

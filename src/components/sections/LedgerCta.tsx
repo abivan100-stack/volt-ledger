@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
+import { HOUSEHOLD_COUNT } from '../../store/simSlice'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
 import SectionHeading from '../ui/SectionHeading'
@@ -25,7 +26,7 @@ function LedgerCta() {
         <div data-reveal className="ledger-cta-stats">
           <div>
             <div className="eyebrow ledger-cta-stat-label">Households</div>
-            <div className="serif ledger-cta-stat-value">10</div>
+            <div className="serif ledger-cta-stat-value">{HOUSEHOLD_COUNT}</div>
           </div>
           <div className="ledger-cta-stat-divider">
             <div className="eyebrow ledger-cta-stat-label">Community Rate</div>
