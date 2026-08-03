@@ -5,6 +5,7 @@
  */
 import { readCssVar } from '../ui/cssVars'
 import { easeInOut } from '../../lib/easing'
+import { rgb } from '../../theme/tokens'
 
 interface MeshNode {
   nx: number
@@ -40,8 +41,8 @@ const NODE_NAMES = ['Iyer', 'Murugan', 'Krishnan', 'Natarajan', 'Sundaram', 'Cha
 const EDGES: Array<[number, number]> = [
   [0, 1], [1, 2], [0, 3], [1, 4], [2, 5], [3, 4], [4, 5], [3, 6], [4, 7], [6, 7], [5, 7], [2, 4],
 ]
-const AMBER = '178,106,18'
-const TEAL = '36,92,67'
+const AMBER = rgb.sun
+const TEAL = rgb.settle
 
 export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOptions): () => void {
   const ctx = canvas.getContext('2d')

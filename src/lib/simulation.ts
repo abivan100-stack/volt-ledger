@@ -49,7 +49,7 @@ const SOLAR_DAYLIGHT_HOURS = SOLAR_END_HOUR - SOLAR_START_HOUR
 const CLOUDY_SCALE = 0.45
 const HEATWAVE_SCALE = 1.08
 
-const INVERTER_EFFICIENCY = 0.9
+export const INVERTER_EFFICIENCY = 0.9
 const TICK_INTERVAL_HOURS = 10 / 60
 
 /** Bell-shaped solar capacity factor for `hour` (0-23.99), zero outside ~06:00-18:30. */

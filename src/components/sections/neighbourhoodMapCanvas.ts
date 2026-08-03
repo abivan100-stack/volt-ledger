@@ -10,6 +10,7 @@
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { readCssVar } from '../ui/cssVars'
 import { easeInOut } from '../../lib/easing'
+import { rgb } from '../../theme/tokens'
 
 interface Point {
   x: number
@@ -32,11 +33,18 @@ export interface NeighbourhoodMapHandle {
   pick: (x: number, y: number) => number
 }
 
-const SUN = '178,106,18'
-const TEAL = '36,92,67'
-const INK = '23,20,15'
-const RULE = '190,178,155'
+const SUN = rgb.sun
+const TEAL = rgb.settle
+const INK = rgb.ink
+const RULE = rgb['rule-2']
 const COLS = 5
+
+/** |net| above which a household is drawn as actively exporting/importing. */
+const ACTIVE_NET_THRESHOLD = 0.12
+/** net above which a household is a packet source. */
+const PACKET_EXPORT_THRESHOLD = 0.2
+/** net below which a household is a packet sink. */
+const PACKET_IMPORT_THRESHOLD = -0.1
 
 export function startNeighbourhoodMap(
   canvas: HTMLCanvasElement,
@@ -124,10 +132,10 @@ export function startNeighbourhoodMap(
     for (let i = 0; i < 10; i++) {
       const p = pos(i)
       const net = households[i].net
-      const color = net > 0.12 ? SUN : net < -0.12 ? TEAL : RULE
-      const alpha = net > 0.12 ? 0.58 : net < -0.12 ? 0.52 : 0.22
+      const color = net > ACTIVE_NET_THRESHOLD ? SUN : net < -ACTIVE_NET_THRESHOLD ? TEAL : RULE
+      const alpha = net > ACTIVE_NET_THRESHOLD ? 0.58 : net < -ACTIVE_NET_THRESHOLD ? 0.52 : 0.22
       ctx.strokeStyle = `rgba(${color},${alpha})`
-      ctx.lineWidth = net > 0.12 || net < -0.12 ? 1.6 : 1
+      ctx.lineWidth = net > ACTIVE_NET_THRESHOLD || net < -ACTIVE_NET_THRESHOLD ? 1.6 : 1
       ctx.beginPath()
       ctx.moveTo(p.x, edgeY(p))
       ctx.lineTo(p.x, busY)
@@ -143,8 +151,8 @@ export function startNeighbourhoodMap(
         const exporters: number[] = []
         const importers: number[] = []
         for (let i = 0; i < 10; i++) {
-          if (households[i].net > 0.2) exporters.push(i)
-          if (households[i].net < -0.1) importers.push(i)
+          if (households[i].net > PACKET_EXPORT_THRESHOLD) exporters.push(i)
+          if (households[i].net < PACKET_IMPORT_THRESHOLD) importers.push(i)
         }
         if (exporters.length && importers.length) {
           packets.push({
@@ -204,7 +212,7 @@ export function startNeighbourhoodMap(
       const cx = p.x
       const cy = p.y
 
-      if (net > 0.12) {
+      if (net > ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, net / 2.4)
         const breathe = options.reducedMotion ? 1 : 0.86 + 0.14 * Math.sin(t / 700 + i)
         const radius = (houseSize * 0.85 + mag * houseSize * 1.6) * breathe
@@ -215,7 +223,7 @@ export function startNeighbourhoodMap(
         ctx.beginPath()
         ctx.arc(cx, cy, radius, 0, 7)
         ctx.fill()
-      } else if (net < -0.12) {
+      } else if (net < -ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, -net / 2)
         const phase = options.reducedMotion ? 0.4 : (t / 1400) % 1
         const ringRadius = houseSize * (1.35 - phase * 0.72)
@@ -286,10 +294,10 @@ export function startNeighbourhoodMap(
       ctx.fillStyle = inkSoftColor
       ctx.fillText(h.name.split(' ')[0].toUpperCase(), cx, nameY)
       ctx.font = '600 9.5px "Spline Sans Mono",monospace'
-      if (net > 0.12) {
+      if (net > ACTIVE_NET_THRESHOLD) {
         ctx.fillStyle = `rgba(${SUN},0.95)`
         ctx.fillText(`▲ ${net.toFixed(1)} kW`, cx, valueY)
-      } else if (net < -0.12) {
+      } else if (net < -ACTIVE_NET_THRESHOLD) {
         ctx.fillStyle = `rgba(${TEAL},0.95)`
         ctx.fillText(`▼ ${Math.abs(net).toFixed(1)} kW`, cx, valueY)
       } else {

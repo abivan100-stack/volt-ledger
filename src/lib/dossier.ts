@@ -82,6 +82,8 @@ const CHART_PAD_TOP = 12
 const CHART_Y_BASE = 112
 const CHART_MIN_MINUTE = 300
 const CHART_MAX_MINUTE = 1200
+/** Chart-rendering approximation of array output — slightly above INVERTER_EFFICIENCY, kept distinct deliberately. */
+const CHART_GEN_FACTOR = 0.94
 
 export function buildDossier(
   household: DossierHouseholdInput,
@@ -113,7 +115,7 @@ export function buildDossier(
     const hour = minute / 60
     const consumption = demandCurve(hour, { id: household.id, base: household.base }, dayType)
     if (consumption > peakConsumption) peakConsumption = consumption
-    genPoints.push([minute, household.pv * solarCurve(hour, dayType) * 0.94])
+    genPoints.push([minute, household.pv * solarCurve(hour, dayType) * CHART_GEN_FACTOR])
     conPoints.push([minute, consumption])
   }
   const scale = Math.max(household.pv, peakConsumption, 1.2) * 1.12

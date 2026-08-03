@@ -19,6 +19,18 @@ export const colors = {
   void: '#A31E17',
 } as const
 
+/**
+ * The same tokens as RGB-triple strings, for composing `rgba(r,g,b,a)` in
+ * Canvas 2D (which takes literal colour strings). Mirrors `colors` exactly —
+ * change a hex token, update its triple here.
+ */
+export const rgb = {
+  ink: '23,20,15',
+  'rule-2': '190,178,155',
+  sun: '178,106,18',
+  settle: '36,92,67',
+} as const
+
 export const fonts = {
   sans: ['Archivo', 'system-ui', 'sans-serif'],
   serif: ['"Instrument Serif"', 'Georgia', 'serif'],

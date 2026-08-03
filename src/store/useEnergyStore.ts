@@ -15,6 +15,8 @@ const TRADE_INTERVAL_MS = 3200
 const TOTAL_DAILY_MINUTES = 24 * 60
 const RATE_HISTORY_LENGTH = 44
 const INITIAL_RATE = 5.5
+const TRADE_EXPORT_THRESHOLD = 0.2
+const TRADE_IMPORT_THRESHOLD = -0.1
 
 export interface Household {
   id: number
@@ -332,8 +334,8 @@ export const useEnergyStore = create<EnergyStoreState>((set, get) => {
   tryTrade: () => {
     const state = get()
     if (state.compromised) return
-    const exporters = state.households.filter((h) => h.net > 0.2)
-    const importers = state.households.filter((h) => h.net < -0.1)
+    const exporters = state.households.filter((h) => h.net > TRADE_EXPORT_THRESHOLD)
+    const importers = state.households.filter((h) => h.net < TRADE_IMPORT_THRESHOLD)
     if (!exporters.length || !importers.length) return
     const tradeSeed = state.nextBlockId
     const from = exporters[Math.floor(seededUnit(tradeSeed, 2) * exporters.length)]
