@@ -180,7 +180,16 @@ export function startHeroMesh(canvas: HTMLCanvasElement, options: HeroMeshOption
         return false
       }
       const eased = easeInOut(q)
-      const pos = quadPoint(projected(nodes[p.a]), projected(nodes[p.b]), eased)
+      // Ride the exact curve the edge is drawn with. Edges are stored (and drawn)
+      // in ascending node order, but a packet flows surplus -> deficit, which may
+      // be the reverse. quadPoint's control point flips with endpoint order, so
+      // evaluating in packet order would bow the path to the opposite side of the
+      // visible edge (a dot drifting off the line). Evaluate in canonical (lo, hi)
+      // order and invert the parameter when the packet runs hi -> lo.
+      const lo = Math.min(p.a, p.b)
+      const hi = Math.max(p.a, p.b)
+      const along = p.a === lo ? eased : 1 - eased
+      const pos = quadPoint(projected(nodes[lo]), projected(nodes[hi]), along)
       const alpha = Math.min(1, q / 0.14, (1 - q) / 0.16)
       const gradient = ctx.createRadialGradient(pos.x, pos.y, 0.5, pos.x, pos.y, 10)
       gradient.addColorStop(0, `rgba(${AMBER},${(alpha * 0.45).toFixed(3)})`)
