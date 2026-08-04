@@ -60,7 +60,6 @@ Live hash recomputation for any selected transaction in the ledger. Shows the bl
 | ![The hash chain](screenshots/ledger-chain.png) | ![Household dossier](screenshots/dossier.png) |
 | Tamper-evident hash chain | Per-household dossier |
 
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -80,10 +79,13 @@ Live hash recomputation for any selected transaction in the ledger. Shows the bl
 
 ```bash
 npm install
-npm run dev       # http://localhost:5173
-npm run build     # type-check + production build
-npm run preview   # preview production build locally
-npm run lint      # lint with oxlint
+npm run dev            # http://localhost:5173
+npm run build          # type-check + production build
+npm run preview        # preview production build locally
+npm run lint           # lint with oxlint
+npm test               # run the test suite once (183 tests)
+npm run test:watch     # test suite in watch mode
+npm run test:coverage  # test suite with coverage report
 ```
 
 ## Deployment
@@ -115,8 +117,11 @@ src/
     proofInspector.ts     #   Live block-level hash recomputation
     format.ts             #   Formatting utilities
     chainStatus.ts        #   Chain status helpers
+    chainExport.ts        #   Chain-to-CSV rendering
+    chainPdf.ts           #   Chain-to-PDF report rendering (jsPDF + autoTable)
     dossier.ts            #   Household dossier data
     householdStatus.ts    #   Household status helpers
+    easing.ts             #   Shared easing functions for animation
   store/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)
     types.ts              # Shared state/types for the three store slices
@@ -133,7 +138,7 @@ src/
     tokens.ts             # Design tokens (colours, fonts, spacing, easing)
     theme.css             # Global stylesheet
   hooks/                  # Custom React hooks
-  utils/                  # Framework-free helpers (animateProgress, scrollToId, ...)
+  utils/                  # Framework-free helpers (animateProgress, scrollToId, downloadFile, ...)
 ```
 
 ## Configuration
@@ -148,6 +153,8 @@ Simulation parameters are configurable in `src/store/simSlice.ts` (exposed throu
 
 Day types can be switched at runtime: **Sunny Weekday**, **Cloudy**, **Weekend**, and **Heatwave**. Each alters solar generation curves and demand profiles independently.
 
+`dayType` and `startHour` can also be set for a single page load without touching code — see **Shareable scenarios** under Live Ledger features, above.
+
 All simulation randomness is deterministic — the simulation math never uses `Math.random()`. Every stochastic simulation value is derived from `seededUnit`, a pure function of its integer keys, which guarantees byte-identical replay for the same inputs. (The decorative canvas animations on the landing page and ledger map do use `Math.random()` for visual jitter only; they never affect simulation state.)
 
 ## Architecture Notes
@@ -160,4 +167,4 @@ All simulation randomness is deterministic — the simulation math never uses `M
 
 ## License
 
-This project was built for the Open Energy Challenge 2026. See the repository for licence details.
+[MIT](LICENSE) — built for the Open Energy Challenge 2026.
