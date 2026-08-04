@@ -57,6 +57,10 @@
 .chain-export-button:hover {
   border-color: var(--ink-soft);
 }
+.chain-export-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 .chain-export-button:active {
   transform: translateY(1px);
 }

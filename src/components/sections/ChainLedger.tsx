@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { chainStatusFor } from '../../lib/chainStatus'
-import { chainToCsv, chainToJson } from '../../lib/chainExport'
-import { downloadTextFile } from '../../utils/downloadFile'
+import { chainToCsv } from '../../lib/chainExport'
+import { DAY_TYPE_LABELS } from '../../lib/simulation'
+import { downloadTextFile, downloadBlob } from '../../utils/downloadFile'
 import ChainLedgerRow from './ChainLedgerRow'
 import './ChainLedger.css'
 
 function ChainLedger() {
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const chain = useEnergyStore((state) => state.chain)
   const compromised = useEnergyStore((state) => state.compromised)
   const invalidCount = useEnergyStore((state) => state.invalidCount)
@@ -17,11 +20,12 @@ function ChainLedger() {
   const commitEdit = useEnergyStore((state) => state.commitEdit)
   const cancelEdit = useEnergyStore((state) => state.cancelEdit)
   const restoreChain = useEnergyStore((state) => state.restoreChain)
+  const dayType = useEnergyStore((state) => state.dayType)
+  const rate = useEnergyStore((state) => state.rate)
+  const totalKwhToday = useEnergyStore((state) => state.totalKwhToday)
+  const totalCreditToday = useEnergyStore((state) => state.totalCreditToday)
 
   const rows = chain.slice(-10).reverse()
-
-  const exportCsv = () => downloadTextFile('volt-ledger.csv', chainToCsv(chain), 'text/csv')
-  const exportJson = () => downloadTextFile('volt-ledger.json', chainToJson(chain), 'application/json')
 
   const status = chainStatusFor({
     compromised,
@@ -30,6 +34,30 @@ function ChainLedger() {
     chainLength: chain.length,
     headHash: chain.length ? chain[chain.length - 1].hash : null,
   })
+
+  const exportCsv = () => downloadTextFile('volt-ledger.csv', chainToCsv(chain), 'text/csv')
+  const exportPdf = async () => {
+    if (generatingPdf) return
+    setGeneratingPdf(true)
+    try {
+      // jsPDF bundles html2canvas + dompurify (~230kB) it doesn't need for
+      // this text/table-only usage — load it on click, not with the route,
+      // so visitors who never export never pay for it.
+      const { buildChainPdf } = await import('../../lib/chainPdf')
+      const blob = buildChainPdf(chain, {
+        dayTypeLabel: DAY_TYPE_LABELS[dayType],
+        rate,
+        totalKwh: totalKwhToday,
+        totalCredit: totalCreditToday,
+        statusText: status.text,
+        statusVariant: status.variant,
+        generatedAt: new Date(),
+      })
+      downloadBlob('volt-ledger.pdf', blob)
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
 
   return (
     <div className="chain-block">
@@ -42,8 +70,14 @@ function ChainLedger() {
           <button type="button" onClick={exportCsv} className="mono chain-export-button">
             EXPORT CSV
           </button>
-          <button type="button" onClick={exportJson} className="mono chain-export-button">
-            EXPORT JSON
+          <button
+            type="button"
+            onClick={exportPdf}
+            disabled={generatingPdf}
+            aria-busy={generatingPdf}
+            className="mono chain-export-button"
+          >
+            {generatingPdf ? 'GENERATING…' : 'EXPORT PDF'}
           </button>
         </div>
       </div>

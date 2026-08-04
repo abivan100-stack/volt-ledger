@@ -25,21 +25,3 @@ export function chainToCsv(chain: ChainBlock[]): string {
   )
   return [CSV_HEADER.join(','), ...rows].join('\n')
 }
-
-/** Renders the chain as JSON — the fields a verifier needs, not the UI-only ones (`invalid`, `calc`, `tampered`). */
-export function chainToJson(chain: ChainBlock[]): string {
-  return JSON.stringify(
-    chain.map((block) => ({
-      id: block.id,
-      time: block.payload.t,
-      from: block.payload.from,
-      to: block.payload.to,
-      kwh: block.payload.kwh,
-      credit: block.payload.credit,
-      hash: block.hash,
-      prevHash: block.prevHash,
-    })),
-    null,
-    2,
-  )
-}
