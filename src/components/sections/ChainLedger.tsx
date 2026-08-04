@@ -1,5 +1,7 @@
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { chainStatusFor } from '../../lib/chainStatus'
+import { chainToCsv, chainToJson } from '../../lib/chainExport'
+import { downloadTextFile } from '../../utils/downloadFile'
 import ChainLedgerRow from './ChainLedgerRow'
 import './ChainLedger.css'
 
@@ -18,6 +20,9 @@ function ChainLedger() {
 
   const rows = chain.slice(-10).reverse()
 
+  const exportCsv = () => downloadTextFile('volt-ledger.csv', chainToCsv(chain), 'text/csv')
+  const exportJson = () => downloadTextFile('volt-ledger.json', chainToJson(chain), 'application/json')
+
   const status = chainStatusFor({
     compromised,
     restoredFlash,
@@ -33,6 +38,14 @@ function ChainLedger() {
           The chain <span className="chain-title-sub">· sha-256 sealed</span>
         </h2>
         <div className="mono chain-tamper-hint">TAMPER TEST — CLICK ANY kWh AND RETYPE IT</div>
+        <div className="chain-export-actions">
+          <button type="button" onClick={exportCsv} className="mono chain-export-button">
+            EXPORT CSV
+          </button>
+          <button type="button" onClick={exportJson} className="mono chain-export-button">
+            EXPORT JSON
+          </button>
+        </div>
       </div>
 
       {compromised && <div className="chain-void-stamp">INTEGRITY VOID</div>}

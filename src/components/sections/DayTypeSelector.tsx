@@ -1,10 +1,24 @@
+import { useSearchParams } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { DAY_TYPES, DAY_TYPE_LABELS } from '../../lib/simulation'
+import { DAY_TYPES, DAY_TYPE_LABELS, type DayType } from '../../lib/simulation'
 import './DayTypeSelector.css'
 
 function DayTypeSelector() {
   const dayType = useEnergyStore((state) => state.dayType)
   const setDayType = useEnergyStore((state) => state.setDayType)
+  const [, setSearchParams] = useSearchParams()
+
+  const selectDayType = (option: DayType) => {
+    setDayType(option)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('day', option)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   return (
     <div data-reveal className="day-type-selector">
@@ -14,7 +28,7 @@ function DayTypeSelector() {
           <button
             key={option}
             type="button"
-            onClick={() => setDayType(option)}
+            onClick={() => selectDayType(option)}
             aria-pressed={option === dayType}
             className={`mono day-type-option ${option === dayType ? 'day-type-option-active' : ''}`}
           >

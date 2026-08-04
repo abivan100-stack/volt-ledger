@@ -38,6 +38,29 @@
   color: var(--sun);
 }
 
+.chain-export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chain-export-button {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s, border-color 0.15s;
+}
+.chain-export-button:hover {
+  border-color: var(--ink-soft);
+}
+.chain-export-button:active {
+  transform: translateY(1px);
+}
+
 .chain-void-stamp {
   position: absolute;
   top: -6px;

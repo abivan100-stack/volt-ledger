@@ -39,6 +39,8 @@ A simulated solar afternoon on the Nolambur microgrid (Chennai):
 - **Per-household dossier** — Rooftop specifications, generation-versus-demand curves, and the day's trade activity.
 - **Day-type selector** — Switch between Sunny Weekday, Cloudy, Weekend, and Heatwave to see how conditions affect generation, demand, and trading.
 - **Tamper test** — Click any kWh figure and retype it. That row and every row after it immediately fail verification, an `INTEGRITY VOID` stamp appears, and settlement halts. Restore original values to re-verify the chain.
+- **Ledger export** — Download the full chain as CSV or JSON from the chain header, for offline inspection or sharing.
+- **Shareable scenarios** — `/ledger?day=<dayType>&hour=<0-23>` opens the ledger pre-set to a given day type and simulation start hour; picking a day type from the selector updates the URL to match.
 
 ### Metrics Dashboard
 
