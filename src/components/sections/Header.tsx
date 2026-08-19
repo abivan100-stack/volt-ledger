@@ -56,11 +56,11 @@ function Header() {
               <Link to="/ledger" className="mono header-link">LIVE LEDGER →</Link>
             </>
           )}
-          <ThemeToggle />
           <span className="mono header-rate">
             <span className="header-rate-dot" />
             ₹{rate.toFixed(2)}/kWh
           </span>
+          <ThemeToggle />
         </nav>
       </div>
     </header>
