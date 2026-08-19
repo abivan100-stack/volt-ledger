@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom'
 
 function ChainPage() {
-  return <Navigate to="/ledger/fairness" replace />
+  return <Navigate to="/ledger/settlement" replace />
 }
 
 export default ChainPage

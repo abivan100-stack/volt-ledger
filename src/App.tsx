@@ -8,7 +8,7 @@ import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
 const NeighbourhoodPage = lazy(() => import('./pages/NeighbourhoodPage'))
-const FairnessPage = lazy(() => import('./pages/FairnessPage'))
+const SettlementPage = lazy(() => import('./pages/SettlementPage'))
 const ChainPage = lazy(() => import('./pages/ChainPage'))
 
 /** Applies `?day=` and `?hour=` from a shared permalink before the sim's initial seed. Silently ignores anything invalid. */
@@ -63,7 +63,8 @@ function App() {
           <Route path="/" element={<VoltPage />} />
           <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/ledger/neighbourhood" element={<NeighbourhoodPage />} />
-          <Route path="/ledger/fairness" element={<FairnessPage />} />
+          <Route path="/ledger/settlement" element={<SettlementPage />} />
+          <Route path="/ledger/fairness" element={<SettlementPage />} />
           <Route path="/ledger/chain" element={<ChainPage />} />
         </Routes>
       </Suspense>

@@ -3,12 +3,12 @@ import FairnessScore from '../components/sections/FairnessScore'
 import ChainLedger from '../components/sections/ChainLedger'
 import ProofInspector from '../components/sections/ProofInspector'
 
-function FairnessPage() {
+function SettlementPage() {
   return (
     <LedgerPageFrame
-      kicker="03 · Fairness + proof"
-      title={<>Who benefits, and can we <em>prove it?</em></>}
-      body="Read the day’s distribution of value, then inspect the sealed record behind it. Fairness shows who gained; the chain shows that the figures are accountable."
+      kicker="03 · Settlement record"
+      title={<>A fair exchange, <em>accounted for.</em></>}
+      body="See how value moved through the street, then verify the sealed record behind every settlement. One view for the outcome and the evidence."
     >
       <FairnessScore />
       <ChainLedger />
@@ -17,4 +17,4 @@ function FairnessPage() {
   )
 }
 
-export default FairnessPage
+export default SettlementPage
