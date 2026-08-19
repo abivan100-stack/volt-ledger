@@ -10,6 +10,7 @@
  */
 
 :root {
+  color-scheme: light dark;
   --paper: #F2EEE4;
   --paper-2: #E9E2D2;
   --card: #FCFAF3;
@@ -25,6 +26,25 @@
   --container-max: 1200px;
   --container-pad-x: 40px;
   --header-height: 66px;
+}
+
+/* Native dark mode follows the user's operating-system preference. The warm
+   neutrals stay intentional, so the ledger still feels like the same product
+   instead of switching to an unrelated black-and-neon theme. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17140F;
+    --paper-2: #252019;
+    --card: #211C15;
+    --ink: #F5F1E8;
+    --ink-soft: #B8AE9D;
+    --rule: #3D352A;
+    --rule-2: #6A5B47;
+    --sun: #D9902B;
+    --settle: #66B58D;
+    --volt: #6CCB8D;
+    --void: #F07B70;
+  }
 }
 
 body {

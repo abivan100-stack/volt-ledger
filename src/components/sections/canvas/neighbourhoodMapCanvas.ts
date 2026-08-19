@@ -11,7 +11,6 @@ import { useEnergyStore } from '../../../store/useEnergyStore'
 import { HOUSEHOLD_COUNT } from '../../../store/simSlice'
 import { readCssVar } from '../../ui/cssVars'
 import { easeInOut } from '../../../lib/easing'
-import { rgb } from '../../../theme/tokens'
 
 interface Point {
   x: number
@@ -35,11 +34,16 @@ export interface NeighbourhoodMapHandle {
   setPaused: (paused: boolean) => void
 }
 
-const SUN = rgb.sun
-const TEAL = rgb.settle
-const INK = rgb.ink
-const RULE = rgb['rule-2']
 const COLS = 5
+
+function cssColorToRgb(value: string): string {
+  const hex = value.trim().replace(/^#/, '')
+  if (hex.length !== 6) return '0,0,0'
+  const red = Number.parseInt(hex.slice(0, 2), 16)
+  const green = Number.parseInt(hex.slice(2, 4), 16)
+  const blue = Number.parseInt(hex.slice(4, 6), 16)
+  return `${red},${green},${blue}`
+}
 
 /** |net| above which a household is drawn as actively exporting/importing. */
 const ACTIVE_NET_THRESHOLD = 0.12
@@ -55,8 +59,21 @@ export function startNeighbourhoodMap(
   const ctx = canvas.getContext('2d')
   if (!ctx) return { stop: () => {}, pick: () => -1, setPaused: () => {} }
 
-  const inkSoftColor = readCssVar('--ink-soft')
-  const cardColor = readCssVar('--card')
+  let sun = cssColorToRgb(readCssVar('--sun'))
+  let teal = cssColorToRgb(readCssVar('--settle'))
+  let ink = cssColorToRgb(readCssVar('--ink'))
+  let rule = cssColorToRgb(readCssVar('--rule-2'))
+  let inkSoftColor = readCssVar('--ink-soft')
+  let cardColor = readCssVar('--card')
+
+  const refreshThemeColors = () => {
+    sun = cssColorToRgb(readCssVar('--sun'))
+    teal = cssColorToRgb(readCssVar('--settle'))
+    ink = cssColorToRgb(readCssVar('--ink'))
+    rule = cssColorToRgb(readCssVar('--rule-2'))
+    inkSoftColor = readCssVar('--ink-soft')
+    cardColor = readCssVar('--card')
+  }
 
   let width = 0
   let height = 0
@@ -108,14 +125,14 @@ export function startNeighbourhoodMap(
     const busX0 = colX(0)
     const busX1 = colX(COLS - 1)
 
-    ctx.strokeStyle = `rgba(${INK},0.28)`
+    ctx.strokeStyle = `rgba(${ink},0.28)`
     ctx.lineWidth = 3
     ctx.beginPath()
     ctx.moveTo(busX0, busY)
     ctx.lineTo(busX1, busY)
     ctx.stroke()
 
-    ctx.strokeStyle = `rgba(${INK},0.12)`
+    ctx.strokeStyle = `rgba(${ink},0.12)`
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(busX0, busY - 4)
@@ -134,7 +151,7 @@ export function startNeighbourhoodMap(
     for (let i = 0; i < HOUSEHOLD_COUNT; i++) {
       const p = pos(i)
       const net = households[i].net
-      const color = net > ACTIVE_NET_THRESHOLD ? SUN : net < -ACTIVE_NET_THRESHOLD ? TEAL : RULE
+      const color = net > ACTIVE_NET_THRESHOLD ? sun : net < -ACTIVE_NET_THRESHOLD ? teal : rule
       const alpha = net > ACTIVE_NET_THRESHOLD ? 0.58 : net < -ACTIVE_NET_THRESHOLD ? 0.52 : 0.22
       ctx.strokeStyle = `rgba(${color},${alpha})`
       ctx.lineWidth = net > ACTIVE_NET_THRESHOLD || net < -ACTIVE_NET_THRESHOLD ? 1.6 : 1
@@ -193,13 +210,13 @@ export function startNeighbourhoodMap(
         }
         const alpha = Math.min(1, q / 0.12, (1 - q) / 0.14)
         const gradient = ctx.createRadialGradient(x, y, 0.5, x, y, 9)
-        gradient.addColorStop(0, `rgba(${SUN},${(alpha * 0.55).toFixed(3)})`)
-        gradient.addColorStop(1, `rgba(${SUN},0)`)
+        gradient.addColorStop(0, `rgba(${sun},${(alpha * 0.55).toFixed(3)})`)
+        gradient.addColorStop(1, `rgba(${sun},0)`)
         ctx.fillStyle = gradient
         ctx.beginPath()
         ctx.arc(x, y, 9, 0, 7)
         ctx.fill()
-        ctx.fillStyle = `rgba(${SUN},${alpha.toFixed(3)})`
+        ctx.fillStyle = `rgba(${sun},${alpha.toFixed(3)})`
         ctx.beginPath()
         ctx.arc(x, y, 2.6, 0, 7)
         ctx.fill()
@@ -219,8 +236,8 @@ export function startNeighbourhoodMap(
         const breathe = options.reducedMotion ? 1 : 0.86 + 0.14 * Math.sin(t / 700 + i)
         const radius = (houseSize * 0.85 + mag * houseSize * 1.6) * breathe
         const gradient = ctx.createRadialGradient(cx, cy, houseSize * 0.3, cx, cy, radius)
-        gradient.addColorStop(0, `rgba(${SUN},${(0.26 * (0.5 + mag)).toFixed(3)})`)
-        gradient.addColorStop(1, `rgba(${SUN},0)`)
+        gradient.addColorStop(0, `rgba(${sun},${(0.26 * (0.5 + mag)).toFixed(3)})`)
+        gradient.addColorStop(1, `rgba(${sun},0)`)
         ctx.fillStyle = gradient
         ctx.beginPath()
         ctx.arc(cx, cy, radius, 0, 7)
@@ -229,14 +246,14 @@ export function startNeighbourhoodMap(
         const mag = Math.min(1, -net / 2)
         const phase = options.reducedMotion ? 0.4 : (t / 1400) % 1
         const ringRadius = houseSize * (1.35 - phase * 0.72)
-        ctx.strokeStyle = `rgba(${TEAL},${(0.5 * mag * (1 - phase)).toFixed(3)})`
+        ctx.strokeStyle = `rgba(${teal},${(0.5 * mag * (1 - phase)).toFixed(3)})`
         ctx.lineWidth = 1.4
         ctx.beginPath()
         ctx.arc(cx, cy, ringRadius, 0, 7)
         ctx.stroke()
       }
 
-      ctx.strokeStyle = `rgba(${INK},0.10)`
+      ctx.strokeStyle = `rgba(${ink},0.10)`
       ctx.lineWidth = 3
       ctx.beginPath()
       ctx.arc(cx, cy, gaugeRadius, 0, 7)
@@ -245,7 +262,7 @@ export function startNeighbourhoodMap(
       const frac = Math.min(1, Math.abs(net) / 2.6)
       if (frac > 0.02) {
         const give = net >= 0
-        ctx.strokeStyle = give ? `rgba(${SUN},0.95)` : `rgba(${TEAL},0.95)`
+        ctx.strokeStyle = give ? `rgba(${sun},0.95)` : `rgba(${teal},0.95)`
         ctx.lineWidth = 3
         ctx.lineCap = 'round'
         ctx.beginPath()
@@ -255,7 +272,7 @@ export function startNeighbourhoodMap(
       }
 
       ctx.fillStyle = cardColor
-      ctx.strokeStyle = `rgba(${INK},0.62)`
+      ctx.strokeStyle = `rgba(${ink},0.62)`
       ctx.lineWidth = 1.2
       ctx.beginPath()
       ctx.rect(cx - houseSize / 2, cy - houseSize / 2, houseSize, houseSize)
@@ -264,9 +281,9 @@ export function startNeighbourhoodMap(
 
       if (h.pv > 0) {
         const panelSize = houseSize * 0.6
-        ctx.fillStyle = `rgba(${SUN},0.85)`
+        ctx.fillStyle = `rgba(${sun},0.85)`
         ctx.fillRect(cx - panelSize / 2, cy - panelSize / 2, panelSize, panelSize)
-        ctx.strokeStyle = `rgba(${INK},0.38)`
+        ctx.strokeStyle = `rgba(${ink},0.38)`
         ctx.lineWidth = 0.75
         ctx.beginPath()
         ctx.moveTo(cx - panelSize / 2, cy)
@@ -274,10 +291,10 @@ export function startNeighbourhoodMap(
         ctx.moveTo(cx, cy - panelSize / 2)
         ctx.lineTo(cx, cy + panelSize / 2)
         ctx.stroke()
-        ctx.strokeStyle = `rgba(${INK},0.24)`
+        ctx.strokeStyle = `rgba(${ink},0.24)`
         ctx.strokeRect(cx - panelSize / 2, cy - panelSize / 2, panelSize, panelSize)
       } else {
-        ctx.fillStyle = `rgba(${INK},0.22)`
+        ctx.fillStyle = `rgba(${ink},0.22)`
         ctx.beginPath()
         ctx.arc(cx, cy, 3.5, 0, 7)
         ctx.fill()
@@ -297,10 +314,10 @@ export function startNeighbourhoodMap(
       ctx.fillText(h.name.split(' ')[0].toUpperCase(), cx, nameY)
       ctx.font = '600 9.5px "Spline Sans Mono",monospace'
       if (net > ACTIVE_NET_THRESHOLD) {
-        ctx.fillStyle = `rgba(${SUN},0.95)`
+        ctx.fillStyle = `rgba(${sun},0.95)`
         ctx.fillText(`▲ ${net.toFixed(1)} kW`, cx, valueY)
       } else if (net < -ACTIVE_NET_THRESHOLD) {
-        ctx.fillStyle = `rgba(${TEAL},0.95)`
+        ctx.fillStyle = `rgba(${teal},0.95)`
         ctx.fillText(`▼ ${Math.abs(net).toFixed(1)} kW`, cx, valueY)
       } else {
         ctx.fillStyle = inkSoftColor
@@ -327,6 +344,9 @@ export function startNeighbourhoodMap(
   let rafHandle: number | undefined
   let intervalHandle: ReturnType<typeof setInterval> | undefined
   let visibilityHandler: (() => void) | undefined
+  const themeMedia = window.matchMedia?.('(prefers-color-scheme: dark)')
+  const themeChangeHandler = () => refreshThemeColors()
+  themeMedia?.addEventListener?.('change', themeChangeHandler)
   let startLoop: (() => void) | undefined
   let isPaused = false
   let dead = false
@@ -389,6 +409,7 @@ export function startNeighbourhoodMap(
       if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
       if (intervalHandle !== undefined) clearInterval(intervalHandle)
       if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
+      themeMedia?.removeEventListener?.('change', themeChangeHandler)
     },
   }
 }

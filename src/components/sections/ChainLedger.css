@@ -117,7 +117,7 @@
 .chain-card {
   background: var(--card);
   border: 1px solid var(--rule-2);
-  box-shadow: 0 34px 70px -46px rgba(23, 20, 15, 0.42);
+  box-shadow: 0 34px 70px -46px color-mix(in srgb, var(--ink) 42%, transparent);
 }
 
 /* The table's columns are fixed-width so hashes stay legible — below that
@@ -139,12 +139,12 @@
 }
 
 .chain-status-compromised {
-  background: rgba(163, 30, 23, 0.06);
+  background: color-mix(in srgb, var(--void) 6%, transparent);
   animation: bannerIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .chain-status-restored {
-  background: rgba(36, 92, 67, 0.07);
+  background: color-mix(in srgb, var(--settle) 7%, transparent);
 }
 
 .chain-status-verified {

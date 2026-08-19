@@ -4,6 +4,8 @@ import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
 import { DAY_TYPES, type DayType } from './lib/simulation'
 import VoltPage from './pages/VoltPage'
+import NotFoundPage from './pages/NotFoundPage'
+import AppLoading from './components/ui/AppLoading'
 import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
@@ -53,11 +55,7 @@ function App() {
         SKIP TO CONTENT
       </a>
       <Suspense
-        fallback={
-          <div className="container app-loading">
-            <div className="mono">LOADING…</div>
-          </div>
-        }
+        fallback={<AppLoading />}
       >
         <Routes>
           <Route path="/" element={<VoltPage />} />
@@ -66,6 +64,7 @@ function App() {
           <Route path="/ledger/settlement" element={<SettlementPage />} />
           <Route path="/ledger/fairness" element={<SettlementPage />} />
           <Route path="/ledger/chain" element={<ChainPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </>

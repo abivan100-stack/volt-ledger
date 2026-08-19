@@ -1,6 +1,6 @@
 @keyframes txIn {
-  0% { opacity: 0; transform: translateY(-10px); background-color: rgba(178, 106, 18, 0.14); }
-  55% { background-color: rgba(178, 106, 18, 0.12); }
+  0% { opacity: 0; transform: translateY(-10px); background-color: color-mix(in srgb, var(--sun) 14%, transparent); }
+  55% { background-color: color-mix(in srgb, var(--sun) 12%, transparent); }
   100% { opacity: 1; transform: none; background-color: transparent; }
 }
 
@@ -28,7 +28,7 @@
 
 .chain-row-invalid {
   border-left-color: var(--void);
-  background: rgba(163, 30, 23, 0.05);
+  background: color-mix(in srgb, var(--void) 5%, transparent);
 }
 
 .chain-row-time {

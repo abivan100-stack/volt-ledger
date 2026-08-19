@@ -95,7 +95,7 @@
   right: 0;
   bottom: calc(var(--gap-start) * 1%);
   height: calc(var(--gap-height) * 1%);
-  background: repeating-linear-gradient(45deg, rgba(23, 20, 15, 0.11) 0 5px, transparent 5px 11px);
+  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ink) 11%, transparent) 0 5px, transparent 5px 11px);
 }
 
 .spread-gap-label {

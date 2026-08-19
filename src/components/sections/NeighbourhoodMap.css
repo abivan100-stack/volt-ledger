@@ -54,8 +54,8 @@
 .map-frame {
   position: relative;
   border: 1px solid var(--rule-2);
-  background: radial-gradient(120% 90% at 50% 46%, var(--card) 0%, #F1EBDD 100%);
-  box-shadow: 0 34px 70px -46px rgba(23, 20, 15, 0.42);
+  background: radial-gradient(120% 90% at 50% 46%, var(--card) 0%, var(--paper-2) 100%);
+  box-shadow: 0 34px 70px -46px color-mix(in srgb, var(--ink) 42%, transparent);
   overflow: hidden;
 }
 
