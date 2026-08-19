@@ -1,25 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId } from '../../utils/scrollToId'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
-import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
-import { startHeroMesh } from './canvas/heroMeshCanvas'
+import EnergyNetwork from './EnergyNetwork'
 import './Hero.css'
 
 function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const activity = useEnergyStore((state) => state.config.activity)
 
   useScrollReveal(sectionRef, 0.12)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    return startHeroMesh(canvas, { activity, reducedMotion: prefersReducedMotion() })
-  }, [activity])
 
   return (
     <section ref={sectionRef} className="hero">
@@ -47,8 +37,8 @@ function Hero() {
             LIVE — SETTLING NOW ON THE NOLAMBUR LEDGER →
           </Link>
         </div>
-        <div className="hero-canvas-wrap">
-          <canvas ref={canvasRef} aria-hidden="true" className="hero-canvas" />
+        <div className="hero-visual">
+          <EnergyNetwork />
         </div>
       </div>
     </section>

@@ -33,7 +33,7 @@ unless it directly violates one of the rules below.
      consumed by the component's `.css` file.
    - The actual visual rule (the real height/color/position) must live in the
      component's co-located `.css` file, e.g. `height: calc(var(--bar-pct) * 1%)`.
-   - Canvas 2D drawing code (`heroMeshCanvas.ts`, `neighbourhoodMapCanvas.ts`) is
+   - Canvas 2D drawing code (`neighbourhoodMapCanvas.ts`) is
      exempt — `fillStyle`/`strokeStyle` need literal color strings, resolved via
      `readCssVar()`, not JSX inline styles. Don't flag that pattern.
 

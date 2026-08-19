@@ -95,16 +95,22 @@
   background: var(--settle);
 }
 
-.hero-canvas-wrap {
-  flex: 1.1 1 450px;
-  position: relative;
-  height: min(560px, 62vw);
+.hero-visual {
+  flex: 1.25 1 440px;
+  min-width: 0;
+  display: flex;
+}
+
+.hero-visual > * {
+  flex: 1;
   min-width: 0;
 }
 
-.hero-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+@media (max-width: 640px) {
+  .hero-row {
+    padding-top: 40px;
+    padding-bottom: 48px;
+    gap: 36px;
+    min-height: 0;
+  }
 }

@@ -53,7 +53,7 @@ In any changed `.css` or `.tsx` file:
   CSSVars}` in `src/components/ui/cssVars.ts`) — these are computed,
   non-token values (tween positions, gauge angles), not design tokens. Don't
   flag them.
-- Canvas 2D draw code (`heroMeshCanvas.ts`, `neighbourhoodMapCanvas.ts`) using
+- Canvas 2D draw code (`neighbourhoodMapCanvas.ts`) using
   `readCssVar('--sun')` etc. — that's the sanctioned way to get a literal
   color string for `fillStyle`/`strokeStyle` since Canvas can't take `var()`.
   Only flag it if it hardcodes a color instead of calling `readCssVar`.
