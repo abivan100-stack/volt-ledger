@@ -33,6 +33,7 @@ const SEED_KWH_SALT = 101
 const SEED_RATE_MIN = 5.3
 const SEED_RATE_RANGE = 0.5
 const SEED_RATE_SALT = 103
+const SEED_INTERVAL_MINUTES = 5
 
 export const SIM_SPEEDS = [1, 2, 4, 8] as const
 
@@ -92,6 +93,7 @@ const SEED_PAIRS: Array<[number, number]> = [
 function seedChain(
   households: Household[],
   startMinute: number,
+  dayType: DayType,
 ): { households: Household[]; chain: ChainBlock[]; nextBlockId: number; totalKwh: number; totalCredit: number } {
   let nextHouseholds = households
   let chain: ChainBlock[] = []
@@ -103,7 +105,13 @@ function seedChain(
     const [fromIndex, toIndex] = SEED_PAIRS[i]
     const from = nextHouseholds[fromIndex]
     const to = nextHouseholds[toIndex]
-    const kwh = Math.round((SEED_KWH_MIN + seededUnit(i * SEED_KWH_SALT) * SEED_KWH_RANGE) * 100) / 100
+    const tradeMinute = startMinute - SEED_OFFSETS_MINUTES[i]
+    const fromNet = tickHousehold(from.pv, from.base, from.id, tradeMinute, dayType).net
+    const toNet = tickHousehold(to.pv, to.base, to.id, tradeMinute, dayType).net
+    const availableKwh = Math.min(Math.max(0, fromNet), Math.max(0, -toNet)) * (SEED_INTERVAL_MINUTES / 60)
+    const requestedKwh = SEED_KWH_MIN + seededUnit(i * SEED_KWH_SALT) * SEED_KWH_RANGE
+    const kwh = Math.floor(Math.min(requestedKwh, availableKwh) * 100) / 100
+    if (kwh <= 0) continue
     const credit = Math.round(kwh * (SEED_RATE_MIN + seededUnit(i * SEED_RATE_SALT) * SEED_RATE_RANGE) * 100) / 100
     nextHouseholds = nextHouseholds.map((h, index) => {
       if (index === fromIndex) return applyTrade(h, 'seller', kwh, credit)
@@ -111,7 +119,7 @@ function seedChain(
       return h
     })
     const block = appendBlock(chain, nextBlockId, {
-      t: formatClock(startMinute - SEED_OFFSETS_MINUTES[i]),
+      t: formatClock(tradeMinute),
       from: from.name,
       to: to.name,
       kwh,
@@ -132,9 +140,10 @@ function initialScenario(dayType: DayType, startHour: number) {
     ...tickHousehold(household.pv, household.base, household.id, startMinute, dayType),
     ...integrateGenerationAndConsumption(household.pv, household.base, household.id, dayType, startMinute),
   }))
-  const seeded = seedChain(households, startMinute)
+  const seeded = seedChain(households, startMinute, dayType)
   return {
     simMinute: startMinute,
+    lastTradeCheckMinute: startMinute,
     households: seeded.households,
     chain: seeded.chain,
     nextBlockId: seeded.nextBlockId,
@@ -154,6 +163,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
   running: false,
   simDay: 1,
   simMinute: 8 * 60,
+  lastTradeCheckMinute: 8 * 60,
   households: createInitialHouseholds(),
   rate: INITIAL_RATE,
   prevRate: INITIAL_RATE,
@@ -188,6 +198,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       prevRate: INITIAL_RATE,
       rateHistory: new Array(RATE_HISTORY_LENGTH).fill(INITIAL_RATE),
       tickCount: 0,
+      ledgerHistory: [],
       compromised: false,
       invalidCount: 0,
       restoredFlash: false,
@@ -275,13 +286,35 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       totalCreditToday,
       tickCount,
       ...(rolled
-        ? { chain: [], nextBlockId: 1, compromised: false, invalidCount: 0, restoredFlash: false, simDay: state.simDay + 1 }
+        ? {
+            chain: [],
+            ledgerHistory: state.chain.length
+              ? [...state.ledgerHistory, {
+                  simDay: state.simDay,
+                  dayType: state.dayType,
+                  chain: state.chain,
+                  totalKwh: state.totalKwhToday,
+                  totalCredit: state.totalCreditToday,
+                  rate: state.rate,
+                  compromised: state.compromised,
+                  invalidCount: state.invalidCount,
+                }]
+              : state.ledgerHistory,
+            nextBlockId: 1,
+            compromised: false,
+            invalidCount: 0,
+            restoredFlash: false,
+            simDay: state.simDay + 1,
+            lastTradeCheckMinute: simMinute,
+          }
         : {}),
     })
   },
 
   tryTrade: () => {
     const state = get()
+    const elapsedMinutes = (state.simMinute - state.lastTradeCheckMinute + TOTAL_DAILY_MINUTES) % TOTAL_DAILY_MINUTES
+    set({ lastTradeCheckMinute: state.simMinute })
     if (state.compromised) return
     const exporters = state.households.filter((h) => h.net > TRADE_EXPORT_THRESHOLD)
     const importers = state.households.filter((h) => h.net < TRADE_IMPORT_THRESHOLD)
@@ -289,10 +322,10 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const tradeSeed = state.nextBlockId
     const from = exporters[Math.floor(seededUnit(tradeSeed, TRADE_FROM_SALT) * exporters.length)]
     const to = importers[Math.floor(seededUnit(tradeSeed, TRADE_TO_SALT) * importers.length)]
-    const simulatedHours = (TRADE_INTERVAL_MS / TICK_INTERVAL_MS) * MINUTES_PER_TICK_UNIT * state.config.simSpeed / 60
+    const simulatedHours = elapsedMinutes / 60
     const availableKwh = Math.min(from.net, -to.net) * simulatedHours
     const requestedKwh = TRADE_KWH_MIN + seededUnit(tradeSeed, TRADE_KWH_SALT) * TRADE_KWH_RANGE
-    const kwh = Math.round(Math.min(requestedKwh, availableKwh) * 100) / 100
+    const kwh = Math.floor(Math.min(requestedKwh, availableKwh) * 100) / 100
     if (kwh <= 0) return
     const credit = Math.round(kwh * state.rate * 100) / 100
 

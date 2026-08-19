@@ -31,6 +31,17 @@ export interface SimulationConfig {
   activity: number
 }
 
+export interface LedgerArchive {
+  simDay: number
+  dayType: DayType
+  chain: ChainBlock[]
+  totalKwh: number
+  totalCredit: number
+  rate: number
+  compromised: boolean
+  invalidCount: number
+}
+
 export interface SimSlice {
   config: SimulationConfig
   dayType: DayType
@@ -38,6 +49,7 @@ export interface SimSlice {
   running: boolean
   simDay: number
   simMinute: number
+  lastTradeCheckMinute: number
   households: Household[]
   rate: number
   prevRate: number
@@ -56,6 +68,7 @@ export interface SimSlice {
 
 export interface LedgerSlice {
   chain: ChainBlock[]
+  ledgerHistory: LedgerArchive[]
   nextBlockId: number
   totalKwhToday: number
   totalCreditToday: number

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useEnergyStore } from '../useEnergyStore'
 import { formatClock } from '../../lib/format'
+import { tickHousehold } from '../../lib/simulation'
 
 const TOTAL_DAILY_MINUTES = 24 * 60
 const RATE_HISTORY_LENGTH = 44
-const SEEDED_BLOCK_COUNT = 9
 
 const pristine = useEnergyStore.getState()
 
@@ -90,6 +90,13 @@ describe('tick', () => {
     expect(state.totalCreditToday).toBe(0)
     expect(chainLengthBeforeRollover).toBeGreaterThan(0)
     expect(state.chain).toEqual([])
+    expect(state.ledgerHistory).toHaveLength(1)
+    expect(state.ledgerHistory[0]).toMatchObject({
+      simDay: 1,
+      totalKwh: 12.5,
+      totalCredit: 30,
+    })
+    expect(state.ledgerHistory[0].chain).toHaveLength(chainLengthBeforeRollover)
     expect(state.nextBlockId).toBe(1)
     expect(state.simDay).toBe(2)
     for (const h of state.households) {
@@ -114,6 +121,7 @@ describe('tryTrade', () => {
       households: state.households.map((h) =>
         h.id === exporter.id ? { ...h, net: 2 } : h.id === importer.id ? { ...h, net: -2 } : h,
       ),
+      lastTradeCheckMinute: state.simMinute - 24,
     })
     return { exporterId: exporter.id, importerId: importer.id }
   }
@@ -152,11 +160,27 @@ describe('tryTrade', () => {
       households: state.households.map((h) =>
         h.id === 0 ? { ...h, net: 0.21 } : h.id === 3 ? { ...h, net: -0.11 } : { ...h, net: 0 },
       ),
+      lastTradeCheckMinute: state.simMinute - 24,
     })
 
     useEnergyStore.getState().tryTrade()
     const block = useEnergyStore.getState().chain.at(-1)
     expect(block?.payload.kwh).toBeLessThanOrEqual(0.05)
+  })
+
+  it('uses elapsed simulated time rather than the current speed to cap a trade', () => {
+    const state = useEnergyStore.getState()
+    useEnergyStore.setState({
+      simMinute: 504,
+      lastTradeCheckMinute: 480,
+      households: state.households.map((h) =>
+        h.id === 0 ? { ...h, net: 0.21 } : h.id === 3 ? { ...h, net: -0.11 } : { ...h, net: 0 },
+      ),
+    })
+    useEnergyStore.getState().setSimSpeed(8)
+    useEnergyStore.getState().tryTrade()
+
+    expect(useEnergyStore.getState().chain.at(-1)?.payload.kwh).toBeLessThanOrEqual(0.04)
   })
 
   it('does nothing when the chain is compromised', () => {
@@ -211,7 +235,8 @@ describe('start and stop', () => {
     expect(state.editingBlockId).toBeNull()
     expect(state.editValue).toBe('')
     expect(state.simDay).toBe(1)
-    expect(state.chain).toHaveLength(SEEDED_BLOCK_COUNT)
+    expect(state.ledgerHistory).toEqual([])
+    expect(state.chain.length).toBeGreaterThan(0)
   })
 
   it('start seeds the chain exactly once and begins running', () => {
@@ -220,17 +245,28 @@ describe('start and stop', () => {
     expect(state.initialized).toBe(true)
     expect(state.running).toBe(true)
     expect(state.simMinute).toBe(8 * 60)
-    expect(state.chain).toHaveLength(SEEDED_BLOCK_COUNT)
-    expect(state.nextBlockId).toBe(SEEDED_BLOCK_COUNT + 1)
+    expect(state.chain.length).toBeGreaterThan(0)
+    expect(state.nextBlockId).toBe(state.chain.length + 1)
     expect(state.totalKwhToday).toBeGreaterThan(0)
     expect(state.totalCreditToday).toBeGreaterThan(0)
+    for (const block of state.chain) {
+      const [hour, minute] = block.payload.t.split(':').map(Number)
+      const tradeMinute = hour * 60 + minute
+      const from = state.households.find((household) => household.name === block.payload.from)!
+      const to = state.households.find((household) => household.name === block.payload.to)!
+      const availableKwh = Math.min(
+        Math.max(0, tickHousehold(from.pv, from.base, from.id, tradeMinute, state.dayType).net),
+        Math.max(0, -tickHousehold(to.pv, to.base, to.id, tradeMinute, state.dayType).net),
+      ) * (5 / 60)
+      expect(block.payload.kwh).toBeLessThanOrEqual(availableKwh)
+    }
 
     useEnergyStore.getState().stop()
     useEnergyStore.setState({ running: false })
     useEnergyStore.getState().start()
     state = useEnergyStore.getState()
-    expect(state.chain).toHaveLength(SEEDED_BLOCK_COUNT)
-    expect(state.nextBlockId).toBe(SEEDED_BLOCK_COUNT + 1)
+    expect(state.chain.length).toBeGreaterThan(0)
+    expect(state.nextBlockId).toBe(state.chain.length + 1)
   })
 
   it('stop clears the running flag', () => {
@@ -296,6 +332,11 @@ describe('commitEdit and restoreChain', () => {
 
     useEnergyStore.getState().startEdit(target.id)
     useEnergyStore.getState().setEditValue('0')
+    useEnergyStore.getState().commitEdit()
+    expect(useEnergyStore.getState().chain[0].tampered).toBe(false)
+
+    useEnergyStore.getState().startEdit(target.id)
+    useEnergyStore.getState().setEditValue('Infinity')
     useEnergyStore.getState().commitEdit()
     expect(useEnergyStore.getState().chain[0].tampered).toBe(false)
 

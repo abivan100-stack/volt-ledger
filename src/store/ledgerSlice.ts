@@ -13,6 +13,7 @@ export function clearRestoredFlashTimer(): void {
 
 export const createLedgerSlice: StateCreator<EnergyStoreState, [], [], LedgerSlice> = (set, get) => ({
   chain: [],
+  ledgerHistory: [],
   nextBlockId: 1,
   totalKwhToday: 0,
   totalCreditToday: 0,
@@ -27,7 +28,7 @@ export const createLedgerSlice: StateCreator<EnergyStoreState, [], [], LedgerSli
     const block = state.chain.find((b) => b.id === id)
     const value = parseFloat(state.editValue)
     set({ editingBlockId: null })
-    if (!block || Number.isNaN(value) || value <= 0 || Math.abs(value - block.payload.kwh) < 0.005) return
+    if (!block || !Number.isFinite(value) || value <= 0 || Math.abs(value - block.payload.kwh) < 0.005) return
 
     const nextKwh = Math.round(value * 100) / 100
     const tamperedChain = state.chain.map((b) =>
