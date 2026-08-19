@@ -174,7 +174,7 @@ function DossierDrawer() {
           </div>
           <div className="mono dossier-self-note">{dossier.selfNote}</div>
 
-          <div className="eyebrow dossier-section-label">Rooftop specification</div>
+          <div className="eyebrow dossier-section-label">{dossier.specsLabel}</div>
           <div className="dossier-specs">
             {dossier.specs.map((spec) => (
               <div key={spec.label} className="dossier-spec-row">

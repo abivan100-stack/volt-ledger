@@ -7,6 +7,9 @@ import VoltPage from './pages/VoltPage'
 import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
+const NeighbourhoodPage = lazy(() => import('./pages/NeighbourhoodPage'))
+const FairnessPage = lazy(() => import('./pages/FairnessPage'))
+const ChainPage = lazy(() => import('./pages/ChainPage'))
 
 /** Applies `?day=` and `?hour=` from a shared permalink before the sim's initial seed. Silently ignores anything invalid. */
 function applyScenarioFromUrl(search: string): void {
@@ -39,8 +42,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    document.title =
-      location.pathname === '/ledger' ? 'Volt Ledger — Live Energy Exchange' : 'Volt — Local Energy Ledger'
+    document.title = location.pathname.startsWith('/ledger')
+      ? 'Volt Ledger — Live Energy Exchange'
+      : 'Volt — Local Energy Ledger'
   }, [location.pathname])
 
   return (
@@ -58,6 +62,9 @@ function App() {
         <Routes>
           <Route path="/" element={<VoltPage />} />
           <Route path="/ledger" element={<LedgerPage />} />
+          <Route path="/ledger/neighbourhood" element={<NeighbourhoodPage />} />
+          <Route path="/ledger/fairness" element={<FairnessPage />} />
+          <Route path="/ledger/chain" element={<ChainPage />} />
         </Routes>
       </Suspense>
     </>

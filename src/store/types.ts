@@ -11,8 +11,13 @@ export interface Household {
   orient: string
   tilt: number
   batt: number
+  /** PV commissioning year for prosumers; grid-connection year for pure consumers. */
   since: string
   meter: string
+  /** Usable (shade-free, structurally sound) rooftop area in m2, panels installed or not. */
+  roofArea: number
+  /** TNEB sanctioned load in kW. Caps how much rooftop PV the connection may host. */
+  sanctioned: number
   out: number
   draw: number
   net: number

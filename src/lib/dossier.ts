@@ -18,6 +18,8 @@ export interface DossierHouseholdInput {
   tilt: number
   since: string
   meter: string
+  roofArea: number
+  sanctioned: number
   out: number
   draw: number
   balance: number
@@ -71,6 +73,7 @@ export interface DossierViewModel {
   earned: string
   spent: string
   trades: string
+  specsLabel: string
   specs: DossierSpec[]
   activities: DossierActivity[]
 }
@@ -85,6 +88,8 @@ const CHART_MAX_MINUTE = 1200
 const PANEL_KW = 0.4
 const PANEL_AREA_M2 = 1.9
 const INVERTER_KW_STEP = 0.5
+/** Absorbs binary-float error in kW / PANEL_KW before flooring (4.0 / 0.4 lands at 10.000000000000002). */
+const PANEL_FLOOR_EPSILON = 1e-9
 /** Chart-rendering approximation of array output — slightly above INVERTER_EFFICIENCY, kept distinct deliberately. */
 const CHART_GEN_FACTOR = 0.94
 
@@ -97,11 +102,11 @@ export function buildDossier(
   const netValue = household.out - household.draw
   const status = statusForNet(netValue)
 
+  // arrayArea and inverter are read only by the prosumer spec list below, so they need
+  // no zero-PV fallback; the consumer list describes the bare roof instead.
   const panelCount = household.pv > 0 ? Math.round(household.pv / PANEL_KW) : 0
-  const arrayArea = panelCount ? `${(panelCount * PANEL_AREA_M2).toFixed(0)} m²` : '—'
-  const inverter = household.pv > 0
-    ? `${household.batt > 0 ? 'Hybrid ' : 'String '}${(Math.ceil(household.pv / INVERTER_KW_STEP) * INVERTER_KW_STEP).toFixed(1)} kW`
-    : '—'
+  const arrayArea = `${(panelCount * PANEL_AREA_M2).toFixed(0)} m²`
+  const inverter = `${household.batt > 0 ? 'Hybrid ' : 'String '}${(Math.ceil(household.pv / INVERTER_KW_STEP) * INVERTER_KW_STEP).toFixed(1)} kW`
   const batteryLabel = household.batt > 0 ? `${household.batt.toFixed(1)} kWh` : 'None'
   const selfConsumedPct = household.gen > 0
     ? Math.max(0, Math.min(100, ((household.gen - household.exp) / household.gen) * 100))
@@ -149,18 +154,41 @@ export function buildDossier(
       }
     })
 
-  const specs: DossierSpec[] = [
-    { label: 'System capacity', value: household.pv > 0 ? `${household.pv.toFixed(1)} kW` : '—' },
-    { label: 'Panels', value: panelCount ? `${panelCount} × 400 Wp` : '—' },
-    { label: 'Array area', value: arrayArea },
-    { label: 'Inverter', value: inverter },
-    { label: 'Battery', value: batteryLabel },
-    { label: 'Orientation', value: household.orient },
-    { label: 'Tilt', value: household.pv > 0 ? `${household.tilt}°` : '—' },
-    { label: 'Commissioned', value: household.since },
-    { label: 'Meter ID', value: `TNEB · ${household.meter}` },
-    { label: 'Tariff', value: household.pv > 0 ? 'Prosumer · P2P export' : 'Domestic · LT-1A' },
-  ]
+  // A pure consumer has no array to specify, but it still has a roof. Rather than a
+  // column of em-dashes, describe the roof it actually has and what it could host:
+  // panel count is limited by usable area and by the sanctioned load the connection
+  // is allowed to export against, whichever binds first.
+  const feasiblePanels = Math.min(
+    Math.floor(household.roofArea / PANEL_AREA_M2 + PANEL_FLOOR_EPSILON),
+    Math.floor(household.sanctioned / PANEL_KW + PANEL_FLOOR_EPSILON),
+  )
+  const feasibleKw = feasiblePanels * PANEL_KW
+
+  const specs: DossierSpec[] = household.pv > 0
+    ? [
+        { label: 'System capacity', value: `${household.pv.toFixed(1)} kW` },
+        { label: 'Panels', value: `${panelCount} × 400 Wp` },
+        { label: 'Array area', value: arrayArea },
+        { label: 'Inverter', value: inverter },
+        { label: 'Battery', value: batteryLabel },
+        { label: 'Orientation', value: household.orient },
+        { label: 'Tilt', value: `${household.tilt}°` },
+        { label: 'Commissioned', value: household.since },
+        { label: 'Meter ID', value: `TNEB · ${household.meter}` },
+        { label: 'Tariff', value: 'Prosumer · P2P export' },
+      ]
+    : [
+        { label: 'Installed system', value: 'None' },
+        { label: 'Usable roof area', value: `${household.roofArea} m²` },
+        { label: 'Feasible capacity', value: `${feasibleKw.toFixed(1)} kW · ${feasiblePanels} × 400 Wp` },
+        { label: 'Battery', value: batteryLabel },
+        { label: 'Roof orientation', value: household.orient },
+        { label: 'Roof pitch', value: `${household.tilt}°` },
+        { label: 'Sanctioned load', value: `${household.sanctioned.toFixed(1)} kW` },
+        { label: 'Grid connection', value: household.since },
+        { label: 'Meter ID', value: `TNEB · ${household.meter}` },
+        { label: 'Tariff', value: 'Domestic · LT-1A' },
+      ]
 
   return {
     name: household.name,
@@ -189,6 +217,7 @@ export function buildDossier(
     earned: household.earned.toFixed(2),
     spent: household.spent.toFixed(2),
     trades: String(household.trades),
+    specsLabel: household.pv > 0 ? 'Rooftop specification' : 'Rooftop assessment',
     specs,
     activities,
   }

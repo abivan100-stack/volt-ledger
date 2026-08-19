@@ -1,0 +1,43 @@
+.ledger-frame-heading {
+  max-width: 760px;
+  margin-bottom: 56px;
+}
+
+.ledger-frame-kicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ledger-frame-kicker-bar {
+  display: inline-block;
+  width: 28px;
+  height: 2px;
+  background: var(--volt);
+}
+
+.ledger-frame-title {
+  font-size: clamp(48px, 7vw, 84px);
+  line-height: 0.94;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.ledger-frame-body {
+  max-width: 62ch;
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.55;
+  margin: 22px 0 0;
+}
+
+@media (max-width: 640px) {
+  .ledger-frame-heading {
+    margin-bottom: 42px;
+  }
+
+  .ledger-frame-title {
+    font-size: 52px;
+  }
+}

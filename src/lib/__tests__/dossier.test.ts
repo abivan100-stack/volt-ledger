@@ -13,6 +13,8 @@ function household(overrides: Partial<DossierHouseholdInput> = {}): DossierHouse
     tilt: 12,
     since: '2021',
     meter: 'NB-0417',
+    roofArea: 28,
+    sanctioned: 5.0,
     out: 1.5,
     draw: 0.8,
     balance: 1240.4,
@@ -68,15 +70,51 @@ describe('buildDossier', () => {
     expect(dossier.specs.find((s) => s.label === 'Tariff')?.value).toBe('Prosumer · P2P export')
   })
 
-  it('handles a household with no rooftop PV', () => {
-    const dossier = buildDossier(household({ pv: 0, batt: 0, gen: 0, exp: 0, earned: 0 }), chain([]), 510, 'sunny-weekday')
-    expect(dossier.specs.find((s) => s.label === 'Panels')?.value).toBe('—')
-    expect(dossier.specs.find((s) => s.label === 'Array area')?.value).toBe('—')
-    expect(dossier.specs.find((s) => s.label === 'Inverter')?.value).toBe('—')
-    expect(dossier.specs.find((s) => s.label === 'Battery')?.value).toBe('None')
-    expect(dossier.specs.find((s) => s.label === 'Tariff')?.value).toBe('Domestic · LT-1A')
+  it('labels the prosumer spec list a specification', () => {
+    expect(buildDossier(household(), chain([]), 510, 'sunny-weekday').specsLabel).toBe('Rooftop specification')
+  })
+
+  it('describes the bare roof for a household with no rooftop PV', () => {
+    const consumer = household({
+      pv: 0, batt: 0, gen: 0, exp: 0, earned: 0,
+      orient: 'South-west', tilt: 16, since: '2019', roofArea: 26, sanctioned: 4.0,
+    })
+    const dossier = buildDossier(consumer, chain([]), 510, 'sunny-weekday')
+    const value = (label: string) => dossier.specs.find((s) => s.label === label)?.value
+
+    expect(dossier.specsLabel).toBe('Rooftop assessment')
+    expect(value('Installed system')).toBe('None')
+    expect(value('Usable roof area')).toBe('26 m²')
+    expect(value('Battery')).toBe('None')
+    expect(value('Roof orientation')).toBe('South-west')
+    expect(value('Roof pitch')).toBe('16°')
+    expect(value('Sanctioned load')).toBe('4.0 kW')
+    expect(value('Grid connection')).toBe('2019')
+    expect(value('Meter ID')).toBe('TNEB · NB-0417')
+    expect(value('Tariff')).toBe('Domestic · LT-1A')
     expect(dossier.selfNote).toBe('PURE CONSUMER · DRAWS ENTIRELY FROM THE STREET')
     expect(dossier.sub).toContain('No rooftop PV')
+  })
+
+  it('leaves no em-dash placeholders in either spec list', () => {
+    for (const h of [household(), household({ pv: 0, batt: 0 })]) {
+      for (const spec of buildDossier(h, chain([]), 510, 'sunny-weekday').specs) {
+        expect(spec.value).not.toBe('—')
+        expect(spec.value.trim().length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('caps feasible capacity at the sanctioned load when the roof is the roomier limit', () => {
+    // 26 m2 / 1.9 = 13 panels by area, but 4.0 kW sanctioned allows only 10.
+    const dossier = buildDossier(household({ pv: 0, roofArea: 26, sanctioned: 4.0 }), chain([]), 510, 'sunny-weekday')
+    expect(dossier.specs.find((s) => s.label === 'Feasible capacity')?.value).toBe('4.0 kW · 10 × 400 Wp')
+  })
+
+  it('caps feasible capacity at the usable roof area when the sanctioned load is the roomier limit', () => {
+    // 8.0 kW sanctioned would allow 20 panels, but 11.4 m2 fits only 6.
+    const dossier = buildDossier(household({ pv: 0, roofArea: 11.4, sanctioned: 8.0 }), chain([]), 510, 'sunny-weekday')
+    expect(dossier.specs.find((s) => s.label === 'Feasible capacity')?.value).toBe('2.4 kW · 6 × 400 Wp')
   })
 
   it('formats balance, clock, and day totals', () => {

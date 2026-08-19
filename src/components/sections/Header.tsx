@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import './Header.css'
@@ -11,7 +11,7 @@ function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
 
 function Header() {
   const location = useLocation()
-  const isLedgerPage = location.pathname === '/ledger'
+  const isLedgerPage = location.pathname.startsWith('/ledger')
   const rate = useEnergyStore((state) => state.rate)
 
   const logo = (
@@ -41,7 +41,15 @@ function Header() {
         )}
         <nav className="header-nav">
           {isLedgerPage ? (
-            <Link to="/" className="mono header-link">← HOME</Link>
+            <>
+              <Link to="/" className="mono header-link header-home-link">← HOME</Link>
+              <div className="header-ledger-nav" aria-label="Ledger views">
+                <NavLink end to="/ledger" className="mono header-link">OVERVIEW</NavLink>
+                <NavLink to="/ledger/neighbourhood" className="mono header-link">NEIGHBOURHOOD</NavLink>
+                <NavLink to="/ledger/fairness" className="mono header-link">FAIRNESS</NavLink>
+                <NavLink to="/ledger/chain" className="mono header-link">CHAIN</NavLink>
+              </div>
+            </>
           ) : (
             <>
               <a href="#how" className="mono header-link" onClick={handleHowItWorksClick}>HOW IT WORKS</a>

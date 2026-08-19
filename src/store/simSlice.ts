@@ -51,18 +51,21 @@ function applyTrade(h: Household, side: TradeSide, kwh: number, credit: number):
   return { ...h, balance: h.balance - credit, imp: h.imp + kwh, spent: h.spent + credit, trades: h.trades + 1 }
 }
 
-// Ported verbatim from the original prototype's `this.houses` constructor data.
+// Ported from the original prototype's `this.houses` constructor data, extended with
+// `roofArea` / `sanctioned` so the two pure consumers have a real roof to assess.
+// Invariants, held by hand: every prosumer's array fits its roof
+// (round(pv / 0.4) panels * 1.9 m2 <= roofArea) and stays within its sanctioned load (pv <= sanctioned).
 const RAW_HOUSEHOLDS: HouseholdSeed[] = [
-  { name: 'Nikil Sundaram', pv: 4.2, base: 0.6, balance: 1240.4, orient: 'South-south-west', tilt: 12, batt: 5.0, since: '2021', meter: 'NB-0417' },
-  { name: 'Prem Ramesh', pv: 3.0, base: 0.5, balance: 312.75, orient: 'South', tilt: 10, batt: 0, since: '2022', meter: 'NB-1183' },
-  { name: 'Pranav P', pv: 5.4, base: 0.9, balance: 2105.1, orient: 'South', tilt: 15, batt: 10.0, since: '2020', meter: 'NB-0952' },
-  { name: 'Abivan', pv: 0, base: 0.7, balance: -484.2, orient: '—', tilt: 0, batt: 0, since: '—', meter: 'NB-2261' },
-  { name: 'Karthik Iyer', pv: 2.2, base: 0.4, balance: 96.3, orient: 'West', tilt: 12, batt: 0, since: '2023', meter: 'NB-1546' },
-  { name: 'Deepak Krishnan', pv: 3.6, base: 1.1, balance: -152.6, orient: 'South-east', tilt: 10, batt: 5.0, since: '2021', meter: 'NB-0788' },
-  { name: 'Sanjay Murugan', pv: 4.8, base: 0.8, balance: 878.05, orient: 'South', tilt: 14, batt: 7.5, since: '2022', meter: 'NB-0333' },
-  { name: 'Rahul Natarajan', pv: 0, base: 0.9, balance: -691.4, orient: '—', tilt: 0, batt: 0, since: '—', meter: 'NB-2490' },
-  { name: 'Aravind Chandran', pv: 2.8, base: 0.5, balance: 204.15, orient: 'South-south-east', tilt: 11, batt: 0, since: '2023', meter: 'NB-1902' },
-  { name: 'Surya Selvaraj', pv: 3.9, base: 1.0, balance: -58.9, orient: 'South-west', tilt: 13, batt: 5.0, since: '2022', meter: 'NB-0641' },
+  { name: 'Nikil Sundaram', pv: 4.2, base: 0.6, balance: 1240.4, orient: 'South-south-west', tilt: 12, batt: 5.0, since: '2021', meter: 'NB-0417', roofArea: 28, sanctioned: 5.0 },
+  { name: 'Prem Ramesh', pv: 3.0, base: 0.5, balance: 312.75, orient: 'South', tilt: 10, batt: 0, since: '2022', meter: 'NB-1183', roofArea: 22, sanctioned: 4.0 },
+  { name: 'Pranav P', pv: 5.4, base: 0.9, balance: 2105.1, orient: 'South', tilt: 15, batt: 10.0, since: '2020', meter: 'NB-0952', roofArea: 36, sanctioned: 6.0 },
+  { name: 'Abivan', pv: 0, base: 0.7, balance: -484.2, orient: 'South-west', tilt: 16, batt: 0, since: '2019', meter: 'NB-2261', roofArea: 26, sanctioned: 4.0 },
+  { name: 'Karthik Iyer', pv: 2.2, base: 0.4, balance: 96.3, orient: 'West', tilt: 12, batt: 0, since: '2023', meter: 'NB-1546', roofArea: 18, sanctioned: 3.0 },
+  { name: 'Deepak Krishnan', pv: 3.6, base: 1.1, balance: -152.6, orient: 'South-east', tilt: 10, batt: 5.0, since: '2021', meter: 'NB-0788', roofArea: 24, sanctioned: 4.0 },
+  { name: 'Sanjay Murugan', pv: 4.8, base: 0.8, balance: 878.05, orient: 'South', tilt: 14, batt: 7.5, since: '2022', meter: 'NB-0333', roofArea: 31, sanctioned: 5.0 },
+  { name: 'Rahul Natarajan', pv: 0, base: 0.9, balance: -691.4, orient: 'West-south-west', tilt: 12, batt: 0, since: '2017', meter: 'NB-2490', roofArea: 34, sanctioned: 5.0 },
+  { name: 'Aravind Chandran', pv: 2.8, base: 0.5, balance: 204.15, orient: 'South-south-east', tilt: 11, batt: 0, since: '2023', meter: 'NB-1902', roofArea: 20, sanctioned: 3.0 },
+  { name: 'Surya Selvaraj', pv: 3.9, base: 1.0, balance: -58.9, orient: 'South-west', tilt: 13, batt: 5.0, since: '2022', meter: 'NB-0641', roofArea: 27, sanctioned: 4.0 },
 ]
 
 export const HOUSEHOLD_COUNT = RAW_HOUSEHOLDS.length
