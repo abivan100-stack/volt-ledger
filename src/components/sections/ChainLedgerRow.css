@@ -79,6 +79,11 @@
 .chain-row-kwh-button:hover {
   border-bottom-color: var(--ink-soft);
 }
+.chain-row-kwh-static {
+  color: var(--ink);
+  font-size: 13px;
+  text-align: right;
+}
 .chain-row-invalid .chain-row-kwh-button {
   color: var(--void);
   border-bottom-color: var(--void);

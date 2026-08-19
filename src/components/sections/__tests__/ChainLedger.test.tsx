@@ -1,8 +1,14 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import ChainLedger from '../ChainLedger'
 import { useEnergyStore } from '../../../store/useEnergyStore'
+
+vi.mock('../../../lib/chainPdf', () => ({
+  buildChainPdf: () => {
+    throw new Error('PDF generation unavailable')
+  },
+}))
 
 const pristine = useEnergyStore.getState()
 
@@ -46,6 +52,40 @@ describe('ChainLedger tamper flow', () => {
     expect(document.querySelectorAll('button[title="Tamper: edit this figure"]').length).toBeGreaterThan(0)
     expect(screen.queryByText('INTEGRITY VOID')).toBeNull()
     expect(document.querySelector('.chain-reseal-button')).toBeNull()
+  })
+
+  it('shows a completed day as a read-only archived ledger', () => {
+    const state = useEnergyStore.getState()
+    useEnergyStore.setState({
+      chain: [],
+      simDay: 2,
+      ledgerHistory: [{
+        simDay: 1,
+        dayType: state.dayType,
+        chain: state.chain,
+        totalKwh: state.totalKwhToday,
+        totalCredit: state.totalCreditToday,
+        rate: state.rate,
+        compromised: false,
+        invalidCount: 0,
+      }],
+    })
+    render(<ChainLedger />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'DAY 01' }))
+
+    expect(document.querySelectorAll('.chain-row')).not.toHaveLength(0)
+    expect(document.querySelectorAll('button[title="Tamper: edit this figure"]')).toHaveLength(0)
+    expect(document.querySelectorAll('.chain-row-kwh-static')).not.toHaveLength(0)
+  })
+
+  it('reports a PDF export failure and re-enables the export action', async () => {
+    render(<ChainLedger />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'EXPORT PDF' }))
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/PDF EXPORT FAILED/i)
+    expect(screen.getByRole('button', { name: 'EXPORT PDF' }).getAttribute('disabled')).toBeNull()
   })
 
   it('tampering a block voids the chain and offers re-seal', () => {

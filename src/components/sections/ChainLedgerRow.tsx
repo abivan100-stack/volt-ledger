@@ -5,6 +5,7 @@ import './ChainLedgerRow.css'
 
 interface ChainLedgerRowProps {
   block: ChainBlock
+  editable: boolean
   isEditing: boolean
   editValue: string
   onStartEdit: (id: number) => void
@@ -15,6 +16,7 @@ interface ChainLedgerRowProps {
 
 function ChainLedgerRow({
   block,
+  editable,
   isEditing,
   editValue,
   onStartEdit,
@@ -28,7 +30,7 @@ function ChainLedgerRow({
       <span className="chain-row-parties">
         {block.payload.from} <span className="chain-row-arrow">→</span> {block.payload.to}
       </span>
-      {isEditing ? (
+      {editable && isEditing ? (
         <input
           value={editValue}
           onChange={(event) => onEditValueChange(event.target.value)}
@@ -40,7 +42,7 @@ function ChainLedgerRow({
           autoFocus
           className="mono chain-row-edit-input"
         />
-      ) : (
+      ) : editable ? (
         <button
           type="button"
           onClick={() => onStartEdit(block.id)}
@@ -49,6 +51,8 @@ function ChainLedgerRow({
         >
           {block.payload.kwh.toFixed(2)}
         </button>
+      ) : (
+        <span className="chain-row-kwh-static">{block.payload.kwh.toFixed(2)}</span>
       )}
       <span className="chain-row-credit">+₹{block.payload.credit.toFixed(2)}</span>
       <span className="chain-row-seal">
