@@ -33,6 +33,13 @@ function rowFor(blockId: number): HTMLElement {
 }
 
 describe('ChainLedger tamper flow', () => {
+  it('shows an empty-state when the current scenario has no settlements', () => {
+    useEnergyStore.setState({ chain: [] })
+    render(<ChainLedger />)
+
+    expect(screen.getByText(/NO SETTLEMENTS YET/i)).toBeTruthy()
+  })
+
   it('shows a sealed ledger with a tamper button per row', () => {
     render(<ChainLedger />)
     expect(screen.getByText(/TAMPER TEST/i)).toBeTruthy()

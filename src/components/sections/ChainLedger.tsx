@@ -116,6 +116,9 @@ function ChainLedger() {
               onCancelEdit={cancelEdit}
             />
           ))}
+          {rows.length === 0 && (
+            <div className="mono chain-empty-state">NO SETTLEMENTS YET · THE NEXT ELIGIBLE TRADE WILL APPEAR HERE</div>
+          )}
         </div>
       </div>
       <div className="mono chain-footnote">
