@@ -39,6 +39,12 @@ export interface NetworkTrade {
   kwh: number
 }
 
+export interface NetworkBlock {
+  payload: NetworkTrade
+  invalid: boolean
+  tampered: boolean
+}
+
 /** Measured stage box, in CSS pixels. */
 export interface StageSize {
   width: number
@@ -53,8 +59,6 @@ export interface NetworkNode {
   label: string
   status: HouseholdStatus
   net: number
-  out: number
-  draw: number
   /** Percentage of the stage box, 0-100. */
   x: number
   y: number
@@ -93,19 +97,6 @@ export interface NetworkFlow {
 export const NETWORK_STATUSES = ['surplus', 'balanced', 'deficit'] as const
 export type NetworkStatus = (typeof NETWORK_STATUSES)[number]
 
-export interface NetworkSummary {
-  /** Community generation right now, kW. */
-  generated: number
-  /** Community consumption right now, kW. */
-  consumed: number
-  /** generated minus consumed, kW. Positive is surplus. */
-  balance: number
-  producers: number
-  consumers: number
-  activeFlows: number
-  status: NetworkStatus
-}
-
 /**
  * Ring geometry, as percentages of the stage box. The text block sits outside
  * the ring, so head- and footroom matter more than side margin — which is why
@@ -119,6 +110,11 @@ const FEEDER_BOW = 0.12
 
 /** Chain blocks that count as live flow — roughly the last few minutes of settlements. */
 export const FLOW_WINDOW = 14
+
+/** Only cryptographically sound settlements are allowed to become visible flows. */
+export function validNetworkTrades(blocks: NetworkBlock[]): NetworkTrade[] {
+  return blocks.filter((block) => !block.invalid && !block.tampered).map((block) => block.payload)
+}
 
 /** kWh below which an aggregated pair is noise rather than a flow worth drawing. */
 const MIN_FLOW_KWH = 0.01
@@ -157,8 +153,6 @@ export function networkNodes(households: NetworkHousehold[]): NetworkNode[] {
       label: shortName(household.name).toUpperCase(),
       status: statusForNet(household.net),
       net: household.net,
-      out: household.out,
-      draw: household.draw,
       x: round(point.x),
       y: round(point.y),
       labelAbove: point.y < RING.cy,
@@ -284,27 +278,13 @@ export function networkFlows(
   })
 }
 
-export function networkSummary(
-  households: NetworkHousehold[],
-  flows: NetworkFlow[],
-): NetworkSummary {
-  let generated = 0
-  let consumed = 0
-  let producers = 0
-  let consumers = 0
-  for (const household of households) {
-    generated += household.out
-    consumed += household.draw
-    const status = statusForNet(household.net)
-    if (status === 'EXPORTING') producers++
-    else if (status === 'IMPORTING') consumers++
-  }
-  const balance = generated - consumed
+export function networkStatus(households: NetworkHousehold[]): NetworkStatus {
+  const balance = households.reduce((total, household) => total + household.net, 0)
   const status: NetworkStatus =
     balance > BALANCE_TOLERANCE_KW
       ? 'surplus'
       : balance < -BALANCE_TOLERANCE_KW
         ? 'deficit'
         : 'balanced'
-  return { generated, consumed, balance, producers, consumers, activeFlows: flows.length, status }
+  return status
 }

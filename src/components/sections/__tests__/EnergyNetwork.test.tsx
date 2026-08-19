@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import EnergyNetwork from '../EnergyNetwork'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 import { shortName } from '../../../lib/energyNetwork'
@@ -118,6 +118,59 @@ describe('EnergyNetwork', () => {
     const { container } = render(<EnergyNetwork />)
 
     expect(container.querySelectorAll('.net-flow')).toHaveLength(0)
+    expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
+    expect(container.querySelectorAll('.net-feeder-mesh')).toHaveLength(5)
+  })
+
+  it('filters invalid and tampered settlements from visible flows', () => {
+    measureStage(600, 450)
+    const { chain } = useEnergyStore.getState()
+    useEnergyStore.setState({
+      chain: chain.map((block, index) => ({
+        ...block,
+        invalid: index % 2 === 0,
+        tampered: index % 2 === 1,
+      })),
+    })
+
+    const { container } = render(<EnergyNetwork />)
+
+    expect(container.querySelectorAll('.net-flow')).toHaveLength(0)
+    expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
+  })
+
+  it('supports keyboard focus with one non-duplicated accessible label per node', () => {
+    measureStage(600, 450)
+    const { container } = render(<EnergyNetwork />)
+    const nodes = screen.getAllByRole('group')
+
+    expect(nodes).toHaveLength(10)
+    expect(nodes[0].getAttribute('tabindex')).toBe('0')
+    expect(nodes[0].getAttribute('aria-label')).toMatch(/Nikil Sundaram/)
+    expect(nodes[0].querySelector('.sr-only')).toBeNull()
+
+    fireEvent.focus(nodes[0])
+    expect(container.querySelector('.net-stage')?.hasAttribute('data-hovering')).toBe(true)
+    fireEvent.blur(nodes[0])
+    expect(container.querySelector('.net-stage')?.hasAttribute('data-hovering')).toBe(false)
+  })
+
+  it('renders the permanent web without ResizeObserver support', () => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 600,
+      height: 450,
+      top: 0,
+      left: 0,
+      right: 600,
+      bottom: 450,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+    vi.stubGlobal('ResizeObserver', undefined)
+
+    const { container } = render(<EnergyNetwork />)
+
     expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
     expect(container.querySelectorAll('.net-feeder-mesh')).toHaveLength(5)
   })

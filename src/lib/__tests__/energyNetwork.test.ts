@@ -3,9 +3,10 @@ import {
   networkFeeders,
   networkFlows,
   networkNodes,
-  networkSummary,
+  networkStatus,
   RING,
   shortName,
+  validNetworkTrades,
   type NetworkHousehold,
   type NetworkNode,
   type NetworkTrade,
@@ -108,6 +109,33 @@ describe('networkFeeders', () => {
     expect(feeders[9].key).toBe('loop-9-0')
     expect(feeders[10].key).toBe('mesh-0-3')
     expect(feeders[0].d).toMatch(/^M[\d.]+ [\d.]+ Q[\d.]+ [\d.]+ [\d.]+ [\d.]+$/)
+  })
+
+  it('keeps every household in one connected permanent web', () => {
+    const nodes = networkNodes(STREET)
+    const feeders = networkFeeders(nodes, STAGE)
+    const adjacency = new Map(nodes.map((node) => [node.id, new Set<number>()]))
+
+    for (const feeder of feeders) {
+      const [, from, to] = feeder.key.split('-').map(Number)
+      adjacency.get(from)?.add(to)
+      adjacency.get(to)?.add(from)
+    }
+
+    const visited = new Set<number>([nodes[0].id])
+    const pending = [nodes[0].id]
+    while (pending.length) {
+      const current = pending.pop()!
+      for (const next of adjacency.get(current) ?? []) {
+        if (!visited.has(next)) {
+          visited.add(next)
+          pending.push(next)
+        }
+      }
+    }
+
+    expect(visited.size).toBe(nodes.length)
+    expect([...adjacency.values()].every((links) => links.size >= 2)).toBe(true)
   })
 
   it('draws a single link between two households rather than one each way', () => {
@@ -232,32 +260,30 @@ describe('networkFlows', () => {
   })
 })
 
-describe('networkSummary', () => {
-  it('totals live generation and consumption across the street', () => {
-    const summary = networkSummary(STREET, [])
-
-    expect(summary.generated).toBeCloseTo(15.2, 5)
-    expect(summary.consumed).toBeCloseTo(7.65, 5)
-    expect(summary.balance).toBeCloseTo(7.55, 5)
-    expect(summary.producers).toBe(5)
-    expect(summary.consumers).toBe(4)
-    expect(summary.status).toBe('surplus')
-  })
-
-  it('counts the flows it was handed as the active connections', () => {
-    const nodes = networkNodes(STREET)
-    const flows = networkFlows(nodes, [{ from: 'Pranav P', to: 'Abivan', kwh: 1 }], STAGE)
-
-    expect(networkSummary(STREET, flows).activeFlows).toBe(1)
+describe('networkStatus', () => {
+  it('classifies the street from its aggregate net position', () => {
+    expect(networkStatus(STREET)).toBe('surplus')
   })
 
   it('calls the street balanced only inside the tolerance band', () => {
     const balanced = [household(0, 'A', { out: 1.0, draw: 0.6 })]
     const deficit = [household(0, 'A', { out: 0.2, draw: 2.0 })]
 
-    expect(networkSummary(balanced, []).status).toBe('balanced')
-    expect(networkSummary(deficit, []).status).toBe('deficit')
-    expect(networkSummary([], []).status).toBe('balanced')
+    expect(networkStatus(balanced)).toBe('balanced')
+    expect(networkStatus(deficit)).toBe('deficit')
+    expect(networkStatus([])).toBe('balanced')
+  })
+})
+
+describe('validNetworkTrades', () => {
+  it('excludes invalid and tampered settlements from the visible network', () => {
+    const blocks = [
+      { payload: { from: 'Pranav P', to: 'Abivan', kwh: 1 }, invalid: false, tampered: false },
+      { payload: { from: 'Nikil Sundaram', to: 'Rahul Natarajan', kwh: 2 }, invalid: true, tampered: false },
+      { payload: { from: 'Sanjay Murugan', to: 'Surya Selvaraj', kwh: 3 }, invalid: false, tampered: true },
+    ]
+
+    expect(validNetworkTrades(blocks)).toEqual([blocks[0].payload])
   })
 })
 

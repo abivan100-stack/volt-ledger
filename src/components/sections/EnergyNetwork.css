@@ -26,11 +26,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 22px 22px 18px;
   box-sizing: border-box;
-  border: 1px solid color-mix(in srgb, var(--rule-2) 62%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--paper-2) 58%, var(--paper));
 }
 
 /* ---- header ---- */
@@ -120,6 +116,9 @@
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper-2) 46%, var(--paper));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rule-2) 34%, transparent);
 }
 
 .net-stage::before {
@@ -230,6 +229,12 @@
   height: 0;
   pointer-events: none;
   transition: opacity 0.22s var(--ease-out);
+}
+
+.net-node:focus-visible {
+  outline: 1.5px solid var(--sun);
+  outline-offset: 8px;
+  border-radius: 999px;
 }
 
 .net-node-produce {
@@ -362,7 +367,8 @@
 
 /* ---- hover emphasis ---- */
 
-.net-node-chip:hover {
+.net-node-chip:hover,
+.net-node:focus-visible .net-node-chip {
   transform: translate(-50%, -50%) scale(1.09);
   border-color: color-mix(in srgb, var(--net-role) 88%, transparent);
 }
@@ -415,15 +421,13 @@
 
 @media (max-width: 640px) {
   .net-panel {
-    /* Give the circular map room while retaining the subtle contrast field. */
+    /* Let the map use the full mobile canvas while retaining the subtle contrast field. */
     margin-inline: calc(var(--container-pad-x) * -1);
-    padding: 18px 16px 16px;
-    border-inline: none;
-    border-radius: 0;
   }
 
   .net-head {
     align-items: flex-start;
+    padding-inline: var(--container-pad-x);
   }
 
   .net-stage {

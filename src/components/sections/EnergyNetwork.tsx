@@ -6,7 +6,8 @@ import {
   networkFeeders,
   networkFlows,
   networkNodes,
-  networkSummary,
+  networkStatus,
+  validNetworkTrades,
   type NetworkStatus,
   type StageSize,
 } from '../../lib/energyNetwork'
@@ -75,7 +76,7 @@ function EnergyNetwork() {
 
   useEffect(() => {
     const element = stageRef.current
-    if (!element || typeof ResizeObserver === 'undefined') return
+    if (!element) return
     const measure = () => {
       const rect = element.getBoundingClientRect()
       const width = Math.round(rect.width)
@@ -85,6 +86,7 @@ function EnergyNetwork() {
       )
     }
     measure()
+    if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     return () => observer.disconnect()
@@ -92,11 +94,15 @@ function EnergyNetwork() {
 
   const nodes = useMemo(() => networkNodes(households), [households])
   const feeders = useMemo(() => networkFeeders(nodes, stage), [nodes, stage])
-  const flows = useMemo(
-    () => networkFlows(nodes, chain.slice(-FLOW_WINDOW).map((block) => block.payload), stage),
-    [nodes, chain, stage],
+  const settledTrades = useMemo(
+    () => validNetworkTrades(chain.slice(-FLOW_WINDOW)),
+    [chain],
   )
-  const summary = useMemo(() => networkSummary(households, flows), [households, flows])
+  const flows = useMemo(
+    () => networkFlows(nodes, settledTrades, stage),
+    [nodes, settledTrades, stage],
+  )
+  const status = useMemo(() => networkStatus(households), [households])
 
   return (
     <section
@@ -110,9 +116,9 @@ function EnergyNetwork() {
           <span aria-hidden="true" className="net-live-pulse" />
           Live · Nolambur microgrid
         </p>
-        <p className={`mono net-status net-status-${summary.status}`}>
+        <p className={`mono net-status net-status-${status}`}>
           <span aria-hidden="true" className="net-status-dot" />
-          {STATUS_COPY[summary.status]}
+          {STATUS_COPY[status]}
         </p>
       </header>
 
@@ -170,17 +176,21 @@ function EnergyNetwork() {
               style={{ '--net-node-x': `${node.x}%`, '--net-node-y': `${node.y}%` } as CSSVars}
               onPointerEnter={() => setHovered(index)}
               onPointerLeave={() => setHovered(null)}
+              onFocus={() => setHovered(index)}
+              onBlur={() => setHovered(null)}
+              tabIndex={0}
+              role="group"
+              aria-label={`${node.name}, ${ROLE_WORD[node.status]} ${netLabel(node.status, node.net)}`}
             >
-              <span className="net-node-chip">
+              <span aria-hidden="true" className="net-node-chip">
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" className="net-node-glyph">
                   <path className="net-glyph-roof" d="M12 4.4 20.6 11.3H3.4Z" />
                   <path className="net-glyph-body" d="M5.9 11.3V19.6H18.1V11.3" />
                   <path className="net-glyph-mark" d={ROLE_MARK[node.status]} />
                 </svg>
               </span>
-              <span className="net-node-text">
+              <span aria-hidden="true" className="net-node-text">
                 <span className="net-node-name">{node.label}</span>
-                <span className="sr-only">{` ${node.name}, ${ROLE_WORD[node.status]} `}</span>
                 <span className="mono net-node-value">
                   <span aria-hidden="true" className="net-node-arrow">
                     {ROLE_ARROW[node.status]}

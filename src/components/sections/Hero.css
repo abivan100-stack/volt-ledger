@@ -107,6 +107,14 @@
   min-width: 0;
 }
 
+/* The visual aligns to the headline only while the hero remains side-by-side.
+   Once the row wraps, let the normal flex gap establish the vertical rhythm. */
+@media (max-width: 997px) {
+  .hero-visual {
+    margin-top: 0;
+  }
+}
+
 @media (max-width: 640px) {
   .hero-row {
     padding-top: 40px;
