@@ -42,14 +42,15 @@ afterEach(() => {
 })
 
 describe('EnergyNetwork', () => {
-  it('frames the graph with a title, a one-line explainer and a legend', () => {
+  it('frames the graph with only a compact live label and status', () => {
     render(<EnergyNetwork />)
 
-    expect(screen.getByRole('heading', { name: 'Community Energy Network' })).toBeTruthy()
-    expect(screen.getByText(/who is generating, who is drawing/i)).toBeTruthy()
-    for (const item of ['Producer', 'Consumer', 'Balanced', 'Energy flow']) {
-      expect(screen.getByText(item)).toBeTruthy()
-    }
+    expect(screen.getByText('Live · Nolambur microgrid')).toBeTruthy()
+    expect(screen.queryByText(/who is generating, who is drawing/i)).toBeNull()
+    expect(screen.queryByText('Generating')).toBeNull()
+    expect(screen.queryByText('Consuming')).toBeNull()
+    expect(screen.queryByText('Balance')).toBeNull()
+    expect(screen.queryByText('Active flows')).toBeNull()
   })
 
   it('draws one node per household, labelled from live store data', () => {
@@ -62,7 +63,7 @@ describe('EnergyNetwork', () => {
     }
   })
 
-  it('reports the live network status and totals, not a fixed caption', () => {
+  it('reports the live network status without exposing dashboard totals', () => {
     const { households } = useEnergyStore.getState()
     const generated = households.reduce((sum, h) => sum + h.out, 0)
     const consumed = households.reduce((sum, h) => sum + h.draw, 0)
@@ -76,8 +77,8 @@ describe('EnergyNetwork', () => {
     render(<EnergyNetwork />)
 
     expect(screen.getByText(expectedStatus)).toBeTruthy()
-    expect(screen.getByText(generated.toFixed(1))).toBeTruthy()
-    expect(screen.getByText(consumed.toFixed(1))).toBeTruthy()
+    expect(screen.queryByText(generated.toFixed(1))).toBeNull()
+    expect(screen.queryByText(consumed.toFixed(1))).toBeNull()
   })
 
   it('flips a household from producer to consumer when its net flow reverses', () => {
@@ -105,19 +106,19 @@ describe('EnergyNetwork', () => {
 
     expect(chain.length).toBeGreaterThan(0)
     expect(container.querySelectorAll('.net-flow').length).toBeGreaterThan(0)
-    expect(container.querySelectorAll('.net-feeders path')).toHaveLength(
+    expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(
       useEnergyStore.getState().households.length,
     )
-    expect(container.querySelector('.net-stage-note')).toBeNull()
+    expect(container.querySelectorAll('.net-feeder-mesh')).toHaveLength(5)
   })
 
-  it('says so plainly when nothing has settled in the window', () => {
+  it('keeps the permanent neighbourhood web when nothing has settled', () => {
     measureStage(600, 450)
     useEnergyStore.setState({ chain: [] })
     const { container } = render(<EnergyNetwork />)
 
     expect(container.querySelectorAll('.net-flow')).toHaveLength(0)
-    expect(screen.getByText(/no settlements in the last window/i)).toBeTruthy()
-    expect(container.querySelectorAll('.net-feeders path').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
+    expect(container.querySelectorAll('.net-feeder-mesh')).toHaveLength(5)
   })
 })

@@ -5,9 +5,9 @@
  * settlement already written to the hash chain; nothing here invents data.
  *
  * Two kinds of edge, deliberately drawn differently:
- * - the **feeder loop**, the physical low-voltage link between neighbouring
- *   connections. Always present, never carries a value — it is the street's
- *   wiring, not its trading.
+ * - the **neighbourhood web**, the physical low-voltage loop plus permanent
+ *   cross-links between homes. Always present, never carries a value — it is
+ *   the street's wiring, not its trading.
  * - **flows**, one per pair of households that actually settled energy inside
  *   the recent chain window, carrying direction (seller to buyer) and weight
  *   (kWh settled). These are what the eye should follow.
@@ -65,6 +65,7 @@ export interface NetworkNode {
 export interface NetworkFeeder {
   key: string
   d: string
+  kind: 'loop' | 'mesh'
 }
 
 export interface NetworkFlow {
@@ -182,7 +183,12 @@ function hasStage(size: StageSize): boolean {
   return size.width > 0 && size.height > 0
 }
 
-/** The physical loop wiring each connection to its two neighbours. */
+/**
+ * The always-visible neighbourhood topology: a closed perimeter loop plus a
+ * restrained set of cross-links. For the ten-home street, each home gets the
+ * two neighbouring links and one cross-link, so the map remains recognisably
+ * connected even when no settlement has occurred in the recent flow window.
+ */
 export function networkFeeders(nodes: NetworkNode[], size: StageSize): NetworkFeeder[] {
   if (nodes.length < 2 || !hasStage(size)) return []
   const span = nodes.length === 2 ? 1 : nodes.length
@@ -191,10 +197,25 @@ export function networkFeeders(nodes: NetworkNode[], size: StageSize): NetworkFe
     const from = nodes[i]
     const to = nodes[(i + 1) % nodes.length]
     feeders.push({
-      key: `${from.id}-${to.id}`,
+      key: `loop-${from.id}-${to.id}`,
       d: chord(toPixels(from, size), toPixels(to, size), size, FEEDER_BOW),
+      kind: 'loop',
     })
   }
+
+  if (nodes.length >= 6) {
+    const crossLinkOffset = Math.max(2, Math.floor(nodes.length / 3))
+    for (let i = 0; i < nodes.length; i += 2) {
+      const from = nodes[i]
+      const to = nodes[(i + crossLinkOffset) % nodes.length]
+      feeders.push({
+        key: `mesh-${from.id}-${to.id}`,
+        d: chord(toPixels(from, size), toPixels(to, size), size, FLOW_BOW),
+        kind: 'mesh',
+      })
+    }
+  }
+
   return feeders
 }
 

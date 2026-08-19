@@ -97,13 +97,16 @@ describe('networkNodes', () => {
 })
 
 describe('networkFeeders', () => {
-  it('closes the loop — one link per household, back to the first', () => {
+  it('keeps a perimeter loop and permanent cross-links visible', () => {
     const nodes = networkNodes(STREET)
     const feeders = networkFeeders(nodes, STAGE)
 
-    expect(feeders).toHaveLength(10)
-    expect(feeders[0].key).toBe('0-1')
-    expect(feeders[9].key).toBe('9-0')
+    expect(feeders).toHaveLength(15)
+    expect(feeders.filter((feeder) => feeder.kind === 'loop')).toHaveLength(10)
+    expect(feeders.filter((feeder) => feeder.kind === 'mesh')).toHaveLength(5)
+    expect(feeders[0].key).toBe('loop-0-1')
+    expect(feeders[9].key).toBe('loop-9-0')
+    expect(feeders[10].key).toBe('mesh-0-3')
     expect(feeders[0].d).toMatch(/^M[\d.]+ [\d.]+ Q[\d.]+ [\d.]+ [\d.]+ [\d.]+$/)
   })
 

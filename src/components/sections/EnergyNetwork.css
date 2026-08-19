@@ -1,10 +1,9 @@
 /*
  * Hero energy-network panel.
  *
- * Role colours are aliased once here rather than repeated: a producer is the
- * settlement green, a consumer the sun amber, an idle connection the muted
- * warm slate. Every node rule then reads `var(--net-role)`, so a node's whole
- * appearance follows from the one class its status sets.
+ * The map deliberately has no dashboard card or analytics footer. It sits
+ * directly in the homepage hero, with one compact live/status rail and the
+ * circular neighbourhood beneath it.
  *
  * Node geometry is driven by a handful of custom properties on the stage (chip
  * size, label width, the two type sizes). They are the only things that change
@@ -26,39 +25,44 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px 22px 18px;
+  gap: 18px;
+  padding: 22px 22px 18px;
   box-sizing: border-box;
-  border: 1px solid var(--rule-2);
+  border: 1px solid color-mix(in srgb, var(--rule-2) 62%, transparent);
   border-radius: 4px;
-  background: var(--card);
-  box-shadow: 0 30px 64px -46px color-mix(in srgb, var(--ink) 55%, transparent);
+  background: color-mix(in srgb, var(--paper-2) 58%, var(--paper));
 }
 
 /* ---- header ---- */
 
-.net-head-top {
+.net-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px 16px;
+  gap: 10px 18px;
   flex-wrap: wrap;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--rule-2);
 }
 
-.net-title {
-  font-size: clamp(24px, 2.2vw, 30px);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  margin: 8px 0 5px;
-}
-
-.net-sub {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--ink-soft);
-  max-width: 46ch;
+.net-live-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   margin: 0;
-  text-wrap: pretty;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.net-live-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--settle);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--settle) 12%, transparent);
 }
 
 .net-status {
@@ -67,8 +71,8 @@
   gap: 8px;
   flex: none;
   margin: 0;
-  padding: 6px 11px;
-  font-size: 10.5px;
+  padding: 5px 10px;
+  font-size: 10px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -113,17 +117,24 @@
 
   position: relative;
   aspect-ratio: 4 / 3;
-  min-height: 440px;
-  max-height: 560px;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
+  min-height: 0;
   overflow: hidden;
-  background-color: var(--card);
+  isolation: isolate;
+}
+
+.net-stage::before {
+  content: '';
+  position: absolute;
+  inset: 2%;
+  z-index: -1;
+  pointer-events: none;
   background-image:
-    radial-gradient(circle, color-mix(in srgb, var(--rule-2) 40%, transparent) 0.9px, transparent 1px),
-    radial-gradient(118% 92% at 50% 34%, transparent 40%, color-mix(in srgb, var(--paper-2) 90%, transparent) 100%);
+    radial-gradient(circle, color-mix(in srgb, var(--rule-2) 44%, transparent) 0.8px, transparent 1px),
+    radial-gradient(ellipse at center, color-mix(in srgb, var(--card) 34%, transparent) 0%, transparent 70%);
   background-size: 28px 28px, 100% 100%;
   background-position: center center, center center;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 35%, transparent 76%);
+  mask-image: radial-gradient(ellipse at center, black 35%, transparent 76%);
 }
 
 .net-wires {
@@ -136,8 +147,18 @@
 .net-feeders path {
   fill: none;
   stroke: var(--rule-2);
-  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.net-feeder-loop {
+  stroke-width: 1px;
   opacity: 0.62;
+}
+
+.net-feeder-mesh {
+  stroke: color-mix(in srgb, var(--rule-2) 82%, var(--settle));
+  stroke-width: 0.85px;
+  opacity: 0.48;
 }
 
 .net-stop-from {
@@ -161,7 +182,7 @@
 }
 
 .net-flow-line {
-  opacity: 0.46;
+  opacity: 0.38;
 }
 
 .net-flow-pulse {
@@ -189,22 +210,6 @@
   to {
     stroke-dashoffset: 0;
   }
-}
-
-.net-stage-note {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
-  padding: 8px 14px;
-  font-size: 9.5px;
-  letter-spacing: 0.12em;
-  color: var(--ink-soft);
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  pointer-events: none;
 }
 
 /* ---- nodes ---- */
@@ -370,138 +375,6 @@
   opacity: 0.12;
 }
 
-/* ---- legend ---- */
-
-.net-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 22px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.net-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.net-legend-produce {
-  --net-role: var(--net-produce);
-}
-
-.net-legend-consume {
-  --net-role: var(--net-consume);
-}
-
-.net-legend-idle {
-  --net-role: var(--net-idle);
-}
-
-.net-legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  border: 1.5px solid var(--net-role);
-  background: color-mix(in srgb, var(--net-role) 18%, transparent);
-}
-
-.net-legend-wire {
-  width: 24px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--net-produce), var(--net-consume));
-}
-
-/* ---- metrics ---- */
-
-/* Two-up by default; the container query below opens it to a single row of
-   four once the panel is wide enough for the labels to sit on one line. */
-.net-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  row-gap: 16px;
-  margin: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--rule);
-}
-
-.net-metric {
-  padding: 0 12px;
-}
-
-.net-metric:nth-child(odd) {
-  padding-left: 0;
-}
-
-.net-metric:nth-child(even) {
-  padding-right: 0;
-  border-left: 1px solid var(--rule);
-}
-
-@container (min-width: 464px) {
-  .net-metrics {
-    grid-template-columns: repeat(4, 1fr);
-    row-gap: 0;
-  }
-
-  .net-metrics .net-metric {
-    padding: 0 12px;
-    border-left: 1px solid var(--rule);
-  }
-
-  .net-metrics .net-metric:first-child {
-    padding-left: 0;
-    border-left: none;
-  }
-
-  .net-metrics .net-metric:last-child {
-    padding-right: 0;
-  }
-}
-
-.net-metric-label {
-  font-size: 9px;
-  letter-spacing: 0.14em;
-}
-
-.net-metric-value {
-  margin: 6px 0 0;
-  font-size: 21px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  color: var(--ink);
-}
-
-.net-metric-value-produce,
-.net-metric-value-surplus {
-  color: var(--net-produce);
-}
-
-.net-metric-value-consume,
-.net-metric-value-deficit {
-  color: var(--net-consume);
-}
-
-.net-metric-unit {
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.net-metric-note {
-  margin: 5px 0 0;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  color: var(--ink-soft);
-}
-
 /* ---- node scale, stepped on the panel's own width ---- */
 
 @container (min-width: 330px) {
@@ -542,19 +415,19 @@
 
 @media (max-width: 640px) {
   .net-panel {
-    /* Full-bleed on phones: the container's 80px of side padding is the
-       difference between labels that clear each other and labels that do not. */
+    /* Give the circular map room while retaining the subtle contrast field. */
     margin-inline: calc(var(--container-pad-x) * -1);
-    padding: 20px 16px 18px;
+    padding: 18px 16px 16px;
     border-inline: none;
     border-radius: 0;
   }
 
-  .net-title {
-    font-size: 24px;
+  .net-head {
+    align-items: flex-start;
   }
 
   .net-stage {
     aspect-ratio: 1 / 1;
+    min-height: 320px;
   }
 }

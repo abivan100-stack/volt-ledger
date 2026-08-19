@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { HOUSEHOLD_COUNT } from '../../store/simSlice'
 import type { HouseholdStatus } from '../../lib/householdStatus'
 import {
   FLOW_WINDOW,
@@ -50,10 +49,6 @@ function netLabel(status: HouseholdStatus, net: number): string {
   if (status === 'EXPORTING') return `+${net.toFixed(1)} kW`
   if (status === 'IMPORTING') return `−${Math.abs(net).toFixed(1)} kW`
   return `${Math.abs(net).toFixed(1)} kW`
-}
-
-function signedKw(value: number): string {
-  return `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}`
 }
 
 /**
@@ -106,24 +101,18 @@ function EnergyNetwork() {
   return (
     <section
       data-reveal
-      aria-labelledby="net-title"
+      aria-label="Live energy flow across the Nolambur microgrid"
       className="net-panel"
       style={{ '--net-activity': activity } as CSSVars}
     >
       <header className="net-head">
-        <div className="net-head-top">
-          <span className="eyebrow">Live · Nolambur microgrid</span>
-          <p className={`mono net-status net-status-${summary.status}`}>
-            <span aria-hidden="true" className="net-status-dot" />
-            {STATUS_COPY[summary.status]}
-          </p>
-        </div>
-        <h2 id="net-title" className="serif net-title">
-          Community Energy Network
-        </h2>
-        <p className="net-sub">
-          Who is generating, who is drawing, and where this street&rsquo;s surplus solar is going —
-          right now.
+        <p className="mono net-live-label">
+          <span aria-hidden="true" className="net-live-pulse" />
+          Live · Nolambur microgrid
+        </p>
+        <p className={`mono net-status net-status-${summary.status}`}>
+          <span aria-hidden="true" className="net-status-dot" />
+          {STATUS_COPY[summary.status]}
         </p>
       </header>
 
@@ -152,7 +141,7 @@ function EnergyNetwork() {
           </defs>
           <g className="net-feeders">
             {feeders.map((feeder) => (
-              <path key={feeder.key} d={feeder.d} />
+              <path key={feeder.key} className={`net-feeder-${feeder.kind}`} d={feeder.d} />
             ))}
           </g>
           {flows.map((flow) => (
@@ -202,62 +191,8 @@ function EnergyNetwork() {
             </li>
           ))}
         </ul>
-
-        {flows.length === 0 && (
-          <p className="mono net-stage-note">NO SETTLEMENTS IN THE LAST WINDOW · FEEDER IDLE</p>
-        )}
       </div>
 
-      <ul className="net-legend">
-        <li className="mono net-legend-item net-legend-produce">
-          <span aria-hidden="true" className="net-legend-swatch" />
-          Producer
-        </li>
-        <li className="mono net-legend-item net-legend-consume">
-          <span aria-hidden="true" className="net-legend-swatch" />
-          Consumer
-        </li>
-        <li className="mono net-legend-item net-legend-idle">
-          <span aria-hidden="true" className="net-legend-swatch" />
-          Balanced
-        </li>
-        <li className="mono net-legend-item net-legend-flow">
-          <span aria-hidden="true" className="net-legend-wire" />
-          Energy flow
-        </li>
-      </ul>
-
-      <dl className="net-metrics">
-        <div className="net-metric">
-          <dt className="eyebrow net-metric-label">Generating</dt>
-          <dd className="mono net-metric-value net-metric-value-produce">
-            {summary.generated.toFixed(1)}
-            <span className="net-metric-unit"> kW</span>
-          </dd>
-          <dd className="mono net-metric-note">{summary.producers} EXPORTING NOW</dd>
-        </div>
-        <div className="net-metric">
-          <dt className="eyebrow net-metric-label">Consuming</dt>
-          <dd className="mono net-metric-value net-metric-value-consume">
-            {summary.consumed.toFixed(1)}
-            <span className="net-metric-unit"> kW</span>
-          </dd>
-          <dd className="mono net-metric-note">{summary.consumers} DRAWING NOW</dd>
-        </div>
-        <div className="net-metric">
-          <dt className="eyebrow net-metric-label">Balance</dt>
-          <dd className={`mono net-metric-value net-metric-value-${summary.status}`}>
-            {signedKw(summary.balance)}
-            <span className="net-metric-unit"> kW</span>
-          </dd>
-          <dd className="mono net-metric-note">{HOUSEHOLD_COUNT} ROOFTOPS</dd>
-        </div>
-        <div className="net-metric">
-          <dt className="eyebrow net-metric-label">Active flows</dt>
-          <dd className="mono net-metric-value">{summary.activeFlows}</dd>
-          <dd className="mono net-metric-note">LAST {FLOW_WINDOW} TRADES</dd>
-        </div>
-      </dl>
     </section>
   )
 }
