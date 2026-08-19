@@ -13,8 +13,11 @@ import '@fontsource/spline-sans-mono/500.css'
 import '@fontsource/spline-sans-mono/600.css'
 
 import './theme/theme.css'
+import { initializeTheme } from './theme/themeMode'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import App from './App'
+
+initializeTheme()
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {

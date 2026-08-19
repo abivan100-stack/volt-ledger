@@ -32,7 +32,7 @@
    neutrals stay intentional, so the ledger still feels like the same product
    instead of switching to an unrelated black-and-neon theme. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --paper: #17140F;
     --paper-2: #252019;
     --card: #211C15;
@@ -45,6 +45,20 @@
     --volt: #6CCB8D;
     --void: #F07B70;
   }
+}
+
+:root[data-theme='dark'] {
+  --paper: #17140F;
+  --paper-2: #252019;
+  --card: #211C15;
+  --ink: #F5F1E8;
+  --ink-soft: #B8AE9D;
+  --rule: #3D352A;
+  --rule-2: #6A5B47;
+  --sun: #D9902B;
+  --settle: #66B58D;
+  --volt: #6CCB8D;
+  --void: #F07B70;
 }
 
 body {

@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
+import ThemeToggle from '../ui/ThemeToggle'
 import './Header.css'
 
 function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -55,6 +56,7 @@ function Header() {
               <Link to="/ledger" className="mono header-link">LIVE LEDGER →</Link>
             </>
           )}
+          <ThemeToggle />
           <span className="mono header-rate">
             <span className="header-rate-dot" />
             ₹{rate.toFixed(2)}/kWh
