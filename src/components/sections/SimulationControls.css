@@ -1,0 +1,115 @@
+.simulation-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px 28px;
+  flex-wrap: wrap;
+  margin: -18px 0 38px;
+  padding: 17px 18px;
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+}
+
+.simulation-controls-summary {
+  display: grid;
+  gap: 7px;
+}
+
+.simulation-controls-label,
+.simulation-controls-state,
+.simulation-speed-label,
+.simulation-controls-note {
+  color: var(--ink-soft);
+}
+
+.simulation-controls-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.simulation-controls-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--settle);
+}
+
+.simulation-controls-dot-paused {
+  background: var(--ink-soft);
+}
+
+.simulation-controls-actions,
+.simulation-speed {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.simulation-controls-primary,
+.simulation-controls-reset,
+.simulation-speed-button {
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 8px 11px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.simulation-controls-primary {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.simulation-controls-reset,
+.simulation-speed-button {
+  color: var(--ink);
+  background: transparent;
+}
+
+.simulation-speed-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  margin-right: 2px;
+}
+
+.simulation-speed-button-active {
+  color: var(--paper);
+  background: var(--settle);
+  border-color: var(--settle);
+}
+
+.simulation-controls-primary:hover,
+.simulation-controls-reset:hover,
+.simulation-speed-button:hover {
+  border-color: var(--sun);
+}
+
+.simulation-controls-primary:active,
+.simulation-controls-reset:active,
+.simulation-speed-button:active {
+  transform: translateY(1px);
+}
+
+.simulation-controls-note {
+  width: 100%;
+  margin: -5px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+@media (max-width: 650px) {
+  .simulation-controls {
+    align-items: flex-start;
+  }
+
+  .simulation-controls-actions {
+    width: 100%;
+  }
+}

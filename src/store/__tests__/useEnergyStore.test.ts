@@ -66,6 +66,9 @@ describe('tick', () => {
   })
 
   it('rolls over at midnight, resetting daily totals and trade tallies', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    const chainLengthBeforeRollover = useEnergyStore.getState().chain.length
     const speed = useEnergyStore.getState().config.simSpeed
     useEnergyStore.setState({
       simMinute: TOTAL_DAILY_MINUTES - 2 * speed,
@@ -85,6 +88,10 @@ describe('tick', () => {
     expect(state.simMinute).toBe(0)
     expect(state.totalKwhToday).toBe(0)
     expect(state.totalCreditToday).toBe(0)
+    expect(chainLengthBeforeRollover).toBeGreaterThan(0)
+    expect(state.chain).toEqual([])
+    expect(state.nextBlockId).toBe(1)
+    expect(state.simDay).toBe(2)
     for (const h of state.households) {
       expect(h.exp).toBe(0)
       expect(h.imp).toBe(0)
@@ -139,6 +146,19 @@ describe('tryTrade', () => {
     expect(to.trades).toBe(before.households[importerId].trades + 1)
   })
 
+  it('caps traded energy by both parties\' simulated interval capacity', () => {
+    const state = useEnergyStore.getState()
+    useEnergyStore.setState({
+      households: state.households.map((h) =>
+        h.id === 0 ? { ...h, net: 0.21 } : h.id === 3 ? { ...h, net: -0.11 } : { ...h, net: 0 },
+      ),
+    })
+
+    useEnergyStore.getState().tryTrade()
+    const block = useEnergyStore.getState().chain.at(-1)
+    expect(block?.payload.kwh).toBeLessThanOrEqual(0.05)
+  })
+
   it('does nothing when the chain is compromised', () => {
     const { exporterId, importerId } = setUpExporterAndImporter()
     useEnergyStore.setState({ compromised: true })
@@ -160,6 +180,40 @@ describe('tryTrade', () => {
 })
 
 describe('start and stop', () => {
+  it('starts a midnight scenario without previous-day seed entries', () => {
+    useEnergyStore.setState((state) => ({ config: { ...state.config, startHour: 0 } }))
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+
+    const state = useEnergyStore.getState()
+    expect(state.simMinute).toBe(0)
+    expect(state.chain).toEqual([])
+    expect(state.totalKwhToday).toBe(0)
+  })
+
+  it('accepts only configured simulation speeds', () => {
+    useEnergyStore.getState().setSimSpeed(8)
+    expect(useEnergyStore.getState().config.simSpeed).toBe(8)
+    useEnergyStore.getState().setSimSpeed(3)
+    expect(useEnergyStore.getState().config.simSpeed).toBe(8)
+  })
+
+  it('resets the current scenario, clearing transient ledger and UI state', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    useEnergyStore.setState({ compromised: true, invalidCount: 4, selectedHouseIndex: 2, editingBlockId: 1, editValue: '9.99' })
+
+    useEnergyStore.getState().resetScenario()
+    const state = useEnergyStore.getState()
+    expect(state.compromised).toBe(false)
+    expect(state.invalidCount).toBe(0)
+    expect(state.selectedHouseIndex).toBeNull()
+    expect(state.editingBlockId).toBeNull()
+    expect(state.editValue).toBe('')
+    expect(state.simDay).toBe(1)
+    expect(state.chain).toHaveLength(SEEDED_BLOCK_COUNT)
+  })
+
   it('start seeds the chain exactly once and begins running', () => {
     useEnergyStore.getState().start()
     let state = useEnergyStore.getState()

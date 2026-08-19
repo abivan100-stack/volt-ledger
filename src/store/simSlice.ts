@@ -34,6 +34,8 @@ const SEED_RATE_MIN = 5.3
 const SEED_RATE_RANGE = 0.5
 const SEED_RATE_SALT = 103
 
+export const SIM_SPEEDS = [1, 2, 4, 8] as const
+
 type HouseholdSeed = Omit<
   Household,
   'id' | 'out' | 'draw' | 'net' | 'gen' | 'con' | 'exp' | 'imp' | 'earned' | 'spent' | 'trades'
@@ -97,6 +99,7 @@ function seedChain(
   let totalKwh = 0
   let totalCredit = 0
   for (let i = 0; i < SEED_OFFSETS_MINUTES.length; i++) {
+    if (SEED_OFFSETS_MINUTES[i] > startMinute) continue
     const [fromIndex, toIndex] = SEED_PAIRS[i]
     const from = nextHouseholds[fromIndex]
     const to = nextHouseholds[toIndex]
@@ -122,6 +125,25 @@ function seedChain(
   return { households: nextHouseholds, chain, nextBlockId, totalKwh, totalCredit }
 }
 
+function initialScenario(dayType: DayType, startHour: number) {
+  const startMinute = startHour * 60
+  const households = createInitialHouseholds().map((household) => ({
+    ...household,
+    ...tickHousehold(household.pv, household.base, household.id, startMinute, dayType),
+    ...integrateGenerationAndConsumption(household.pv, household.base, household.id, dayType, startMinute),
+  }))
+  const seeded = seedChain(households, startMinute)
+  return {
+    simMinute: startMinute,
+    households: seeded.households,
+    chain: seeded.chain,
+    nextBlockId: seeded.nextBlockId,
+    totalKwhToday: seeded.totalKwh,
+    totalCreditToday: seeded.totalCredit,
+    dailyBreakdown: dailyGridDependence(seeded.households, dayType),
+  }
+}
+
 let tickHandle: ReturnType<typeof setInterval> | undefined
 let tradeHandle: ReturnType<typeof setInterval> | undefined
 
@@ -130,6 +152,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
   dayType: 'sunny-weekday',
   initialized: false,
   running: false,
+  simDay: 1,
   simMinute: 8 * 60,
   households: createInitialHouseholds(),
   rate: INITIAL_RATE,
@@ -140,33 +163,47 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
 
   setDayType: (dayType: DayType) => {
     const state = get()
-    const households = state.households.map((h) => {
-      const { out, draw, net } = tickHousehold(h.pv, h.base, h.id, state.simMinute, dayType)
-      const { gen, con } = integrateGenerationAndConsumption(h.pv, h.base, h.id, dayType, state.simMinute)
-      return { ...h, out, draw, net, gen, con }
+    if (state.dayType === dayType) return
+    set({ dayType })
+    get().resetScenario()
+  },
+
+  setSimSpeed: (simSpeed: number) => {
+    if (!(SIM_SPEEDS as readonly number[]).includes(simSpeed)) return
+    set((state) => ({ config: { ...state.config, simSpeed } }))
+  },
+
+  resetScenario: () => {
+    const state = get()
+    const wasRunning = state.running
+    if (wasRunning) state.stop()
+    clearRestoredFlashTimer()
+    const scenario = initialScenario(state.dayType, state.config.startHour)
+    set({
+      ...scenario,
+      initialized: true,
+      running: false,
+      simDay: 1,
+      rate: INITIAL_RATE,
+      prevRate: INITIAL_RATE,
+      rateHistory: new Array(RATE_HISTORY_LENGTH).fill(INITIAL_RATE),
+      tickCount: 0,
+      compromised: false,
+      invalidCount: 0,
+      restoredFlash: false,
+      selectedHouseIndex: null,
+      editingBlockId: null,
+      editValue: '',
     })
-    const dailyBreakdown = dailyGridDependence(households, dayType)
-    set({ dayType, households, dailyBreakdown })
+    if (wasRunning) get().start()
   },
 
   start: () => {
     const state = get()
     if (!state.initialized) {
-      const startMinute = state.config.startHour * 60
-      const withDailyStats = state.households.map((h) => ({
-        ...h,
-        ...integrateGenerationAndConsumption(h.pv, h.base, h.id, state.dayType, startMinute),
-      }))
-      const seeded = seedChain(withDailyStats, startMinute)
       set({
+        ...initialScenario(state.dayType, state.config.startHour),
         initialized: true,
-        simMinute: startMinute,
-        households: seeded.households,
-        chain: seeded.chain,
-        nextBlockId: seeded.nextBlockId,
-        totalKwhToday: seeded.totalKwh,
-        totalCreditToday: seeded.totalCredit,
-        dailyBreakdown: dailyGridDependence(seeded.households, state.dayType),
       })
     }
     if (!get().running) {
@@ -228,7 +265,19 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       totalCreditToday = 0
     }
 
-    set({ simMinute, households, rate, prevRate, rateHistory, totalKwhToday, totalCreditToday, tickCount })
+    set({
+      simMinute,
+      households,
+      rate,
+      prevRate,
+      rateHistory,
+      totalKwhToday,
+      totalCreditToday,
+      tickCount,
+      ...(rolled
+        ? { chain: [], nextBlockId: 1, compromised: false, invalidCount: 0, restoredFlash: false, simDay: state.simDay + 1 }
+        : {}),
+    })
   },
 
   tryTrade: () => {
@@ -240,7 +289,11 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const tradeSeed = state.nextBlockId
     const from = exporters[Math.floor(seededUnit(tradeSeed, TRADE_FROM_SALT) * exporters.length)]
     const to = importers[Math.floor(seededUnit(tradeSeed, TRADE_TO_SALT) * importers.length)]
-    const kwh = Math.round(Math.min(TRADE_KWH_MIN + seededUnit(tradeSeed, TRADE_KWH_SALT) * TRADE_KWH_RANGE, Math.max(TRADE_EXPORT_THRESHOLD, from.net)) * 100) / 100
+    const simulatedHours = (TRADE_INTERVAL_MS / TICK_INTERVAL_MS) * MINUTES_PER_TICK_UNIT * state.config.simSpeed / 60
+    const availableKwh = Math.min(from.net, -to.net) * simulatedHours
+    const requestedKwh = TRADE_KWH_MIN + seededUnit(tradeSeed, TRADE_KWH_SALT) * TRADE_KWH_RANGE
+    const kwh = Math.round(Math.min(requestedKwh, availableKwh) * 100) / 100
+    if (kwh <= 0) return
     const credit = Math.round(kwh * state.rate * 100) / 100
 
     const households = state.households.map((h) => {

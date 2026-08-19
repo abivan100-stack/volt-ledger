@@ -15,8 +15,8 @@ export function formatMoney(amount: number): string {
 }
 
 export function formatClock(minuteOfDay: number): string {
-  const totalMinutes = Math.floor(minuteOfDay)
-  const hours = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0')
+  const totalMinutes = ((Math.floor(minuteOfDay) % (24 * 60)) + 24 * 60) % (24 * 60)
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
   const minutes = String(totalMinutes % 60).padStart(2, '0')
   return `${hours}:${minutes}`
 }

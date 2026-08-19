@@ -3,6 +3,7 @@ import Header from '../components/sections/Header'
 import LedgerIntro from '../components/sections/LedgerIntro'
 import AutonomyScore from '../components/sections/AutonomyScore'
 import DayTypeSelector from '../components/sections/DayTypeSelector'
+import SimulationControls from '../components/sections/SimulationControls'
 import StatsStrip from '../components/sections/StatsStrip'
 import CarbonCounter from '../components/sections/CarbonCounter'
 import GridDependenceMeter from '../components/sections/GridDependenceMeter'
@@ -29,6 +30,7 @@ function LedgerPage() {
             <LedgerIntro />
             <AutonomyScore />
             <DayTypeSelector />
+            <SimulationControls />
             <StatsStrip />
             <CarbonCounter />
             <GridDependenceMeter />

@@ -31,6 +31,10 @@ describe('formatMoney', () => {
 })
 
 describe('formatClock', () => {
+  it('wraps negative minutes onto the preceding day', () => {
+    expect(formatClock(-42)).toBe('23:18')
+  })
+
   it('formats midnight', () => {
     expect(formatClock(0)).toBe('00:00')
   })

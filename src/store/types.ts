@@ -36,6 +36,7 @@ export interface SimSlice {
   dayType: DayType
   initialized: boolean
   running: boolean
+  simDay: number
   simMinute: number
   households: Household[]
   rate: number
@@ -47,6 +48,8 @@ export interface SimSlice {
   tick: () => void
   tryTrade: () => void
   setDayType: (dayType: DayType) => void
+  setSimSpeed: (simSpeed: number) => void
+  resetScenario: () => void
   start: () => void
   stop: () => void
 }
