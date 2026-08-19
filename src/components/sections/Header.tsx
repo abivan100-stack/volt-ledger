@@ -46,8 +46,7 @@ function Header() {
               <div className="header-ledger-nav" aria-label="Ledger views">
                 <NavLink end to="/ledger" className="mono header-link">OVERVIEW</NavLink>
                 <NavLink to="/ledger/neighbourhood" className="mono header-link">NEIGHBOURHOOD</NavLink>
-                <NavLink to="/ledger/fairness" className="mono header-link">FAIRNESS</NavLink>
-                <NavLink to="/ledger/chain" className="mono header-link">CHAIN</NavLink>
+                <NavLink to="/ledger/fairness" className="mono header-link">FAIRNESS + CHAIN</NavLink>
               </div>
             </>
           ) : (
