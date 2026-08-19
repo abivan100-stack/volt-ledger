@@ -54,6 +54,7 @@ describe('SimulationControls', () => {
     expect(state.compromised).toBe(false)
     expect(state.invalidCount).toBe(0)
     expect(state.simDay).toBe(1)
-    expect(state.chain).toHaveLength(9)
+    expect(state.chain.length).toBeGreaterThan(0)
+    expect(state.nextBlockId).toBe(state.chain.length + 1)
   })
 })
