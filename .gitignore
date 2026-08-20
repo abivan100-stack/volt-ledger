@@ -13,7 +13,10 @@ dist-ssr
 coverage
 *.local
 
-# Local backend secrets
+# Local secrets
+.env
+.env.*
+!.env.example
 server/.env
 
 # Editor directories and files

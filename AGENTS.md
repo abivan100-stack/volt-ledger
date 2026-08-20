@@ -10,6 +10,7 @@
 - oxlint for linting
 
 ## Project Structure
+- `src/api/` — Typed REST client for the Volt API (fetch, cookies, ApiError); the only layer that talks to the backend
 - `src/lib/` — Pure logic (no React, no DOM, no store imports)
 - `src/store/` — Zustand store
 - `src/components/sections/` — Page-section components with co-located CSS
@@ -22,12 +23,13 @@
 - `npm run dev` — Start dev server
 - `npm run build` — Type-check + production build
 - `npm run lint` — oxlint
-- `npm test` — Vitest (tests co-located under `src/lib/__tests__/`, `src/store/__tests__/`, `src/hooks/__tests__/`)
+- `npm test` — Vitest (tests co-located under `src/lib/__tests__/`, `src/api/__tests__/`, `src/store/__tests__/`, `src/hooks/__tests__/`)
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:coverage` — Vitest with coverage
 
 ## Key Conventions
 - Logic stays pure: lib/*.ts must not import React, store, or touch DOM
+- Network code lives in `src/api/`, never in `src/lib/`; the browser learns one server address, `VITE_API_BASE_URL`, and no server secret is ever exposed to a `VITE_` variable
 - Every component gets its own co-located .css file (no inline styles)
 - Simulation is deterministic: every value is a pure function of (dayType, hour, householdId), and stochastic variation flows only through `seededUnit` (an FNV-1a hash folded into [0,1)) — never `Math.random()` or `performance.now()`
 - hashChain.ts is load-bearing — do not modify unless explicitly planned
@@ -38,8 +40,9 @@
 - `seededUnit` provides deterministic randomness for all stochastic calculations
 
 ## Testing
-- Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (14 lib files + 5 store/hook + 5 component test files, 258 tests)
+- Lib tests are in `src/lib/__tests__/`; API-client tests in `src/api/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
+- Each lib module has a corresponding test file (14 lib + 4 api + 5 store/hook + 9 component/page/theme test files, 311 tests)
+- API-client tests run in the default node environment and inject a fake `fetch`; they never hit a real server
 - Store tests reset the singleton store to its pristine state before each case
 
 ## Agent skills

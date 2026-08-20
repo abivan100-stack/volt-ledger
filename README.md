@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (268 tests)
+npm test               # run the client test suite once (311 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -100,6 +100,18 @@ npm run dev:worker    # claims queued runs and persists completed outcomes
 The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. Each organisation has a UTC daily run quota configured with `SIMULATION_DAILY_RUN_LIMIT` (default `100`); members can inspect usage through `/simulations/quota`, and exhausted queues receive `429` with `Retry-After`. The current owner can transfer ownership to an existing active member through `/ownership/transfer`; the change atomically demotes the previous owner to admin and is audited. The owner can archive an organisation with `DELETE /api/v1/organisations/:organisationId`; active access and working simulation data are soft-deleted in one transaction while ledger and audit history remain retained. Owners and admins can inspect the bounded organisation audit stream through `/audit-events`, optionally filtering by `action` and following its opaque `cursor`/`nextCursor` pagination. An owner or admin can accept one completed outcome through `/simulations/:runId/settlement`; the server then appends one immutable, hash-linked event per household. Members can inspect those events through `/ledger`, while owners/admins can append signed correction deltas through `/ledger/adjustments` without editing history. Settlement energy is the accepted outcome's synthetic `exportedKwh`, and retries are idempotent. The simulation worker also revokes expired pending invitations every 60 seconds by default while retaining their records. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
 
 Cookie-authenticated state-changing API requests must include a same-origin `Origin` or `Referer`; the API also enforces a bounded request body size.
+
+### Client API configuration
+
+The browser bundle learns exactly one server address, `VITE_API_BASE_URL`, set in a root `.env` (copy `.env.example`):
+
+```bash
+VITE_API_BASE_URL=http://localhost:4000
+```
+
+Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
+
+The API runs on its own origin, so `src/api/client.ts` issues absolute requests with `credentials: 'include'` for the session cookie. Browsers attach `Origin` automatically, satisfying the API's CSRF check on state-changing routes. `VITE_API_BASE_URL` must point at the origin whose `WEB_ORIGIN` matches where the client is served, or CORS and the CSRF check will both reject the request. Every failure — validation, authorization, quota, transport — surfaces as one `ApiError` carrying `status`, the server's `code`, any field `issues`, and parsed `Retry-After` seconds.
 
 ## Deployment
 
@@ -121,6 +133,11 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 ```
 src/
+  api/                    # Typed REST client for the Volt API (network layer, kept out of lib/)
+    config.ts             #   VITE_API_BASE_URL resolution and demo-mode detection
+    errors.ts             #   ApiError and status/code predicates
+    client.ts             #   fetch wrapper (absolute URLs, cookie credentials, error envelope)
+    session.ts            #   Session restore (/api/v1/me) and sign-out
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
     simulation.ts         #   24-hour generation/demand curves, day types, household ticks
