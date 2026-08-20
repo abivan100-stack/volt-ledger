@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { signUpWithEmail } from '../../api/auth'
 import { ApiError } from '../../api/errors'
+import PasswordField from './PasswordField'
 import './SignUpForm.css'
 
 /** Matches the API's Better Auth configuration; checked here to save a round trip. */
@@ -77,20 +78,15 @@ function SignUpForm() {
         />
       </label>
 
-      <label className="account-field">
-        <span className="mono account-field-label">PASSWORD</span>
-        <input
-          className="account-input"
-          type="password"
-          name="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <span className="account-field-hint">
-          At least {MINIMUM_PASSWORD_LENGTH} characters.
-        </span>
-      </label>
+      <PasswordField
+        id="sign-up-password"
+        label="PASSWORD"
+        name="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={setPassword}
+        hint={`At least ${MINIMUM_PASSWORD_LENGTH} characters.`}
+      />
 
       {error !== null && (
         <p className="account-error" role="alert">

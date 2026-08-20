@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/errors'
 import { useSessionStore } from '../../store/useSessionStore'
+import PasswordField from './PasswordField'
 import './SignInForm.css'
 
 /**
@@ -55,17 +56,14 @@ function SignInForm() {
         />
       </label>
 
-      <label className="account-field">
-        <span className="mono account-field-label">PASSWORD</span>
-        <input
-          className="account-input"
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+      <PasswordField
+        id="sign-in-password"
+        label="PASSWORD"
+        name="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={setPassword}
+      />
 
       {error !== null && (
         <p className="account-error" role="alert">

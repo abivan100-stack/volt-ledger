@@ -26,7 +26,7 @@ function submitButton(): HTMLButtonElement {
 function fillForm(password = 'a-sufficiently-long-password'): void {
   fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Asha' } })
   fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'asha@example.com' } })
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: password } })
+  fireEvent.change(screen.getByLabelText('PASSWORD'), { target: { value: password } })
 }
 
 describe('SignUpForm', () => {
@@ -65,7 +65,7 @@ describe('SignUpForm', () => {
     fireEvent.click(submitButton())
 
     await screen.findByRole('status')
-    expect(screen.queryByLabelText(/password/i)).toBeNull()
+    expect(screen.queryByLabelText('PASSWORD')).toBeNull()
   })
 
   it('rejects a password the server would refuse before sending it', () => {
@@ -101,7 +101,7 @@ describe('SignUpForm', () => {
     fireEvent.click(submitButton())
 
     await screen.findByRole('alert')
-    expect(screen.queryByLabelText(/password/i)).not.toBeNull()
+    expect(screen.queryByLabelText('PASSWORD')).not.toBeNull()
     expect(submitButton().disabled).toBe(false)
   })
 

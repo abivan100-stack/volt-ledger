@@ -47,7 +47,7 @@ function submitButton(): HTMLButtonElement {
 
 function fillCredentials(email = 'asha@example.com', password = 'a-long-password'): void {
   fireEvent.change(emailField(), { target: { value: email } })
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: password } })
+  fireEvent.change(screen.getByLabelText('PASSWORD'), { target: { value: password } })
 }
 
 describe('SignInForm', () => {
