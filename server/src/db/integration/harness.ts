@@ -1,5 +1,6 @@
 import { MongoClient, type Db } from 'mongodb'
 import { collectionNames, initializeVoltDatabase } from '../collections.js'
+import { applyTestDnsServers } from './setupDns.js'
 import {
   isDedicatedTestDatabaseName,
   resolveTestDatabase,
@@ -79,6 +80,9 @@ export async function clearVoltCollections(db: Db): Promise<void> {
 }
 
 export async function connectTestDatabase(config: TestDatabaseConfig): Promise<IntegrationContext> {
+  // Must happen before the client resolves an SRV record.
+  applyTestDnsServers()
+
   const client = new MongoClient(config.uri, {
     appName: 'volt-ledger-integration-tests',
     connectTimeoutMS: 15_000,

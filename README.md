@@ -194,6 +194,8 @@ MONGODB_TEST_DB_NAME=volt_test               # dedicated and disposable
 
 **The named database is emptied between tests.** It qualifies only if its name contains `test`, differs from `MONGODB_DB_NAME`, and is not a MongoDB internal database; a name is never defaulted, because defaulting is how the wrong database gets chosen. Cleanup empties only the ten collections Volt owns rather than dropping the database, so a database that also holds something else cannot be destroyed by a misconfiguration.
 
+If your network refuses Node's system DNS resolver — some sandboxes and corporate networks do — a `mongodb+srv://` URI fails at the SRV lookup before any connection is attempted. Set `VOLT_TEST_DNS_SERVERS=8.8.8.8,1.1.1.1` to route lookups elsewhere; it does nothing when unset.
+
 `npm run test:api` skips these suites when the URI is absent so the ordinary suite still runs on a laptop with no database. `npm run test:integration` treats the same missing configuration as a failure, so a staging run cannot pass while testing nothing.
 
 What it verifies: every declared index exists with its keys, uniqueness and partial filters; transactions roll back completely; the archival cascade soft-deletes access and working data while retaining ledger and audit history; soft-deleted rows disappear from every read path and free their unique slug; daily quota reservation is atomic under concurrent load and hands the last unit to exactly one caller; racing ownership transfers leave exactly one owner; a single-use invitation becomes exactly one membership under concurrent acceptance; expired invitations are revoked but retained; and settlement and adjustment are idempotent under retry, including concurrent retry.
