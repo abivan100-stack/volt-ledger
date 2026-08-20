@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (449 tests)
+npm test               # run the client test suite once (491 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,13 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+The member list shows every active member of the selected organisation and only the controls the caller's role
+permits: an owner may reassign or remove anyone but the owner, an admin may reach operators and viewers and cannot mint
+another admin, and operators and viewers get a read-only list. Nobody gets controls against their own membership.
+Handing over ownership is confirmed before it is sent, because it demotes the acting owner to admin in the same
+transaction. `canManageMembership` in `src/lib/permissions.ts` mirrors the API's `isRoleManagementAllowed`, which
+re-checks every case.
 
 Once signed in, the page lists the organisations you belong to, shows the role you hold in the selected one, and
 creates new ones. The identifier is derived from the name by `src/lib/slug.ts` and stops tracking it the moment you
@@ -158,6 +165,7 @@ src/
     unauthenticated.ts    #   One-slot 401 registry the session store subscribes to
     resource.ts           #   Shared client/signal plumbing for resource modules
     organisations.ts      #   Organisation list, create, read, archive
+    memberships.ts        #   Member list, role change, removal, ownership transfer
     auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
@@ -179,6 +187,7 @@ src/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)
     useSessionStore.ts    # Zustand authenticated-session state (restore, sign-out, expiry)
     useOrganisationStore.ts # Zustand organisation list and current selection
+    useMembershipStore.ts # Zustand member list for the selected organisation
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  ASSIGNABLE_ROLES,
   MEMBERSHIP_ROLES,
   canArchiveOrganisation,
+  canManageMembership,
   canManageMembers,
   canRunSimulations,
   canSettleAndAdjustLedger,
@@ -91,5 +93,51 @@ describe('roleLabel', () => {
     expect(roleLabel('admin')).toBe('Admin')
     expect(roleLabel('operator')).toBe('Operator')
     expect(roleLabel('viewer')).toBe('Viewer')
+  })
+})
+
+describe('ASSIGNABLE_ROLES', () => {
+  it('excludes owner, which is only reachable through an ownership transfer', () => {
+    expect(ASSIGNABLE_ROLES).toEqual(['admin', 'operator', 'viewer'])
+  })
+})
+
+describe('canManageMembership', () => {
+  it('lets an owner manage every non-owner member', () => {
+    expect(canManageMembership('owner', 'admin')).toBe(true)
+    expect(canManageMembership('owner', 'operator')).toBe(true)
+    expect(canManageMembership('owner', 'viewer')).toBe(true)
+  })
+
+  it('protects the owner membership from everyone, including the owner', () => {
+    expect(canManageMembership('owner', 'owner')).toBe(false)
+    expect(canManageMembership('admin', 'owner')).toBe(false)
+  })
+
+  it('never allows granting the owner role', () => {
+    expect(canManageMembership('owner', 'admin', 'owner')).toBe(false)
+    expect(canManageMembership('owner', 'viewer', 'owner')).toBe(false)
+  })
+
+  it('lets an admin manage operators and viewers only', () => {
+    expect(canManageMembership('admin', 'operator')).toBe(true)
+    expect(canManageMembership('admin', 'viewer')).toBe(true)
+    expect(canManageMembership('admin', 'admin')).toBe(false)
+  })
+
+  it('stops an admin promoting anyone to admin', () => {
+    expect(canManageMembership('admin', 'viewer', 'admin')).toBe(false)
+    expect(canManageMembership('admin', 'operator', 'viewer')).toBe(true)
+  })
+
+  it('lets an owner promote to admin', () => {
+    expect(canManageMembership('owner', 'viewer', 'admin')).toBe(true)
+  })
+
+  it('gives operators and viewers no management at all', () => {
+    for (const target of MEMBERSHIP_ROLES) {
+      expect(canManageMembership('operator', target)).toBe(false)
+      expect(canManageMembership('viewer', target)).toBe(false)
+    }
   })
 })

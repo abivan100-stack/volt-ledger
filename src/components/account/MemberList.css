@@ -1,0 +1,122 @@
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.member-list-heading {
+  margin: 0;
+  font-family: Archivo, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.member-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+.member-row-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.member-row-email {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.member-row-self {
+  padding: 2px 6px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+}
+
+.member-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-row-role {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.member-row-role-static {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.member-row-action {
+  padding: 7px 10px;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.member-row-action:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.member-row-action:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.member-row-confirm {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--sun);
+  border-color: var(--sun);
+}
+
+.member-row-remove:hover:not(:disabled) {
+  color: var(--void);
+  border-color: var(--void);
+}
+
+.member-list-readonly {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}

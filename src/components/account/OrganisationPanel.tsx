@@ -4,6 +4,7 @@ import { useOrganisations } from '../../hooks/useOrganisations'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import CreateOrganisationForm from './CreateOrganisationForm'
+import MemberList from './MemberList'
 import './OrganisationPanel.css'
 
 /**
@@ -101,6 +102,8 @@ function SignedInOrganisations() {
           NEW ORGANISATION
         </button>
       )}
+
+      <MemberList />
     </section>
   )
 }

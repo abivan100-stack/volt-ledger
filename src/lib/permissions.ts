@@ -15,6 +15,35 @@ export function isMembershipRole(value: unknown): value is MembershipRole {
   return typeof value === 'string' && (MEMBERSHIP_ROLES as readonly string[]).includes(value)
 }
 
+/**
+ * Roles that can be granted through an invitation or a role change. Owner is
+ * absent by design: it moves only through an explicit ownership transfer.
+ */
+export const ASSIGNABLE_ROLES = ['admin', 'operator', 'viewer'] as const
+
+export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number]
+
+/**
+ * Whether `actorRole` may change or remove a membership currently held at
+ * `targetRole`, optionally moving it to `nextRole`.
+ *
+ * Mirrors `isRoleManagementAllowed` on the API. Two rules do the work: the owner
+ * membership is untouchable here (it moves only through an ownership transfer),
+ * and an admin may not reach another admin or mint one.
+ */
+export function canManageMembership(
+  actorRole: MembershipRole,
+  targetRole: MembershipRole,
+  nextRole?: MembershipRole,
+): boolean {
+  if (targetRole === 'owner' || nextRole === 'owner') return false
+  if (actorRole === 'owner') return true
+  if (actorRole === 'admin') {
+    return (targetRole === 'operator' || targetRole === 'viewer') && nextRole !== 'admin'
+  }
+  return false
+}
+
 /** Invite, remove, and change the role of other members. */
 export function canManageMembers(role: MembershipRole): boolean {
   return role === 'owner' || role === 'admin'
