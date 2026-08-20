@@ -242,6 +242,59 @@ describe('Volt Mongo repositories', () => {
     )
   })
 
+  it('transfers ownership atomically and records the new roles', async () => {
+    let transactionCount = 0
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => {
+          transactionCount += 1
+          await operation()
+        },
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const db = createMemoryDb()
+    const repositories = createVoltRepositories(db, client)
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_owner',
+      email: 'owner@example.com',
+      role: 'owner',
+    })
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_admin',
+      email: 'admin@example.com',
+      role: 'admin',
+    })
+
+    await expect(repositories.memberships.transferOwnership('org_123', 'user_owner', 'user_owner')).rejects.toThrow(
+      'OWNER_TRANSFER_INVALID',
+    )
+
+    const transferred = await repositories.memberships.transferOwnership(
+      'org_123',
+      'user_owner',
+      'user_admin',
+    )
+
+    expect(transferred).toMatchObject({
+      previousOwner: { userId: 'user_owner', role: 'admin' },
+      newOwner: { userId: 'user_admin', role: 'owner' },
+    })
+    expect(await repositories.memberships.find('org_123', 'user_owner')).toMatchObject({ role: 'admin' })
+    expect(await repositories.memberships.find('org_123', 'user_admin')).toMatchObject({ role: 'owner' })
+    expect(await db.collection('audit_events').find({}).toArray()).toEqual([
+      expect.objectContaining({
+        action: 'membership.owner_transferred',
+        entityType: 'organisation',
+        entityId: 'org_123',
+        metadata: { previousOwnerUserId: 'user_owner', newOwnerUserId: 'user_admin' },
+      }),
+    ])
+    expect(transactionCount).toBe(1)
+  })
+
   it('creates organisations and memberships and hides soft-deleted organisations', async () => {
     const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
 

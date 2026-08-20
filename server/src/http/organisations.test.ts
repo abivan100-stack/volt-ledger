@@ -68,6 +68,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         listForOrganisation: async () => [membership],
         updateRole: async () => null,
         remove: async () => null,
+        transferOwnership: async () => null,
       },
       invitations: {
         create: async () => {

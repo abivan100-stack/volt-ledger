@@ -64,6 +64,7 @@ function createRepositories(targetRole: MembershipDocument['role'] = 'operator')
   const target = member('user_456', targetRole)
   let updatedRole: MembershipDocument['role'] | undefined
   let removedUserId: string | undefined
+  let transferredTo: string | undefined
   return {
     repositories: {
       organisations: {
@@ -83,10 +84,18 @@ function createRepositories(targetRole: MembershipDocument['role'] = 'operator')
           removedUserId = userId
           return { ...target, userId, deletedAt: new Date('2030-01-02T00:00:00.000Z') }
         },
+        transferOwnership: async (_organisationId: string, _currentOwnerUserId: string, nextOwnerUserId: string) => {
+          transferredTo = nextOwnerUserId
+          return {
+            previousOwner: { ...actorMembership, role: 'admin' as const },
+            newOwner: { ...target, userId: nextOwnerUserId, role: 'owner' as const },
+          }
+        },
       },
     },
     getUpdatedRole: () => updatedRole,
     getRemovedUserId: () => removedUserId,
+    getTransferredTo: () => transferredTo,
   }
 }
 
@@ -193,5 +202,40 @@ describe('membership REST API', () => {
     expect(response.statusCode).toBe(204)
     expect(response.body).toBe('')
     expect(fixture.getRemovedUserId()).toBe('user_456')
+  })
+
+  it('allows only the current owner to transfer ownership to an active member', async () => {
+    const fixture = createRepositories()
+    const app = await buildApp({ logger: false, auth: authenticatedAuth, repositories: fixture.repositories as never })
+    apps.push(app)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/ownership/transfer`,
+      payload: { newOwnerUserId: 'user_456' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({
+      ownership: {
+        previousOwner: { userId: 'user_123', role: 'admin' },
+        newOwner: { userId: 'user_456', role: 'owner' },
+      },
+    })
+    expect(fixture.getTransferredTo()).toBe('user_456')
+
+    const adminFixture = createRepositories()
+    const adminActor = { ...actorMembership, role: 'admin' as const }
+    adminFixture.repositories.memberships.find = async (_organisationId: string, userId: string) =>
+      userId === adminActor.userId ? adminActor : userId === 'user_456' ? member('user_456', 'operator') : null
+    const adminApp = await buildApp({ logger: false, auth: authenticatedAuth, repositories: adminFixture.repositories as never })
+    apps.push(adminApp)
+    const forbidden = await adminApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/ownership/transfer`,
+      payload: { newOwnerUserId: 'user_456' },
+    })
+    expect(forbidden.statusCode).toBe(403)
+    expect(adminFixture.getTransferredTo()).toBeUndefined()
   })
 })

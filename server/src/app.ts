@@ -91,9 +91,16 @@ const createAdjustmentSchema = z.object({
   path: ['energyKwh'],
 }).strict()
 
+const transferOwnershipSchema = z.object({
+  newOwnerUserId: z.string().trim().min(1).max(200),
+}).strict()
+
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
-  memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
+  memberships: Pick<
+    MembershipRepository,
+    'find' | 'listForOrganisation' | 'updateRole' | 'remove' | 'transferOwnership'
+  >
   invitations: Pick<
     InvitationRepository,
     'create' | 'findById' | 'findPendingByEmail' | 'listForOrganisation' | 'revoke' | 'accept'
@@ -854,6 +861,68 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
     const members = await repositorySet.memberships.listForOrganisation(parsedParams.data.organisationId)
     return { members: members.map(serializeMembership) }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/ownership/transfer', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+    const parsedBody = transferOwnershipSchema.safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid ownership transfer input', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    try {
+      const result = await repositorySet.memberships.transferOwnership(
+        parsedParams.data.organisationId,
+        access.session.user.id,
+        parsedBody.data.newOwnerUserId,
+      )
+      if (!result) {
+        return reply.code(409).send({ error: 'Membership changed before ownership transfer', code: 'MEMBERSHIP_CHANGED' })
+      }
+      return {
+        ownership: {
+          previousOwner: serializeMembership(result.previousOwner),
+          newOwner: serializeMembership(result.newOwner),
+        },
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'OWNER_TRANSFER_FAILED'
+      if (code === 'OWNER_TRANSFER_INVALID') {
+        return reply.code(400).send({ error: 'The new Owner must be a different active member', code })
+      }
+      if (code === 'OWNER_TRANSFER_TARGET_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Target membership not found', code: 'MEMBERSHIP_NOT_FOUND' })
+      }
+      if (code === 'OWNER_TRANSFER_TARGET_INVALID') {
+        return reply.code(409).send({ error: 'The target membership is already the Owner', code })
+      }
+      if (code === 'MEMBERSHIP_CHANGED') {
+        return reply.code(409).send({ error: 'Membership changed before ownership transfer', code })
+      }
+      app.log.error({ err: error }, 'Ownership transfer failed')
+      return reply.code(500).send({ error: 'Ownership could not be transferred', code: 'OWNER_TRANSFER_FAILED' })
+    }
   })
 
   app.patch('/api/v1/organisations/:organisationId/memberships/:userId', async (request, reply) => {

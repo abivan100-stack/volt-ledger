@@ -176,6 +176,11 @@ export interface MembershipRepository {
   listForOrganisation(organisationId: string): Promise<MembershipDocument[]>
   updateRole(organisationId: string, userId: string, role: MembershipRole, actorUserId: string): Promise<MembershipDocument | null>
   remove(organisationId: string, userId: string, actorUserId: string): Promise<MembershipDocument | null>
+  transferOwnership(
+    organisationId: string,
+    currentOwnerUserId: string,
+    nextOwnerUserId: string,
+  ): Promise<{ previousOwner: MembershipDocument; newOwner: MembershipDocument } | null>
   softDelete(organisationId: string, userId: string): Promise<boolean>
 }
 
@@ -593,6 +598,65 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
           removed = { ...current, deletedAt: now, updatedAt: now }
         })
         return removed
+      } finally {
+        await session.endSession()
+      }
+    },
+    async transferOwnership(organisationId, currentOwnerUserId, nextOwnerUserId) {
+      if (currentOwnerUserId === nextOwnerUserId) throw new Error('OWNER_TRANSFER_INVALID')
+
+      const session = client.startSession()
+      try {
+        let transferred: { previousOwner: MembershipDocument; newOwner: MembershipDocument } | null = null
+        await session.withTransaction(async () => {
+          const currentOwner = await collections.memberships.findOne(
+            { organisationId, userId: currentOwnerUserId, role: 'owner', deletedAt: null },
+            { session },
+          )
+          if (!currentOwner) return
+
+          const nextOwner = await collections.memberships.findOne(
+            { organisationId, userId: nextOwnerUserId, deletedAt: null },
+            { session },
+          )
+          if (!nextOwner) throw new Error('OWNER_TRANSFER_TARGET_NOT_FOUND')
+          if (nextOwner.role === 'owner') throw new Error('OWNER_TRANSFER_TARGET_INVALID')
+
+          const now = new Date()
+          const demote = await collections.memberships.updateOne(
+            { _id: currentOwner._id, role: 'owner', deletedAt: null },
+            { $set: { role: 'admin', updatedAt: now } },
+            { session },
+          )
+          if (demote.modifiedCount !== 1) throw new Error('MEMBERSHIP_CHANGED')
+
+          const promote = await collections.memberships.updateOne(
+            { _id: nextOwner._id, role: nextOwner.role, deletedAt: null },
+            { $set: { role: 'owner', updatedAt: now } },
+            { session },
+          )
+          if (promote.modifiedCount !== 1) throw new Error('MEMBERSHIP_CHANGED')
+
+          await collections.auditEvents.insertOne(
+            {
+              _id: randomUUID(),
+              organisationId,
+              actorUserId: currentOwnerUserId,
+              action: 'membership.owner_transferred',
+              entityType: 'organisation',
+              entityId: organisationId,
+              metadata: { previousOwnerUserId: currentOwnerUserId, newOwnerUserId: nextOwnerUserId },
+              createdAt: now,
+            },
+            { session },
+          )
+
+          transferred = {
+            previousOwner: { ...currentOwner, role: 'admin', updatedAt: now },
+            newOwner: { ...nextOwner, role: 'owner', updatedAt: now },
+          }
+        })
+        return transferred
       } finally {
         await session.endSession()
       }
