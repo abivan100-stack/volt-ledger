@@ -1,5 +1,5 @@
 import type { Db, Document, MongoClient } from 'mongodb'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createLedgerSeal,
   createVoltRepositories,
@@ -60,12 +60,15 @@ function createMemoryCollection() {
       let rows = documents.filter((document) => matches(document, filter))
       return {
         sort(sortSpec: Record<string, 1 | -1>) {
-          const [[field, direction]] = Object.entries(sortSpec)
+          const entries = Object.entries(sortSpec)
           rows = rows.toSorted((left, right) => {
-            const leftValue = left[field]
-            const rightValue = right[field]
-            if (leftValue === rightValue) return 0
-            return (leftValue ?? '') > (rightValue ?? '') ? direction : -direction
+            for (const [field, direction] of entries) {
+              const leftValue = left[field]
+              const rightValue = right[field]
+              if (leftValue === rightValue) continue
+              return (leftValue ?? '') > (rightValue ?? '') ? direction : -direction
+            }
+            return 0
           })
           return this
         },
@@ -369,6 +372,59 @@ describe('Volt Mongo repositories', () => {
     expect(await repositories.organisations.softDelete(organisation._id, 'user_123')).toBe(false)
     expect(await repositories.organisations.findById(organisation._id)).toEqual(organisation)
     expect(await repositories.audit.listForOrganisation(organisation._id)).toEqual([])
+  })
+
+  it('paginates audit events with an action filter and stable cursor', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    const organisationId = 'org_123'
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'))
+      await repositories.audit.append({
+        organisationId,
+        actorUserId: 'user_123',
+        action: 'membership.role_updated',
+        entityType: 'membership',
+        entityId: 'member_1',
+      })
+      vi.setSystemTime(new Date('2030-01-01T00:00:01.000Z'))
+      await repositories.audit.append({
+        organisationId,
+        actorUserId: 'user_123',
+        action: 'organisation.created',
+        entityType: 'organisation',
+        entityId: organisationId,
+      })
+      vi.setSystemTime(new Date('2030-01-01T00:00:02.000Z'))
+      const latest = await repositories.audit.append({
+        organisationId,
+        actorUserId: 'user_123',
+        action: 'membership.role_updated',
+        entityType: 'membership',
+        entityId: 'member_2',
+      })
+
+      const firstPage = await repositories.audit.listPageForOrganisation(organisationId, {
+        action: 'membership.role_updated',
+        limit: 1,
+      })
+      expect(firstPage.events).toEqual([latest])
+      expect(firstPage.nextCursor).toEqual({ createdAt: latest.createdAt, id: latest._id })
+
+      const secondPage = await repositories.audit.listPageForOrganisation(organisationId, {
+        action: 'membership.role_updated',
+        before: firstPage.nextCursor,
+        limit: 1,
+      })
+      expect(secondPage.events).toHaveLength(1)
+      expect(secondPage.events[0]).toMatchObject({
+        action: 'membership.role_updated',
+        entityId: 'member_1',
+      })
+      expect(secondPage.nextCursor).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('enforces the simulation lifecycle and stores append-only result batches', async () => {

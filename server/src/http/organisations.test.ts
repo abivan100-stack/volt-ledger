@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../auth/auth.js'
-import type { MembershipDocument, OrganisationDocument } from '../db/models.js'
+import type { AuditEventDocument, MembershipDocument, OrganisationDocument } from '../db/models.js'
 import { simulationDailyRunLimit, type CreateOrganisationInput } from '../db/repositories.js'
 import { buildApp, type OrganisationRouteRepositories } from '../app.js'
 
@@ -53,7 +53,9 @@ const authenticatedAuth: AuthService = {
 function createRepositories(role: MembershipDocument['role'] = 'owner') {
   let receivedCreateInput: CreateOrganisationInput | undefined
   let deletedByUserId: string | undefined
+  const auditPageOptions: unknown[] = []
   const membership = createMembership(role)
+  const nextAuditCursor = { createdAt: new Date('2030-01-01T00:00:00.000Z'), id: 'audit_1' }
   return {
     repositories: {
       organisations: {
@@ -110,10 +112,15 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
       },
       audit: {
         listForOrganisation: async () => [],
+        listPageForOrganisation: async (_organisationId: string, options: unknown) => {
+          auditPageOptions.push(options)
+          return { events: [] as AuditEventDocument[], nextCursor: nextAuditCursor }
+        },
       },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
     getDeletedByUserId: () => deletedByUserId,
+    getAuditPageOptions: () => auditPageOptions,
   }
 }
 
@@ -262,5 +269,43 @@ describe('organisation REST API', () => {
     })
     expect(forbidden.statusCode).toBe(403)
     expect(adminFixture.getDeletedByUserId()).toBeUndefined()
+  })
+
+  it('paginates and filters the organisation audit stream', async () => {
+    const fixture = createRepositories()
+    const app = await buildApp({ logger: false, auth: authenticatedAuth, repositories: fixture.repositories })
+    apps.push(app)
+
+    const first = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/audit-events?limit=1&action=membership.role_updated`,
+    })
+    expect(first.statusCode).toBe(200)
+    expect(first.json()).toMatchObject({ events: [], nextCursor: expect.any(String) })
+    expect(fixture.getAuditPageOptions()[0]).toEqual({ limit: 1, action: 'membership.role_updated' })
+
+    const cursor = first.json().nextCursor as string
+    const second = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/audit-events?cursor=${encodeURIComponent(cursor)}`,
+    })
+    expect(second.statusCode).toBe(200)
+    expect(fixture.getAuditPageOptions()[1]).toMatchObject({
+      limit: 100,
+      before: { createdAt: new Date('2030-01-01T00:00:00.000Z'), id: 'audit_1' },
+    })
+  })
+
+  it('rejects malformed audit cursors', async () => {
+    const fixture = createRepositories()
+    const app = await buildApp({ logger: false, auth: authenticatedAuth, repositories: fixture.repositories })
+    apps.push(app)
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/audit-events?cursor=not-a-valid-cursor`,
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toEqual({ error: 'Invalid audit cursor', code: 'INVALID_AUDIT_CURSOR' })
   })
 })

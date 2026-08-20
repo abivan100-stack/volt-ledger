@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import type { ClientSession, Db, MongoClient } from 'mongodb'
+import type { ClientSession, Db, Filter, MongoClient } from 'mongodb'
 import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
@@ -162,6 +162,22 @@ export interface CreateAuditEventInput {
   metadata?: JsonObject
 }
 
+export interface AuditEventCursor {
+  createdAt: Date
+  id: string
+}
+
+export interface AuditEventPageOptions {
+  limit?: number
+  action?: string
+  before?: AuditEventCursor | null
+}
+
+export interface AuditEventPage {
+  events: AuditEventDocument[]
+  nextCursor: AuditEventCursor | null
+}
+
 export interface OrganisationRepository {
   create(input: CreateOrganisationInput): Promise<OrganisationDocument>
   createWithOwner(input: CreateOrganisationInput): Promise<CreateOrganisationWithOwnerResult>
@@ -216,6 +232,7 @@ export interface LedgerRepository {
 export interface AuditRepository {
   append(input: CreateAuditEventInput): Promise<AuditEventDocument>
   listForOrganisation(organisationId: string, limit?: number): Promise<AuditEventDocument[]>
+  listPageForOrganisation(organisationId: string, options?: AuditEventPageOptions): Promise<AuditEventPage>
 }
 
 export interface InvitationRepository {
@@ -1322,12 +1339,37 @@ function createAuditRepository(collections: VoltCollections): AuditRepository {
       await collections.auditEvents.insertOne(document)
       return document
     },
-    listForOrganisation(organisationId, limit = 100) {
-      return collections.auditEvents
-        .find({ organisationId })
-        .sort({ createdAt: -1 })
-        .limit(Math.min(Math.max(limit, 1), 500))
+    async listForOrganisation(organisationId, limit = 100) {
+      const page = await this.listPageForOrganisation(organisationId, { limit })
+      return page.events
+    },
+    async listPageForOrganisation(organisationId, options = {}) {
+      const limit = Math.min(Math.max(options.limit ?? 100, 1), 500)
+      const filter: Filter<AuditEventDocument> = {
+        organisationId,
+        ...(options.action ? { action: options.action } : {}),
+        ...(options.before
+          ? {
+              $or: [
+                { createdAt: { $lt: options.before.createdAt } },
+                { createdAt: options.before.createdAt, _id: { $lt: options.before.id } },
+              ],
+            }
+          : {}),
+      }
+      const events = await collections.auditEvents
+        .find(filter)
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
         .toArray()
+      const pageEvents = events.slice(0, limit)
+      const lastEvent = pageEvents.at(-1)
+      return {
+        events: pageEvents,
+        nextCursor: events.length > limit && lastEvent
+          ? { createdAt: lastEvent.createdAt, id: lastEvent._id }
+          : null,
+      }
     },
   }
 }

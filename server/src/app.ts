@@ -18,6 +18,8 @@ import {
   type OrganisationRepository,
   type SimulationQuotaSnapshot,
   type SimulationRepository,
+  type AuditEventCursor,
+  type AuditEventPageOptions,
 } from './db/repositories.js'
 import type {
   AuditEventDocument,
@@ -112,7 +114,7 @@ export interface OrganisationRouteRepositories {
     'createRun' | 'getDailyQuota' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
   ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
-  audit: Pick<AuditRepository, 'listForOrganisation'>
+  audit: Pick<AuditRepository, 'listForOrganisation' | 'listPageForOrganisation'>
 }
 
 export interface InvitationEmailSender {
@@ -252,6 +254,34 @@ function serializeAuditEvent(event: AuditEventDocument) {
     entityId: event.entityId,
     metadata: event.metadata,
     createdAt: event.createdAt.toISOString(),
+  }
+}
+
+function encodeAuditCursor(cursor: AuditEventCursor): string {
+  return Buffer.from(JSON.stringify({ createdAt: cursor.createdAt.toISOString(), id: cursor.id }), 'utf8').toString('base64url')
+}
+
+function decodeAuditCursor(value: string): AuditEventCursor | null {
+  if (value.length === 0 || value.length > 512) return null
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('createdAt' in parsed) ||
+      !('id' in parsed) ||
+      typeof parsed.createdAt !== 'string' ||
+      typeof parsed.id !== 'string' ||
+      parsed.id.length === 0 ||
+      parsed.id.length > 200
+    ) {
+      return null
+    }
+    const createdAt = new Date(parsed.createdAt)
+    if (Number.isNaN(createdAt.getTime())) return null
+    return { createdAt, id: parsed.id }
+  } catch {
+    return null
   }
 }
 
@@ -920,10 +950,18 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
     }
     const parsedQuery = z
-      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+      .object({
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+        action: z.string().trim().min(1).max(120).optional(),
+        cursor: z.string().trim().min(1).max(512).optional(),
+      })
       .safeParse(request.query)
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'Invalid audit event list options', code: 'INVALID_REQUEST' })
+    }
+    const before = parsedQuery.data.cursor ? decodeAuditCursor(parsedQuery.data.cursor) : null
+    if (parsedQuery.data.cursor && !before) {
+      return reply.code(400).send({ error: 'Invalid audit cursor', code: 'INVALID_AUDIT_CURSOR' })
     }
 
     const repositorySet = repositories()
@@ -941,11 +979,19 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
     }
 
-    const events = await repositorySet.audit.listForOrganisation(
+    const pageOptions: AuditEventPageOptions = {
+      limit: parsedQuery.data.limit,
+      ...(parsedQuery.data.action ? { action: parsedQuery.data.action } : {}),
+      ...(before ? { before } : {}),
+    }
+    const page = await repositorySet.audit.listPageForOrganisation(
       parsedParams.data.organisationId,
-      parsedQuery.data.limit,
+      pageOptions,
     )
-    return { events: events.map(serializeAuditEvent) }
+    return {
+      events: page.events.map(serializeAuditEvent),
+      nextCursor: page.nextCursor ? encodeAuditCursor(page.nextCursor) : null,
+    }
   })
 
   app.post('/api/v1/organisations/:organisationId/ownership/transfer', async (request, reply) => {

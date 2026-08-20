@@ -108,6 +108,7 @@ function createRepositories(
       },
       audit: {
         listForOrganisation: async () => [auditEvent],
+        listPageForOrganisation: async () => ({ events: [auditEvent] as AuditEventDocument[], nextCursor: null }),
       },
     },
     getUpdatedRole: () => updatedRole,
@@ -170,6 +171,7 @@ describe('membership REST API', () => {
         metadata: auditEvent.metadata,
         createdAt: auditEvent.createdAt.toISOString(),
       }],
+      nextCursor: null,
     })
 
     const viewerFixture = createRepositories('operator', 'viewer')
