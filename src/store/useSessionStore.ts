@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '../api/errors'
 import { fetchSession, signOut as signOutRequest, type SessionUser } from '../api/session'
+import { setUnauthenticatedHandler } from '../api/unauthenticated'
 
 /**
  * Authenticated-session state, kept deliberately separate from `useEnergyStore`.
@@ -106,3 +107,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   dismissExpiryNotice: () => set({ expired: false }),
 }))
+
+// Any 401 from any route means the cookie is gone; drop to signed-out once,
+// centrally, instead of asking every caller to remember.
+setUnauthenticatedHandler(() => useSessionStore.getState().expire())

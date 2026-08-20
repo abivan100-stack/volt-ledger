@@ -1,5 +1,6 @@
 import { requireApiBaseUrl } from './config'
 import { ApiError, type ApiErrorIssue } from './errors'
+import { notifyUnauthenticated } from './unauthenticated'
 
 /**
  * Thin typed wrapper over `fetch` for the Volt REST API.
@@ -133,7 +134,12 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         })
       }
 
-      if (!response.ok) throw await toApiError(response)
+      if (!response.ok) {
+        // Tell the session layer before the caller sees the rejection, so the UI
+        // is already signed out by the time it renders the failure.
+        if (response.status === 401) notifyUnauthenticated()
+        throw await toApiError(response)
+      }
 
       return (await readJson(response)) as T
     },

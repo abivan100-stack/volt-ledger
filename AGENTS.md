@@ -29,6 +29,7 @@
 
 ## Key Conventions
 - Logic stays pure: lib/*.ts must not import React, store, or touch DOM
+- Dependencies run one way: `store/` may import `api/`, never the reverse — the API layer announces 401s through `api/unauthenticated.ts` instead of calling the store
 - Network code lives in `src/api/`, never in `src/lib/`; the browser learns one server address, `VITE_API_BASE_URL`, and no server secret is ever exposed to a `VITE_` variable
 - Every component gets its own co-located .css file (no inline styles)
 - Simulation is deterministic: every value is a pure function of (dayType, hour, householdId), and stochastic variation flows only through `seededUnit` (an FNV-1a hash folded into [0,1)) — never `Math.random()` or `performance.now()`
@@ -42,7 +43,7 @@
 
 ## Testing
 - Lib tests are in `src/lib/__tests__/`; API-client tests in `src/api/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (14 lib + 4 api + 7 store/hook + 9 component/page/theme test files, 328 tests)
+- Each lib module has a corresponding test file (14 lib + 5 api + 7 store/hook + 9 component/page/theme test files, 339 tests)
 - API-client tests run in the default node environment and inject a fake `fetch`; they never hit a real server
 - Store tests reset the singleton store to its pristine state before each case
 

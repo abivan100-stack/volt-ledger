@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSessionStore } from '../useSessionStore'
 import { ApiError } from '../../api/errors'
+import { notifyUnauthenticated } from '../../api/unauthenticated'
 import type { Session } from '../../api/session'
 
 const { fetchSessionMock, signOutMock } = vi.hoisted(() => ({
@@ -188,5 +189,30 @@ describe('dismissExpiryNotice', () => {
     const state = useSessionStore.getState()
     expect(state.expired).toBe(false)
     expect(state.status).toBe('anonymous')
+  })
+})
+
+describe('unauthenticated API responses', () => {
+  it('expires the session when any request reports a 401', async () => {
+    fetchSessionMock.mockResolvedValue(SESSION)
+    await useSessionStore.getState().restore()
+
+    notifyUnauthenticated()
+
+    const state = useSessionStore.getState()
+    expect(state.status).toBe('anonymous')
+    expect(state.user).toBeNull()
+    expect(state.expired).toBe(true)
+  })
+
+  it('leaves an anonymous visitor unchanged', async () => {
+    fetchSessionMock.mockResolvedValue(null)
+    await useSessionStore.getState().restore()
+
+    notifyUnauthenticated()
+
+    const state = useSessionStore.getState()
+    expect(state.status).toBe('anonymous')
+    expect(state.expired).toBe(false)
   })
 })

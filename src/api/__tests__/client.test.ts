@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { createApiClient, type FetchLike } from '../client'
 import { ApiError } from '../errors'
+import { setUnauthenticatedHandler } from '../unauthenticated'
 
 const BASE = 'http://localhost:4000'
 
@@ -176,5 +177,51 @@ describe('createApiClient request', () => {
   it('rejects a path that is not absolute', async () => {
     const { client } = clientWith(jsonResponse({ ok: true }))
     await expect(client.request('api/v1/me')).rejects.toThrow(/must start with/)
+  })
+})
+
+describe('unauthenticated notification', () => {
+  afterEach(() => {
+    setUnauthenticatedHandler(null)
+  })
+
+  it('notifies the registered handler when the server reports a 401', async () => {
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+    const { client } = clientWith(
+      jsonResponse({ error: 'Authentication required', code: 'UNAUTHENTICATED' }, { status: 401 }),
+    )
+
+    await rejection(client.request('/api/v1/organisations'))
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not notify for a forbidden role', async () => {
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+    const { client } = clientWith(
+      jsonResponse({ error: 'Your role cannot perform this action', code: 'ORGANISATION_ROLE_FORBIDDEN' }, { status: 403 }),
+    )
+
+    await rejection(client.request('/api/v1/organisations'))
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('does not notify for a server failure', async () => {
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+    const { client } = clientWith(jsonResponse({ error: 'Boom', code: 'INTERNAL' }, { status: 500 }))
+
+    await rejection(client.request('/api/v1/organisations'))
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('does not notify for a transport failure', async () => {
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+    const { client } = clientWith(new TypeError('Failed to fetch'))
+
+    await rejection(client.request('/api/v1/organisations'))
+    expect(handler).not.toHaveBeenCalled()
   })
 })
