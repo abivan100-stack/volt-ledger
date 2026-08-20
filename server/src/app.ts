@@ -4,7 +4,6 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import { fromNodeHeaders } from 'better-auth/node'
-import { z } from 'zod'
 import { getAuthService, type AuthService } from './auth/auth.js'
 import { env } from './config/env.js'
 import { getMongoDb } from './db/mongo.js'
@@ -40,64 +39,28 @@ import {
 } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import {
+  acceptInvitationBodySchema,
+  auditEventQuerySchema,
+  createAdjustmentSchema,
+  createInvitationBodySchema,
+  createOrganisationSchema,
+  createSimulationSchema,
+  invitationParamsSchema,
+  ledgerQuerySchema,
+  membershipParamsSchema,
+  organisationIdSchema,
+  settleSimulationSchema,
+  simulationListQuerySchema,
+  simulationParamsSchema,
+  simulationResultsQuerySchema,
+  transferOwnershipSchema,
+  updateMembershipRoleSchema,
+} from './http/schemas.js'
+import {
   MONTE_CARLO_MODEL_VERSION,
-  SIMULATION_DAY_TYPES,
   digestSimulationInput,
   parseMonteCarloInput,
 } from './simulations/monteCarlo.js'
-
-const organisationIdSchema = z.object({
-  organisationId: z.string().uuid(),
-})
-
-const createOrganisationSchema = z
-  .object({
-    name: z.string().trim().min(2).max(120),
-    slug: z.string().trim().min(3).max(64).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  })
-  .strict()
-
-const createSimulationSchema = z
-  .object({
-    seed: z.string().trim().min(1).max(128),
-    simulationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    dayType: z.enum(SIMULATION_DAY_TYPES),
-    households: z
-      .array(
-        z
-          .object({
-            id: z.string().trim().min(1).max(120),
-            pvKw: z.number().finite().min(0).max(20),
-            baseLoadKw: z.number().finite().gt(0).max(20),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(50),
-    sampleCount: z.number().int().min(10).max(250).default(100),
-    intervalMinutes: z.union([z.literal(10), z.literal(30), z.literal(60)]).default(60),
-    rateInrPerKwh: z.number().finite().min(0).max(20).default(5.5),
-  })
-  .strict()
-
-const settleSimulationSchema = z.object({
-  outcome: z.enum(['p10', 'p50', 'p90', 'selected']).default('selected'),
-}).strict()
-
-const createAdjustmentSchema = z.object({
-  targetEventId: z.string().min(1).max(200),
-  idempotencyKey: z.string().trim().min(1).max(128),
-  energyKwh: z.number().finite().min(-100_000).max(100_000),
-  estimatedCreditInr: z.number().finite().min(-1_000_000_000).max(1_000_000_000),
-  reason: z.string().trim().min(3).max(500),
-}).refine((value) => value.energyKwh !== 0 || value.estimatedCreditInr !== 0, {
-  message: 'An adjustment must change energy or estimated credit',
-  path: ['energyKwh'],
-}).strict()
-
-const transferOwnershipSchema = z.object({
-  newOwnerUserId: z.string().trim().min(1).max(200),
-}).strict()
 
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser' | 'softDelete'>
@@ -662,9 +625,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         code: 'INVALID_ORGANISATION_ID',
       })
     }
-    const parsedQuery = z
-      .object({ limit: z.coerce.number().int().min(1).max(100).default(50) })
-      .safeParse(request.query)
+    const parsedQuery = simulationListQuerySchema.safeParse(request.query)
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'Invalid simulation list options', code: 'INVALID_REQUEST' })
     }
@@ -692,9 +653,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.get('/api/v1/organisations/:organisationId/simulations/:runId', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = simulationParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
     }
@@ -722,15 +681,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.get('/api/v1/organisations/:organisationId/simulations/:runId/results', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = simulationParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
     }
-    const parsedQuery = z
-      .object({ limit: z.coerce.number().int().min(1).max(10_000).default(1_000) })
-      .safeParse(request.query)
+    const parsedQuery = simulationResultsQuerySchema.safeParse(request.query)
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'Invalid simulation result options', code: 'INVALID_REQUEST' })
     }
@@ -773,9 +728,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.post('/api/v1/organisations/:organisationId/simulations/:runId/settlement', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = simulationParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
     }
@@ -844,9 +797,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
     }
-    const parsedQuery = z
-      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
-      .safeParse(request.query)
+    const parsedQuery = ledgerQuerySchema.safeParse(request.query)
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'Invalid ledger list options', code: 'INVALID_REQUEST' })
     }
@@ -949,13 +900,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
     }
-    const parsedQuery = z
-      .object({
-        limit: z.coerce.number().int().min(1).max(500).default(100),
-        action: z.string().trim().min(1).max(120).optional(),
-        cursor: z.string().trim().min(1).max(512).optional(),
-      })
-      .safeParse(request.query)
+    const parsedQuery = auditEventQuerySchema.safeParse(request.query)
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'Invalid audit event list options', code: 'INVALID_REQUEST' })
     }
@@ -1057,13 +1002,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.patch('/api/v1/organisations/:organisationId/memberships/:userId', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), userId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = membershipParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid membership identifier', code: 'INVALID_MEMBERSHIP_ID' })
     }
-    const parsedBody = z.object({ role: z.enum(['admin', 'operator', 'viewer']) }).strict().safeParse(request.body)
+    const parsedBody = updateMembershipRoleSchema.safeParse(request.body)
     if (!parsedBody.success) {
       return reply.code(400).send({ error: 'Invalid membership role', code: 'INVALID_REQUEST' })
     }
@@ -1109,9 +1052,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.delete('/api/v1/organisations/:organisationId/memberships/:userId', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), userId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = membershipParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid membership identifier', code: 'INVALID_MEMBERSHIP_ID' })
     }
@@ -1164,13 +1105,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
 
-    const parsedBody = z
-      .object({
-        email: z.string().trim().email().max(320),
-        role: z.enum(['admin', 'operator', 'viewer']),
-      })
-      .strict()
-      .safeParse(request.body)
+    const parsedBody = createInvitationBodySchema.safeParse(request.body)
     if (!parsedBody.success) {
       return reply.code(400).send({ error: 'Invalid invitation input', code: 'INVALID_REQUEST' })
     }
@@ -1281,9 +1216,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
 
   app.delete('/api/v1/organisations/:organisationId/invitations/:invitationId', async (request, reply) => {
-    const parsedParams = z
-      .object({ organisationId: z.string().uuid(), invitationId: z.string().min(1).max(200) })
-      .safeParse(request.params)
+    const parsedParams = invitationParamsSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'Invalid invitation identifier', code: 'INVALID_INVITATION_ID' })
     }
@@ -1338,7 +1271,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       return reply.code(403).send({ error: 'Email verification is required', code: 'EMAIL_NOT_VERIFIED' })
     }
 
-    const parsedBody = z.object({ token: z.string().min(1).max(256) }).strict().safeParse(request.body)
+    const parsedBody = acceptInvitationBodySchema.safeParse(request.body)
     if (!parsedBody.success) {
       return reply.code(400).send({ error: 'Invalid invitation acceptance input', code: 'INVALID_REQUEST' })
     }

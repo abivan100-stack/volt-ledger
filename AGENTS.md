@@ -31,6 +31,7 @@
 ## Key Conventions
 - Logic stays pure: lib/*.ts must not import React, store, or touch DOM
 - Dependencies run one way: `store/` may import `api/`, never the reverse — the API layer announces 401s through `api/unauthenticated.ts` instead of calling the store
+- Every `/api/v1` request schema lives in `server/src/http/schemas.ts` — handlers and the OpenAPI document read the same objects, so the published contract cannot drift from runtime validation
 - Network code lives in `src/api/`, never in `src/lib/`; the browser learns one server address, `VITE_API_BASE_URL`, and no server secret is ever exposed to a `VITE_` variable
 - Every component gets its own co-located .css file (no inline styles)
 - Simulation is deterministic: every value is a pure function of (dayType, hour, householdId), and stochastic variation flows only through `seededUnit` (an FNV-1a hash folded into [0,1)) — never `Math.random()` or `performance.now()`
