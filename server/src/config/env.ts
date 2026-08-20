@@ -28,6 +28,7 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   SIMULATION_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
   SIMULATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
+  WORKER_ID: z.string().min(1).default('volt-worker'),
 
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,

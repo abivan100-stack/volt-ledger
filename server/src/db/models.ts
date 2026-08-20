@@ -15,6 +15,9 @@ export type InvitationStatus = (typeof invitationStatuses)[number]
 
 export type InvitationRole = Exclude<MembershipRole, 'owner'>
 
+export const workerHealthStatuses = ['starting', 'healthy', 'degraded', 'stopped'] as const
+export type WorkerHealthStatus = (typeof workerHealthStatuses)[number]
+
 export type JsonObject = Record<string, unknown>
 
 export interface OrganisationDocument {
@@ -155,4 +158,22 @@ export interface AuditEventDocument {
   entityId: string
   metadata: JsonObject
   createdAt: Date
+}
+
+/**
+ * One row per worker process, rewritten in place as it runs.
+ *
+ * Holds no free-form error text: the document is read by other services and a
+ * driver message can quote a connection string, so only a code is kept.
+ */
+export interface WorkerHeartbeatDocument {
+  /** The worker's identity, stable across restarts of the same deployment. */
+  _id: string
+  status: WorkerHealthStatus
+  startedAt: Date
+  updatedAt: Date
+  lastSuccessAt: Date | null
+  consecutiveFailures: number
+  processedCount: number
+  lastErrorCode: string | null
 }

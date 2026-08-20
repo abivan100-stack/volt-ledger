@@ -10,6 +10,7 @@ import type {
   SimulationRunDocument,
   SimulationUsageDocument,
   SimulationSummaryDocument,
+  WorkerHeartbeatDocument,
 } from './models.js'
 
 export const collectionNames = {
@@ -23,6 +24,7 @@ export const collectionNames = {
   ledgerEvents: 'ledger_events',
   counters: 'counters',
   auditEvents: 'audit_events',
+  workerHeartbeats: 'worker_heartbeats',
 } as const
 
 export interface VoltCollections {
@@ -36,6 +38,7 @@ export interface VoltCollections {
   ledgerEvents: Collection<LedgerEventDocument>
   counters: Collection<CounterDocument>
   auditEvents: Collection<AuditEventDocument>
+  workerHeartbeats: Collection<WorkerHeartbeatDocument>
 }
 
 interface CollectionSpec {
@@ -214,6 +217,17 @@ const collectionSpecs: CollectionSpec[] = [
       },
     ],
   },
+  {
+    key: 'workerHeartbeats',
+    name: collectionNames.workerHeartbeats,
+    indexes: [
+      {
+        // Reads ask which workers reported recently, never which one by name.
+        key: { updatedAt: -1 },
+        name: 'worker_heartbeats_updated_at',
+      },
+    ],
+  },
 ]
 
 export function getVoltCollections(db: Db): VoltCollections {
@@ -228,6 +242,7 @@ export function getVoltCollections(db: Db): VoltCollections {
     ledgerEvents: db.collection<LedgerEventDocument>(collectionNames.ledgerEvents),
     counters: db.collection<CounterDocument>(collectionNames.counters),
     auditEvents: db.collection<AuditEventDocument>(collectionNames.auditEvents),
+    workerHeartbeats: db.collection<WorkerHeartbeatDocument>(collectionNames.workerHeartbeats),
   }
 }
 

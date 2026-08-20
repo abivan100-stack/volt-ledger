@@ -7,6 +7,10 @@ import type {
   VoltRepositories,
 } from '../db/repositories.js'
 import { createSilentLogger, type Logger } from '../observability/logger.js'
+import {
+  createWorkerHealth,
+  type WorkerHealthSnapshot,
+} from '../observability/workerHealth.js'
 import { computeBackoffMs } from './backoff.js'
 import {
   MONTE_CARLO_MODEL_VERSION,
@@ -185,6 +189,13 @@ export interface SimulationWorkerOptions {
   maxBackoffMs?: number
   /** Claims allowed per run before it is quarantined as permanently failing. */
   maxAttempts?: number
+  /**
+   * Where the worker publishes its condition. Injected rather than reached for,
+   * so the loop stays unaware of storage and a failing sink cannot stop work.
+   */
+  heartbeat?: (snapshot: WorkerHealthSnapshot) => Promise<void>
+  /** Shortest gap between two beats that say the same thing. */
+  heartbeatIntervalMs?: number
   /** Injected in tests so pacing is observed rather than waited on. */
   sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>
   /** Jitter source. Operational only; nothing in the simulation model uses it. */
@@ -214,19 +225,52 @@ export async function runSimulationWorker(
   const pollIntervalMs = Math.min(Math.max(options.pollIntervalMs ?? 1_000, 100), 60_000)
   const maintenanceIntervalMs = Math.min(Math.max(options.maintenanceIntervalMs ?? 60_000, 1_000), 3_600_000)
   const maxBackoffMs = Math.min(Math.max(options.maxBackoffMs ?? 60_000, pollIntervalMs), 600_000)
+  const heartbeatIntervalMs = Math.min(Math.max(options.heartbeatIntervalMs ?? 15_000, 1_000), 300_000)
   const logger = options.logger ?? createSilentLogger()
   const sleep = options.sleep ?? waitForPoll
   const random = options.random ?? Math.random
+  const health = createWorkerHealth()
 
   logger.info('worker.started', {
     pollIntervalMs,
     maintenanceIntervalMs,
     maxBackoffMs,
+    heartbeatIntervalMs,
     maxAttempts: options.maxAttempts ?? null,
   })
 
   let nextMaintenanceAt = 0
   let consecutiveFailures = 0
+  let nextHeartbeatAt = 0
+  let publishedStatus: WorkerHealthSnapshot['status'] | null = null
+
+  /**
+   * Publishes the current condition, subject to throttling.
+   *
+   * A change of status always goes out immediately — that is the part anyone is
+   * waiting to see — while an unchanged status is rate-limited so an idle worker
+   * does not write once per poll. Failures here are reported and dropped: the
+   * heartbeat is a report about the work, never a precondition for it.
+   */
+  async function publishHeartbeat(force = false): Promise<void> {
+    if (!options.heartbeat) return
+
+    const snapshot = health.snapshot()
+    const changed = snapshot.status !== publishedStatus
+    if (!force && !changed && Date.now() < nextHeartbeatAt) return
+
+    nextHeartbeatAt = Date.now() + heartbeatIntervalMs
+    try {
+      await options.heartbeat(snapshot)
+      publishedStatus = snapshot.status
+    } catch (error) {
+      logger.error('worker.heartbeat_failed', { error, status: snapshot.status })
+    }
+  }
+
+  // Published before the first claim, so a worker that dies during startup has
+  // still left a record that it started.
+  await publishHeartbeat(true)
 
   while (!options.signal?.aborted) {
     if (Date.now() >= nextMaintenanceAt) {
@@ -248,6 +292,8 @@ export async function runSimulationWorker(
         ...(options.maxAttempts === undefined ? {} : { maxAttempts: options.maxAttempts }),
       })
       consecutiveFailures = 0
+      health.pollSucceeded({ processed: processed !== null })
+      await publishHeartbeat()
       if (!processed) await sleep(pollIntervalMs, options.signal)
     } catch (error) {
       // The claim or the run failed in a way that may succeed later. Staying
@@ -260,10 +306,16 @@ export async function runSimulationWorker(
         randomSample: random(),
       })
       logger.error('worker.poll_failed', { error, consecutiveFailures, retryInMs })
+      health.pollFailed(error)
+      await publishHeartbeat()
       await sleep(retryInMs, options.signal)
     }
   }
 
+  health.stop()
+  // Forced: a clean shutdown is what distinguishes a stopped worker from one
+  // that was killed and simply went quiet.
+  await publishHeartbeat(true)
   logger.info('worker.stopped', { consecutiveFailures })
 }
 

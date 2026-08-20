@@ -20,6 +20,8 @@ import {
   type SimulationStatus,
   type SimulationSummaryDocument,
   type SimulationUsageDocument,
+  type WorkerHealthStatus,
+  type WorkerHeartbeatDocument,
 } from './models.js'
 
 const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[]> = {
@@ -257,6 +259,24 @@ export interface InvitationRepository {
   ): Promise<{ invitation: OrganisationInvitationDocument; membership: MembershipDocument }>
 }
 
+export interface RecordWorkerHeartbeatInput {
+  /** Stable per deployment, so a restart rewrites its own row. */
+  workerId: string
+  status: WorkerHealthStatus
+  startedAt: Date
+  updatedAt: Date
+  lastSuccessAt: Date | null
+  consecutiveFailures: number
+  processedCount: number
+  lastErrorCode: string | null
+}
+
+export interface WorkerRepository {
+  recordHeartbeat(input: RecordWorkerHeartbeatInput): Promise<WorkerHeartbeatDocument>
+  findHeartbeat(workerId: string): Promise<WorkerHeartbeatDocument | null>
+  listHeartbeats(): Promise<WorkerHeartbeatDocument[]>
+}
+
 export interface VoltRepositories {
   organisations: OrganisationRepository
   memberships: MembershipRepository
@@ -264,6 +284,7 @@ export interface VoltRepositories {
   ledger: LedgerRepository
   audit: AuditRepository
   invitations: InvitationRepository
+  workers: WorkerRepository
 }
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
@@ -1555,6 +1576,48 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
   }
 }
 
+/**
+ * The worker's own row, rewritten in place rather than appended to.
+ *
+ * A heartbeat is state, not history: only the latest one answers "is it running
+ * right now", and an append-only stream of them would grow without bound for no
+ * gain. The ledger's immutability rules are about settlements, not about this.
+ */
+function createWorkerRepository(collections: VoltCollections): WorkerRepository {
+  return {
+    async recordHeartbeat(input) {
+      const document = await collections.workerHeartbeats.findOneAndUpdate(
+        { _id: input.workerId },
+        {
+          $set: {
+            status: input.status,
+            // Rewritten, not preserved: a restart is a new process and its start
+            // time is how an operator sees that it restarted.
+            startedAt: input.startedAt,
+            updatedAt: input.updatedAt,
+            lastSuccessAt: input.lastSuccessAt,
+            consecutiveFailures: input.consecutiveFailures,
+            processedCount: input.processedCount,
+            lastErrorCode: input.lastErrorCode,
+          },
+        },
+        { upsert: true, returnDocument: 'after' },
+      )
+
+      if (!document) throw new Error('WORKER_HEARTBEAT_NOT_RECORDED')
+      return document
+    },
+
+    async findHeartbeat(workerId) {
+      return collections.workerHeartbeats.findOne({ _id: workerId })
+    },
+
+    async listHeartbeats() {
+      return collections.workerHeartbeats.find({}).sort({ updatedAt: -1 }).toArray()
+    },
+  }
+}
+
 export function createVoltRepositories(db: Db, client: MongoClient = getMongoClient()): VoltRepositories {
   const collections = getVoltCollections(db)
   return {
@@ -1564,5 +1627,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     ledger: createLedgerRepository(collections, client),
     audit: createAuditRepository(collections),
     invitations: createInvitationRepository(collections, client),
+    workers: createWorkerRepository(collections),
   }
 }

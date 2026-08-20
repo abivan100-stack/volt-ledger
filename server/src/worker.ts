@@ -1,3 +1,4 @@
+import { env } from './config/env.js'
 import { connectToMongo, disconnectFromMongo, getMongoDb } from './db/mongo.js'
 import { initializeVoltDatabase } from './db/collections.js'
 import { createVoltRepositories, simulationMaxAttempts } from './db/repositories.js'
@@ -24,11 +25,18 @@ async function startWorker(): Promise<void> {
   process.once('SIGINT', requestShutdown('SIGINT'))
   process.once('SIGTERM', requestShutdown('SIGTERM'))
 
+  const repositories = createVoltRepositories(getMongoDb())
+
   try {
-    await runSimulationWorker(createVoltRepositories(getMongoDb()), {
+    await runSimulationWorker(repositories, {
       signal: controller.signal,
       logger,
       maxAttempts: simulationMaxAttempts,
+      // This process has no HTTP surface, so the heartbeat is the only evidence
+      // it is alive. Storage is bound here rather than inside the loop.
+      heartbeat: async (snapshot) => {
+        await repositories.workers.recordHeartbeat({ workerId: env.WORKER_ID, ...snapshot })
+      },
     })
   } finally {
     await disconnectFromMongo()
