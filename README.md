@@ -175,6 +175,21 @@ Organisations are loaded through `useOrganisationStore`, which keeps the current
 
 The API runs on its own origin, so `src/api/client.ts` issues absolute requests with `credentials: 'include'` for the session cookie. Browsers attach `Origin` automatically, satisfying the API's CSRF check on state-changing routes. `VITE_API_BASE_URL` must point at the origin whose `WEB_ORIGIN` matches where the client is served, or CORS and the CSRF check will both reject the request. Every failure — validation, authorization, quota, transport — surfaces as one `ApiError` carrying `status`, the server's `code`, any field `issues`, and parsed `Retry-After` seconds.
 
+### API contract (`docs/openapi.json`)
+
+The API publishes a versioned OpenAPI 3.1 description of every `/api/v1` route, served unauthenticated from `/openapi.json` and committed to `docs/openapi.json` so contract changes show up in review as a diff:
+
+```bash
+npm run openapi:write   # regenerate docs/openapi.json
+npm run openapi:check   # validate it, and fail if it no longer matches the code (CI runs this)
+```
+
+It is generated, never hand-edited. Request schemas come from `server/src/http/schemas.ts`, which the route handlers parse with at runtime; response schemas come from `server/src/http/responses.ts`, which the contract tests parse real responses through. Because both are the same objects the code uses, the document cannot describe an API that no longer exists — and route coverage is checked in both directions against the running Fastify app, so neither an undocumented route nor a documented phantom survives.
+
+Each operation states its authentication, the roles permitted, and every error code that status can carry. Rules JSON Schema cannot express are written out on the operations they govern: settlement and adjustment idempotency, that a correction never modifies its target, how the opaque audit cursor behaves, and that a queued run is not a computed one. Simulation and ledger examples are included and are themselves parsed by the schemas they illustrate, so they cannot rot.
+
+Runtime validation stays in the handlers rather than moving to Fastify route schemas — see [ADR 0009](docs/adr/0009-generated-openapi-contract.md) for why that trade was made.
+
 ## Deployment
 
 The project targets [Render](https://render.com) for static deployment. Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
