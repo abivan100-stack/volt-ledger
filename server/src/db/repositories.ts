@@ -102,12 +102,16 @@ export interface AppendLedgerEventInput {
   organisationId: string
   eventType: LedgerEventType
   outcome: SimulationOutcome
+  actorUserId: string
   householdId: string
   settlementDate: string
   sourceRunId: string
   simulationResultDigest: string
   energyKwh: number
   estimatedCreditInr: number
+  adjustmentTargetEventId?: string | null
+  adjustmentReason?: string | null
+  idempotencyKey?: string | null
 }
 
 export interface SettleCompletedRunInput {
@@ -121,6 +125,21 @@ export interface SettleCompletedRunResult {
   run: SimulationRunDocument
   events: LedgerEventDocument[]
   alreadySettled: boolean
+}
+
+export interface AppendLedgerAdjustmentInput {
+  organisationId: string
+  targetEventId: string
+  actorUserId: string
+  idempotencyKey: string
+  energyKwh: number
+  estimatedCreditInr: number
+  reason: string
+}
+
+export interface AppendLedgerAdjustmentResult {
+  event: LedgerEventDocument
+  alreadyApplied: boolean
 }
 
 export interface CreateAuditEventInput {
@@ -173,6 +192,7 @@ export interface CompleteSimulationRunInput {
 export interface LedgerRepository {
   append(input: AppendLedgerEventInput): Promise<LedgerEventDocument>
   settleCompletedRun(input: SettleCompletedRunInput): Promise<SettleCompletedRunResult>
+  appendAdjustment(input: AppendLedgerAdjustmentInput): Promise<AppendLedgerAdjustmentResult>
   list(organisationId: string, limit?: number): Promise<LedgerEventDocument[]>
 }
 
@@ -262,6 +282,18 @@ function isDuplicateKeyError(error: unknown): boolean {
 function isValidIsoDate(value: string): boolean {
   const date = new Date(`${value}T00:00:00.000Z`)
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
+function assertLedgerAdjustmentInput(input: AppendLedgerAdjustmentInput): void {
+  if (!input.idempotencyKey.trim() || input.idempotencyKey !== input.idempotencyKey.trim() || input.idempotencyKey.length > 128) {
+    throw new Error('LEDGER_ADJUSTMENT_INVALID')
+  }
+  if (!input.reason.trim() || input.reason.trim().length > 500) throw new Error('LEDGER_ADJUSTMENT_INVALID')
+  if (!Number.isFinite(input.energyKwh) || Math.abs(input.energyKwh) > 100_000) throw new Error('LEDGER_ADJUSTMENT_INVALID')
+  if (!Number.isFinite(input.estimatedCreditInr) || Math.abs(input.estimatedCreditInr) > 1_000_000_000) {
+    throw new Error('LEDGER_ADJUSTMENT_INVALID')
+  }
+  if (input.energyKwh === 0 && input.estimatedCreditInr === 0) throw new Error('LEDGER_ADJUSTMENT_INVALID')
 }
 
 export function createLedgerSeal(payload: Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>): string {
@@ -691,6 +723,7 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
             sequence: counter.nextSequence,
             eventType: input.eventType,
             outcome: input.outcome,
+            actorUserId: input.actorUserId,
             householdId: input.householdId,
             settlementDate: input.settlementDate,
             sourceRunId: input.sourceRunId,
@@ -698,6 +731,9 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
             energyKwh: input.energyKwh,
             estimatedCreditInr: input.estimatedCreditInr,
             previousSeal: previous?.canonicalSeal ?? null,
+            adjustmentTargetEventId: input.adjustmentTargetEventId ?? null,
+            adjustmentReason: input.adjustmentReason ?? null,
+            idempotencyKey: input.idempotencyKey ?? null,
           } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
 
           event = {
@@ -792,6 +828,7 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
               sequence: counter.nextSequence,
               eventType: 'settlement' as const,
               outcome: input.outcome,
+              actorUserId: input.actorUserId,
               householdId: summary.householdId,
               settlementDate,
               sourceRunId: input.runId,
@@ -799,6 +836,9 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
               energyKwh: summary.exportedKwh,
               estimatedCreditInr: summary.estimatedCreditInr,
               previousSeal: previous?.canonicalSeal ?? null,
+              adjustmentTargetEventId: null,
+              adjustmentReason: null,
+              idempotencyKey: null,
             } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
             events.push({
               ...payload,
@@ -854,6 +894,125 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
           }
         }
         if (!result) throw new Error('LEDGER_SETTLEMENT_FAILED')
+        return result
+      } finally {
+        await session.endSession()
+      }
+    },
+    async appendAdjustment(input) {
+      assertLedgerAdjustmentInput(input)
+      const session = client.startSession()
+      try {
+        let result: AppendLedgerAdjustmentResult | undefined
+        try {
+          await session.withTransaction(async () => {
+            const existing = await collections.ledgerEvents.findOne(
+              {
+                organisationId: input.organisationId,
+                eventType: 'adjustment',
+                idempotencyKey: input.idempotencyKey,
+              },
+              { session },
+            )
+            if (existing) {
+              if (
+                existing.adjustmentTargetEventId !== input.targetEventId ||
+                existing.actorUserId !== input.actorUserId ||
+                existing.energyKwh !== input.energyKwh ||
+                existing.estimatedCreditInr !== input.estimatedCreditInr ||
+                existing.adjustmentReason !== input.reason.trim()
+              ) {
+                throw new Error('LEDGER_IDEMPOTENCY_CONFLICT')
+              }
+              result = { event: existing, alreadyApplied: true }
+              return
+            }
+
+            const target = await collections.ledgerEvents.findOne(
+              { _id: input.targetEventId, organisationId: input.organisationId },
+              { session },
+            )
+            if (!target) throw new Error('LEDGER_TARGET_NOT_FOUND')
+            if (target.eventType !== 'settlement') throw new Error('LEDGER_ADJUSTMENT_TARGET_INVALID')
+
+            await ensureLedgerCounter(collections, input.organisationId, session)
+            const counter = await collections.counters.findOneAndUpdate(
+              { _id: `ledger:${input.organisationId}` },
+              { $inc: { nextSequence: 1 }, $set: { updatedAt: new Date() } },
+              { returnDocument: 'after', session },
+            )
+            if (!counter) throw new Error('LEDGER_SEQUENCE_UNAVAILABLE')
+            const previous = counter.nextSequence === 1
+              ? null
+              : await collections.ledgerEvents.findOne(
+                  { organisationId: input.organisationId, sequence: counter.nextSequence - 1 },
+                  { session },
+                )
+            if (counter.nextSequence > 1 && !previous) throw new Error('LEDGER_CHAIN_GAP')
+
+            const payload = {
+              organisationId: input.organisationId,
+              sequence: counter.nextSequence,
+              eventType: 'adjustment' as const,
+              outcome: target.outcome,
+              actorUserId: input.actorUserId,
+              householdId: target.householdId,
+              settlementDate: target.settlementDate,
+              sourceRunId: target.sourceRunId,
+              simulationResultDigest: target.simulationResultDigest,
+              energyKwh: input.energyKwh,
+              estimatedCreditInr: input.estimatedCreditInr,
+              previousSeal: previous?.canonicalSeal ?? null,
+              adjustmentTargetEventId: target._id,
+              adjustmentReason: input.reason.trim(),
+              idempotencyKey: input.idempotencyKey.trim(),
+            } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
+            const event: LedgerEventDocument = {
+              ...payload,
+              _id: randomUUID(),
+              canonicalSeal: createLedgerSeal(payload),
+              createdAt: new Date(),
+            }
+            await collections.ledgerEvents.insertOne(event, { session })
+            const audit: AuditEventDocument = {
+              _id: randomUUID(),
+              organisationId: input.organisationId,
+              actorUserId: input.actorUserId,
+              action: 'ledger.adjustment.accepted',
+              entityType: 'ledger_event',
+              entityId: event._id,
+              metadata: {
+                targetEventId: target._id,
+                reason: input.reason.trim(),
+                energyKwh: input.energyKwh,
+                estimatedCreditInr: input.estimatedCreditInr,
+              },
+              createdAt: new Date(),
+            }
+            await collections.auditEvents.insertOne(audit, { session })
+            result = { event, alreadyApplied: false }
+          })
+        } catch (error) {
+          if (!isDuplicateKeyError(error)) throw error
+          const existing = await collections.ledgerEvents.findOne({
+            organisationId: input.organisationId,
+            eventType: 'adjustment',
+            idempotencyKey: input.idempotencyKey.trim(),
+          })
+          if (
+            existing &&
+            existing.adjustmentTargetEventId === input.targetEventId &&
+            existing.actorUserId === input.actorUserId &&
+            existing.energyKwh === input.energyKwh &&
+            existing.estimatedCreditInr === input.estimatedCreditInr &&
+            existing.adjustmentReason === input.reason.trim()
+          ) {
+            result = { event: existing, alreadyApplied: true }
+          } else {
+            throw error
+          }
+        }
+        if (!result) throw new Error('LEDGER_ADJUSTMENT_FAILED')
         return result
       } finally {
         await session.endSession()

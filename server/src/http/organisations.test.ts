@@ -92,6 +92,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
       },
       ledger: {
         settleCompletedRun: async () => { throw new Error('Ledger repository is not used by this test') },
+        appendAdjustment: async () => { throw new Error('Ledger repository is not used by this test') },
         list: async () => [],
       },
     } satisfies OrganisationRouteRepositories,

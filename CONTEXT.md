@@ -92,3 +92,7 @@ The daily, per-household energy total accepted from a completed simulation run a
 Settlement acceptance is an owner/admin action. It records the chosen Monte Carlo outcome and uses that outcome's
 `exportedKwh` and `estimatedCreditInr`; these are synthetic estimates, not meter readings or payments.
 _Avoid_: Interval trade, live payment
+
+**Adjustment event**:
+An immutable, owner/admin-authorized ledger event that records a signed correction to one accepted settlement event; it never edits the target event.
+_Avoid_: Edited settlement, replacement transaction

@@ -437,6 +437,46 @@ describe('Volt Mongo repositories', () => {
     })
     expect(first.events[1]).toMatchObject({ sequence: 2, previousSeal: first.events[0].canonicalSeal, householdId: 'household_2' })
 
+    const adjustment = await repositories.ledger.appendAdjustment({
+      organisationId: 'org_123',
+      targetEventId: first.events[0]._id,
+      actorUserId: 'admin_123',
+      idempotencyKey: 'correction-1',
+      energyKwh: -0.1,
+      estimatedCreditInr: -0.55,
+      reason: 'Corrected the synthetic export estimate',
+    })
+    expect(adjustment.alreadyApplied).toBe(false)
+    expect(adjustment.event).toMatchObject({
+      sequence: 3,
+      eventType: 'adjustment',
+      adjustmentTargetEventId: first.events[0]._id,
+      adjustmentReason: 'Corrected the synthetic export estimate',
+      actorUserId: 'admin_123',
+      previousSeal: first.events[1].canonicalSeal,
+      energyKwh: -0.1,
+      estimatedCreditInr: -0.55,
+    })
+    const adjustmentRetry = await repositories.ledger.appendAdjustment({
+      organisationId: 'org_123',
+      targetEventId: first.events[0]._id,
+      actorUserId: 'admin_123',
+      idempotencyKey: 'correction-1',
+      energyKwh: -0.1,
+      estimatedCreditInr: -0.55,
+      reason: 'Corrected the synthetic export estimate',
+    })
+    expect(adjustmentRetry).toEqual({ event: adjustment.event, alreadyApplied: true })
+    await expect(repositories.ledger.appendAdjustment({
+      organisationId: 'org_123',
+      targetEventId: first.events[0]._id,
+      actorUserId: 'admin_123',
+      idempotencyKey: 'correction-1',
+      energyKwh: -0.2,
+      estimatedCreditInr: -1.1,
+      reason: 'Conflicting correction',
+    })).rejects.toThrow('LEDGER_IDEMPOTENCY_CONFLICT')
+
     const retry = await repositories.ledger.settleCompletedRun({
       organisationId: 'org_123',
       runId: run._id,
@@ -445,7 +485,7 @@ describe('Volt Mongo repositories', () => {
     })
     expect(retry.alreadySettled).toBe(true)
     expect(retry.events).toEqual(first.events)
-    expect(await repositories.ledger.list('org_123')).toHaveLength(2)
+    expect(await repositories.ledger.list('org_123')).toHaveLength(3)
     await expect(repositories.ledger.settleCompletedRun({
       organisationId: 'org_123',
       runId: run._id,
@@ -460,6 +500,7 @@ describe('Volt Mongo repositories', () => {
       sequence: 1,
       eventType: 'settlement',
       outcome: 'selected',
+      actorUserId: 'admin_123',
       householdId: 'household_1',
       settlementDate: '2026-01-01',
       sourceRunId: 'run_123',
@@ -467,6 +508,9 @@ describe('Volt Mongo repositories', () => {
       energyKwh: 0.2,
       estimatedCreditInr: 1.2,
       previousSeal: null,
+      adjustmentTargetEventId: null,
+      adjustmentReason: null,
+      idempotencyKey: null,
     }
 
     expect(createLedgerSeal(payload)).toBe(createLedgerSeal({ ...payload }))

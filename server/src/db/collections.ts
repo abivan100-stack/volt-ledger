@@ -155,6 +155,12 @@ const collectionSpecs: CollectionSpec[] = [
         partialFilterExpression: { eventType: 'settlement' },
       },
       {
+        key: { organisationId: 1, eventType: 1, idempotencyKey: 1 },
+        name: 'ledger_events_adjustment_idempotency_unique',
+        unique: true,
+        partialFilterExpression: { eventType: 'adjustment', idempotencyKey: { $type: 'string' } },
+      },
+      {
         key: { organisationId: 1, settlementDate: 1, householdId: 1 },
         name: 'ledger_events_organisation_date_household',
       },

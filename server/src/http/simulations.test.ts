@@ -91,6 +91,7 @@ const ledgerEvent: LedgerEventDocument = {
   sequence: 1,
   eventType: 'settlement',
   outcome: 'selected',
+  actorUserId: 'user_123',
   householdId: 'household_1',
   settlementDate: '2030-01-01',
   sourceRunId: run._id,
@@ -103,6 +104,7 @@ const ledgerEvent: LedgerEventDocument = {
     sequence: 1,
     eventType: 'settlement',
     outcome: 'selected',
+    actorUserId: 'user_123',
     householdId: 'household_1',
     settlementDate: '2030-01-01',
     sourceRunId: run._id,
@@ -110,8 +112,28 @@ const ledgerEvent: LedgerEventDocument = {
     energyKwh: 0.4,
     estimatedCreditInr: 2.2,
     previousSeal: null,
+    adjustmentTargetEventId: null,
+    adjustmentReason: null,
+    idempotencyKey: null,
   }),
+  adjustmentTargetEventId: null,
+  adjustmentReason: null,
+  idempotencyKey: null,
   createdAt: new Date('2030-01-01T00:04:00.000Z'),
+}
+
+const adjustmentEvent: LedgerEventDocument = {
+  ...ledgerEvent,
+  _id: 'adjustment_123',
+  sequence: 2,
+  eventType: 'adjustment',
+  actorUserId: 'user_123',
+  energyKwh: -0.1,
+  estimatedCreditInr: -0.55,
+  previousSeal: ledgerEvent.canonicalSeal,
+  adjustmentTargetEventId: ledgerEvent._id,
+  adjustmentReason: 'Corrected the synthetic export estimate',
+  idempotencyKey: 'correction-1',
 }
 
 function authFor(_role: MembershipDocument['role']): AuthService {
@@ -172,6 +194,7 @@ function createRepositories(role: MembershipDocument['role'] = 'operator', initi
       },
       ledger: {
         settleCompletedRun: async () => ({ run: initialRun, events: [ledgerEvent], alreadySettled: false }),
+        appendAdjustment: async () => ({ event: adjustmentEvent, alreadyApplied: false }),
         list: async () => [ledgerEvent],
       },
     },
@@ -311,6 +334,18 @@ describe('simulation REST API', () => {
       payload: { outcome: 'selected' },
     })
     expect(forbidden.statusCode).toBe(403)
+    const adjustmentForbidden = await operatorApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/ledger/adjustments`,
+      payload: {
+        targetEventId: ledgerEvent._id,
+        idempotencyKey: 'correction-1',
+        energyKwh: -0.1,
+        estimatedCreditInr: -0.55,
+        reason: 'Corrected the synthetic export estimate',
+      },
+    })
+    expect(adjustmentForbidden.statusCode).toBe(403)
 
     const adminFixture = createRepositories('admin', { ...run, status: 'completed', resultDigest: 'result-digest' })
     const adminApp = await buildApp({ logger: false, auth: authFor('admin'), repositories: adminFixture.repositories as never })
@@ -337,6 +372,30 @@ describe('simulation REST API', () => {
     expect(ledger.json()).toMatchObject({
       events: [{ sequence: 1, outcome: 'selected', energyKwh: 0.4 }],
       integrity: { valid: true, complete: true, checkedEvents: 1, firstSequence: 1, lastSequence: 1 },
+    })
+
+    const adjustment = await adminApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/ledger/adjustments`,
+      payload: {
+        targetEventId: ledgerEvent._id,
+        idempotencyKey: 'correction-1',
+        energyKwh: -0.1,
+        estimatedCreditInr: -0.55,
+        reason: 'Corrected the synthetic export estimate',
+      },
+    })
+    expect(adjustment.statusCode).toBe(201)
+    expect(adjustment.json()).toMatchObject({
+      adjustment: {
+        alreadyApplied: false,
+        event: {
+          id: adjustmentEvent._id,
+          eventType: 'adjustment',
+          adjustmentTargetEventId: ledgerEvent._id,
+          adjustmentReason: 'Corrected the synthetic export estimate',
+        },
+      },
     })
   })
 })

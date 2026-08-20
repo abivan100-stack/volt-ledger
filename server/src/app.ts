@@ -79,6 +79,17 @@ const settleSimulationSchema = z.object({
   outcome: z.enum(['p10', 'p50', 'p90', 'selected']).default('selected'),
 }).strict()
 
+const createAdjustmentSchema = z.object({
+  targetEventId: z.string().min(1).max(200),
+  idempotencyKey: z.string().trim().min(1).max(128),
+  energyKwh: z.number().finite().min(-100_000).max(100_000),
+  estimatedCreditInr: z.number().finite().min(-1_000_000_000).max(1_000_000_000),
+  reason: z.string().trim().min(3).max(500),
+}).refine((value) => value.energyKwh !== 0 || value.estimatedCreditInr !== 0, {
+  message: 'An adjustment must change energy or estimated credit',
+  path: ['energyKwh'],
+}).strict()
+
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
   memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
@@ -90,7 +101,7 @@ export interface OrganisationRouteRepositories {
     SimulationRepository,
     'createRun' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
-  ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'list'>
+  ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
 }
 
 export interface InvitationEmailSender {
@@ -195,6 +206,7 @@ function serializeLedgerEvent(event: LedgerEventDocument) {
     sequence: event.sequence,
     eventType: event.eventType,
     outcome: event.outcome,
+    actorUserId: event.actorUserId,
     householdId: event.householdId,
     settlementDate: event.settlementDate,
     sourceRunId: event.sourceRunId,
@@ -203,6 +215,8 @@ function serializeLedgerEvent(event: LedgerEventDocument) {
     estimatedCreditInr: event.estimatedCreditInr,
     previousSeal: event.previousSeal,
     canonicalSeal: event.canonicalSeal,
+    adjustmentTargetEventId: event.adjustmentTargetEventId,
+    adjustmentReason: event.adjustmentReason,
     createdAt: event.createdAt.toISOString(),
   }
 }
@@ -217,6 +231,7 @@ function inspectLedgerIntegrity(events: LedgerEventDocument[]) {
       sequence: event.sequence,
       eventType: event.eventType,
       outcome: event.outcome,
+      actorUserId: event.actorUserId,
       householdId: event.householdId,
       settlementDate: event.settlementDate,
       sourceRunId: event.sourceRunId,
@@ -224,6 +239,9 @@ function inspectLedgerIntegrity(events: LedgerEventDocument[]) {
       energyKwh: event.energyKwh,
       estimatedCreditInr: event.estimatedCreditInr,
       previousSeal: event.previousSeal,
+      adjustmentTargetEventId: event.adjustmentTargetEventId,
+      adjustmentReason: event.adjustmentReason,
+      idempotencyKey: event.idempotencyKey,
     } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
     if (createLedgerSeal(payload) !== event.canonicalSeal) valid = false
     if (index === 0) {
@@ -690,6 +708,58 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
     const events = await repositorySet.ledger.list(parsedParams.data.organisationId, parsedQuery.data.limit)
     return { events: events.map(serializeLedgerEvent), integrity: inspectLedgerIntegrity(events) }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/ledger/adjustments', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
+    }
+    const parsedBody = createAdjustmentSchema.safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid ledger adjustment', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    try {
+      const result = await repositorySet.ledger.appendAdjustment({
+        ...parsedBody.data,
+        actorUserId: access.session.user.id,
+        organisationId: parsedParams.data.organisationId,
+      })
+      return reply.code(result.alreadyApplied ? 200 : 201).send({
+        adjustment: {
+          alreadyApplied: result.alreadyApplied,
+          event: serializeLedgerEvent(result.event),
+        },
+      })
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'LEDGER_ADJUSTMENT_FAILED'
+      if (code === 'LEDGER_TARGET_NOT_FOUND') {
+        return reply.code(404).send({ error: 'Ledger target event not found', code })
+      }
+      if (code === 'LEDGER_ADJUSTMENT_TARGET_INVALID' || code === 'LEDGER_IDEMPOTENCY_CONFLICT') {
+        return reply.code(409).send({ error: 'Ledger adjustment cannot be applied', code })
+      }
+      if (code === 'LEDGER_ADJUSTMENT_INVALID') {
+        return reply.code(400).send({ error: 'Invalid ledger adjustment', code: 'INVALID_REQUEST' })
+      }
+      app.log.error({ err: error }, 'Ledger adjustment failed')
+      return reply.code(500).send({ error: 'Ledger adjustment could not be recorded', code: 'LEDGER_ADJUSTMENT_FAILED' })
+    }
   })
 
   app.get('/api/v1/organisations/:organisationId/memberships', async (request, reply) => {

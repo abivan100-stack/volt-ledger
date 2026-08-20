@@ -111,6 +111,7 @@ export interface LedgerEventDocument {
   sequence: number
   eventType: LedgerEventType
   outcome: SimulationOutcome
+  actorUserId: string
   householdId: string
   settlementDate: string
   sourceRunId: string
@@ -119,6 +120,9 @@ export interface LedgerEventDocument {
   estimatedCreditInr: number
   previousSeal: string | null
   canonicalSeal: string
+  adjustmentTargetEventId: string | null
+  adjustmentReason: string | null
+  idempotencyKey: string | null
   createdAt: Date
 }
 
