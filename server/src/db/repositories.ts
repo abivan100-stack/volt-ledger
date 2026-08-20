@@ -29,6 +29,7 @@ const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[
 }
 
 const invitationRoles: readonly InvitationRole[] = ['admin', 'operator', 'viewer']
+const simulationLeaseMs = 15 * 60 * 1000
 
 export interface CreateOrganisationInput {
   name: string
@@ -137,12 +138,22 @@ export interface MembershipRepository {
 export interface SimulationRepository {
   createRun(input: CreateSimulationRunInput): Promise<SimulationRunDocument>
   findRunById(id: string): Promise<SimulationRunDocument | null>
+  listForOrganisation(organisationId: string, limit?: number): Promise<SimulationRunDocument[]>
+  claimNextQueuedRun(): Promise<SimulationRunDocument | null>
   transitionRun(id: string, status: SimulationStatus, details?: { resultDigest?: string; errorCode?: string }): Promise<SimulationRunDocument>
+  completeRun(input: CompleteSimulationRunInput): Promise<SimulationRunDocument>
   insertIntervals(input: CreateSimulationIntervalInput[]): Promise<void>
   listIntervals(runId: string, limit?: number): Promise<SimulationIntervalDocument[]>
   insertSummaries(input: CreateSimulationSummaryInput[]): Promise<void>
   listSummaries(runId: string): Promise<SimulationSummaryDocument[]>
   softDeleteRun(id: string): Promise<boolean>
+}
+
+export interface CompleteSimulationRunInput {
+  runId: string
+  resultDigest: string
+  intervals: CreateSimulationIntervalInput[]
+  summaries: CreateSimulationSummaryInput[]
 }
 
 export interface LedgerRepository {
@@ -435,7 +446,7 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
   }
 }
 
-function createSimulationRepository(collections: VoltCollections): SimulationRepository {
+function createSimulationRepository(collections: VoltCollections, client: MongoClient): SimulationRepository {
   return {
     async createRun(input) {
       const document: SimulationRunDocument = {
@@ -459,6 +470,27 @@ function createSimulationRepository(collections: VoltCollections): SimulationRep
     },
     findRunById(id) {
       return collections.simulationRuns.findOne({ _id: id, deletedAt: null })
+    },
+    listForOrganisation(organisationId, limit = 50) {
+      return collections.simulationRuns
+        .find({ organisationId, deletedAt: null })
+        .sort({ createdAt: -1 })
+        .limit(Math.min(Math.max(limit, 1), 100))
+        .toArray()
+    },
+    async claimNextQueuedRun() {
+      const now = new Date()
+      return collections.simulationRuns.findOneAndUpdate(
+        {
+          deletedAt: null,
+          $or: [
+            { status: 'queued' },
+            { status: 'running', startedAt: { $lt: new Date(now.getTime() - simulationLeaseMs) } },
+          ],
+        },
+        { $set: { status: 'running', startedAt: now, errorCode: null } },
+        { sort: { createdAt: 1 }, returnDocument: 'after' },
+      )
     },
     async transitionRun(id, status, details = {}) {
       const current = await collections.simulationRuns.findOne({ _id: id, deletedAt: null })
@@ -485,6 +517,68 @@ function createSimulationRepository(collections: VoltCollections): SimulationRep
       if (!next) throw new Error('Simulation run disappeared after transition')
       return next
     },
+    async completeRun(input) {
+      const session = client.startSession()
+      try {
+        let completed: SimulationRunDocument | undefined
+        await session.withTransaction(async () => {
+          const current = await collections.simulationRuns.findOne(
+            { _id: input.runId, status: 'running', deletedAt: null },
+            { session },
+          )
+          if (!current) throw new Error('SIMULATION_RUN_NOT_RUNNING')
+
+          const now = new Date()
+          if (input.intervals.length > 0) {
+            await collections.simulationIntervals.insertMany(
+              input.intervals.map((interval) => ({
+                ...interval,
+                _id: randomUUID(),
+                createdAt: now,
+                deletedAt: null,
+              })),
+              { ordered: true, session },
+            )
+          }
+          if (input.summaries.length > 0) {
+            await collections.simulationSummaries.insertMany(
+              input.summaries.map((summary) => ({
+                ...summary,
+                _id: randomUUID(),
+                createdAt: now,
+                deletedAt: null,
+              })),
+              { ordered: true, session },
+            )
+          }
+
+          const update = await collections.simulationRuns.updateOne(
+            { _id: input.runId, status: 'running', deletedAt: null },
+            {
+              $set: {
+                status: 'completed',
+                completedAt: now,
+                resultDigest: input.resultDigest,
+                errorCode: null,
+              },
+            },
+            { session },
+          )
+          if (update.modifiedCount !== 1) throw new Error('SIMULATION_RUN_CHANGED')
+          completed = {
+            ...current,
+            status: 'completed',
+            completedAt: now,
+            resultDigest: input.resultDigest,
+            errorCode: null,
+          }
+        })
+        if (!completed) throw new Error('SIMULATION_COMPLETE_FAILED')
+        return completed
+      } finally {
+        await session.endSession()
+      }
+    },
     async insertIntervals(input) {
       if (input.length === 0) return
       const now = new Date()
@@ -496,8 +590,8 @@ function createSimulationRepository(collections: VoltCollections): SimulationRep
     listIntervals(runId, limit = 1000) {
       return collections.simulationIntervals
         .find({ runId, deletedAt: null })
-        .sort({ intervalStart: 1, householdId: 1 })
-        .limit(Math.min(Math.max(limit, 1), 1000))
+        .sort({ intervalStart: 1, householdId: 1, outcome: 1 })
+        .limit(Math.min(Math.max(limit, 1), 10_000))
         .toArray()
     },
     async insertSummaries(input) {
@@ -790,7 +884,7 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
   return {
     organisations: createOrganisationRepository(collections, client),
     memberships: createMembershipRepository(collections, client),
-    simulations: createSimulationRepository(collections),
+    simulations: createSimulationRepository(collections, client),
     ledger: createLedgerRepository(collections, client),
     audit: createAuditRepository(collections),
     invitations: createInvitationRepository(collections, client),

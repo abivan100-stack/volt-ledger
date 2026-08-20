@@ -13,19 +13,30 @@ import {
   type InvitationRepository,
   type MembershipRepository,
   type OrganisationRepository,
+  type SimulationRepository,
 } from './db/repositories.js'
 import type {
   InvitationRole,
+  JsonObject,
   MembershipDocument,
   MembershipRole,
   OrganisationDocument,
   OrganisationInvitationDocument,
+  SimulationIntervalDocument,
+  SimulationRunDocument,
+  SimulationSummaryDocument,
 } from './db/models.js'
 import {
   sendOrganisationInvitationEmail,
   type OrganisationInvitationEmailInput,
 } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
+import {
+  MONTE_CARLO_MODEL_VERSION,
+  SIMULATION_DAY_TYPES,
+  digestSimulationInput,
+  parseMonteCarloInput,
+} from './simulations/monteCarlo.js'
 
 const organisationIdSchema = z.object({
   organisationId: z.string().uuid(),
@@ -38,12 +49,39 @@ const createOrganisationSchema = z
   })
   .strict()
 
+const createSimulationSchema = z
+  .object({
+    seed: z.string().trim().min(1).max(128),
+    simulationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    dayType: z.enum(SIMULATION_DAY_TYPES),
+    households: z
+      .array(
+        z
+          .object({
+            id: z.string().trim().min(1).max(120),
+            pvKw: z.number().finite().min(0).max(20),
+            baseLoadKw: z.number().finite().gt(0).max(20),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+    sampleCount: z.number().int().min(10).max(250).default(100),
+    intervalMinutes: z.union([z.literal(10), z.literal(30), z.literal(60)]).default(60),
+    rateInrPerKwh: z.number().finite().min(0).max(20).default(5.5),
+  })
+  .strict()
+
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
   memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
   invitations: Pick<
     InvitationRepository,
     'create' | 'findById' | 'findPendingByEmail' | 'listForOrganisation' | 'revoke' | 'accept'
+  >
+  simulations: Pick<
+    SimulationRepository,
+    'createRun' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
 }
 
@@ -92,6 +130,54 @@ function serializeInvitation(
     status: invitation.status,
     expiresAt: invitation.expiresAt.toISOString(),
     ...(includeCreatedAt ? { createdAt: invitation.createdAt.toISOString() } : {}),
+  }
+}
+
+function serializeSimulationRun(run: SimulationRunDocument) {
+  return {
+    id: run._id,
+    organisationId: run.organisationId,
+    requestedByUserId: run.requestedByUserId,
+    seed: run.seed,
+    modelVersion: run.modelVersion,
+    status: run.status,
+    inputDigest: run.inputDigest,
+    resultDigest: run.resultDigest,
+    errorCode: run.errorCode,
+    createdAt: run.createdAt.toISOString(),
+    startedAt: run.startedAt?.toISOString() ?? null,
+    completedAt: run.completedAt?.toISOString() ?? null,
+  }
+}
+
+function serializeSimulationInterval(interval: SimulationIntervalDocument) {
+  return {
+    id: interval._id,
+    householdId: interval.householdId,
+    intervalStart: interval.intervalStart.toISOString(),
+    intervalEnd: interval.intervalEnd.toISOString(),
+    generatedKwh: interval.generatedKwh,
+    consumedKwh: interval.consumedKwh,
+    importedKwh: interval.importedKwh,
+    exportedKwh: interval.exportedKwh,
+    estimatedCreditInr: interval.estimatedCreditInr,
+    outcome: interval.outcome,
+    createdAt: interval.createdAt.toISOString(),
+  }
+}
+
+function serializeSimulationSummary(summary: SimulationSummaryDocument) {
+  return {
+    id: summary._id,
+    householdId: summary.householdId,
+    outcome: summary.outcome,
+    intervalCount: summary.intervalCount,
+    generatedKwh: summary.generatedKwh,
+    consumedKwh: summary.consumedKwh,
+    importedKwh: summary.importedKwh,
+    exportedKwh: summary.exportedKwh,
+    estimatedCreditInr: summary.estimatedCreditInr,
+    createdAt: summary.createdAt.toISOString(),
   }
 }
 
@@ -273,6 +359,179 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
     return { organisation: serializeOrganisation(organisation, access.membership.role) }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/simulations', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const parsedBody = createSimulationSchema.safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid simulation input', code: 'INVALID_REQUEST' })
+    }
+
+    let simulationInput: ReturnType<typeof parseMonteCarloInput>
+    try {
+      simulationInput = parseMonteCarloInput(parsedBody.data)
+    } catch {
+      return reply.code(400).send({ error: 'Invalid simulation input', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    try {
+      const run = await repositorySet.simulations.createRun({
+        organisationId: parsedParams.data.organisationId,
+        requestedByUserId: access.session.user.id,
+        seed: parsedBody.data.seed,
+        modelVersion: MONTE_CARLO_MODEL_VERSION,
+        inputSnapshot: simulationInput as unknown as JsonObject,
+        inputDigest: digestSimulationInput(simulationInput),
+      })
+      return reply.code(202).send({ run: serializeSimulationRun(run) })
+    } catch (error) {
+      app.log.error({ err: error }, 'Simulation run creation failed')
+      return reply.code(500).send({
+        error: 'Simulation run could not be queued',
+        code: 'SIMULATION_QUEUE_FAILED',
+      })
+    }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/simulations', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+    const parsedQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(100).default(50) })
+      .safeParse(request.query)
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ error: 'Invalid simulation list options', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const runs = await repositorySet.simulations.listForOrganisation(
+      parsedParams.data.organisationId,
+      parsedQuery.data.limit,
+    )
+    return { runs: runs.map(serializeSimulationRun) }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/simulations/:runId', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const run = await repositorySet.simulations.findRunById(parsedParams.data.runId)
+    if (!run || run.organisationId !== parsedParams.data.organisationId) {
+      return reply.code(404).send({ error: 'Simulation run not found', code: 'SIMULATION_NOT_FOUND' })
+    }
+    return { run: serializeSimulationRun(run) }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/simulations/:runId/results', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
+    }
+    const parsedQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(10_000).default(1_000) })
+      .safeParse(request.query)
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ error: 'Invalid simulation result options', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const run = await repositorySet.simulations.findRunById(parsedParams.data.runId)
+    if (!run || run.organisationId !== parsedParams.data.organisationId) {
+      return reply.code(404).send({ error: 'Simulation run not found', code: 'SIMULATION_NOT_FOUND' })
+    }
+    if (run.status !== 'completed') {
+      return reply.code(409).send({
+        error: 'Simulation results are not available yet',
+        code: 'SIMULATION_NOT_COMPLETE',
+      })
+    }
+
+    const [intervals, summaries] = await Promise.all([
+      repositorySet.simulations.listIntervals(run._id, parsedQuery.data.limit),
+      repositorySet.simulations.listSummaries(run._id),
+    ])
+    return {
+      run: serializeSimulationRun(run),
+      intervals: intervals.map(serializeSimulationInterval),
+      summaries: summaries.map(serializeSimulationSummary),
+    }
   })
 
   app.get('/api/v1/organisations/:organisationId/memberships', async (request, reply) => {

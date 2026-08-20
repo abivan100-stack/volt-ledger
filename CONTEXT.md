@@ -38,6 +38,10 @@ _Avoid_: Instantaneous energy, kW reading
 A P10, P50, P90, or selected-sample result produced by a synthetic simulation run; it is not a forecast or meter reading.
 _Avoid_: Prediction, actual result
 
+**Simulation sample**:
+One independently seeded synthetic scenario within a simulation run used to calculate its outcome bands.
+_Avoid_: Live sample, meter sample
+
 **Estimated credit**:
 An illustrative rupee value calculated from synthetic interval energy and a configured community rate; it is not a payment obligation.
 _Avoid_: Earnings, money owed

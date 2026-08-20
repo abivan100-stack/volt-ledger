@@ -7,6 +7,12 @@ type MemoryDocument = Document & { _id: string }
 
 function matches(document: MemoryDocument, filter: Document): boolean {
   return Object.entries(filter).every(([key, expected]) => {
+    if (key === '$or' && Array.isArray(expected)) {
+      return expected.some((branch) => matches(document, branch as Document))
+    }
+    if (expected && typeof expected === 'object' && '$lt' in expected) {
+      return document[key] < expected.$lt
+    }
     if (expected && typeof expected === 'object' && '$in' in expected) {
       return (expected.$in as unknown[]).includes(document[key])
     }
@@ -28,6 +34,12 @@ function createMemoryCollection() {
     },
     async findOne(filter: Document) {
       return documents.find((document) => matches(document, filter)) ?? null
+    },
+    async findOneAndUpdate(filter: Document, update: Document) {
+      const document = documents.find((candidate) => matches(candidate, filter))
+      if (!document) return null
+      if ('$set' in update) Object.assign(document, update.$set)
+      return document
     },
     find(filter: Document) {
       let rows = documents.filter((document) => matches(document, filter))
@@ -264,6 +276,75 @@ describe('Volt Mongo repositories', () => {
       },
     ])
     expect((await repositories.simulations.listIntervals(run._id)).length).toBe(1)
+  })
+
+  it('claims queued runs atomically and completes them with their result batch', async () => {
+    let transactionCount = 0
+    let endedSessionCount = 0
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => {
+          transactionCount += 1
+          await operation()
+        },
+        endSession: async () => {
+          endedSessionCount += 1
+        },
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(createMemoryDb(), client)
+    const run = await repositories.simulations.createRun({
+      organisationId: 'org_123',
+      requestedByUserId: 'user_123',
+      seed: 'worker-seed',
+      modelVersion: 'monte-carlo-v1',
+      inputSnapshot: { sampleCount: 10 },
+      inputDigest: 'input-digest',
+    })
+
+    const claimed = await repositories.simulations.claimNextQueuedRun()
+    expect(claimed).toMatchObject({ _id: run._id, status: 'running' })
+    expect(await repositories.simulations.claimNextQueuedRun()).toBeNull()
+
+    const completed = await repositories.simulations.completeRun({
+      runId: run._id,
+      resultDigest: 'result-digest',
+      intervals: [
+        {
+          organisationId: 'org_123',
+          runId: run._id,
+          householdId: 'household_1',
+          intervalStart: new Date('2030-01-01T00:00:00.000Z'),
+          intervalEnd: new Date('2030-01-01T01:00:00.000Z'),
+          generatedKwh: 1.2,
+          consumedKwh: 0.8,
+          importedKwh: 0,
+          exportedKwh: 0.4,
+          estimatedCreditInr: 2.2,
+          outcome: 'p50',
+        },
+      ],
+      summaries: [
+        {
+          organisationId: 'org_123',
+          runId: run._id,
+          householdId: 'household_1',
+          outcome: 'p50',
+          intervalCount: 1,
+          generatedKwh: 1.2,
+          consumedKwh: 0.8,
+          importedKwh: 0,
+          exportedKwh: 0.4,
+          estimatedCreditInr: 2.2,
+        },
+      ],
+    })
+
+    expect(completed).toMatchObject({ status: 'completed', resultDigest: 'result-digest' })
+    expect(await repositories.simulations.listIntervals(run._id)).toHaveLength(1)
+    expect(await repositories.simulations.listSummaries(run._id)).toHaveLength(1)
+    expect(transactionCount).toBe(1)
+    expect(endedSessionCount).toBe(1)
   })
 
   it('creates a stable seal from the complete ledger link payload', () => {

@@ -88,6 +88,17 @@ npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
 
+### Backend API and simulation worker
+
+The backend uses the `server/.env` values for MongoDB, Better Auth, and Resend. Run the REST API and simulation worker as separate processes so queued Monte Carlo runs are executed outside request-response limits:
+
+```bash
+npm run dev:api       # REST API on API_HOST/API_PORT
+npm run dev:worker    # claims queued runs and persists completed outcomes
+```
+
+The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
+
 ## Deployment
 
 The project targets [Render](https://render.com) for static deployment. Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:

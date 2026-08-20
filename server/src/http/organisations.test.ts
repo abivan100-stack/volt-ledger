@@ -81,6 +81,15 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
           throw new Error('Invitation repository is not used by this test')
         },
       },
+      simulations: {
+        createRun: async () => {
+          throw new Error('Simulation repository is not used by this test')
+        },
+        findRunById: async () => null,
+        listForOrganisation: async () => [],
+        listIntervals: async () => [],
+        listSummaries: async () => [],
+      },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
   }
