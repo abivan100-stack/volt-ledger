@@ -167,7 +167,7 @@ export interface OrganisationRepository {
   createWithOwner(input: CreateOrganisationInput): Promise<CreateOrganisationWithOwnerResult>
   findById(id: string): Promise<OrganisationDocument | null>
   listForUser(userId: string): Promise<OrganisationDocument[]>
-  softDelete(id: string): Promise<boolean>
+  softDelete(id: string, actorUserId: string): Promise<boolean>
 }
 
 export interface MembershipRepository {
@@ -494,12 +494,78 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
       if (ids.length === 0) return []
       return collections.organisations.find({ _id: { $in: ids }, deletedAt: null }).sort({ createdAt: -1 }).toArray()
     },
-    async softDelete(id) {
-      const result = await collections.organisations.updateOne(
-        { _id: id, deletedAt: null },
-        { $set: { deletedAt: new Date(), updatedAt: new Date() } },
-      )
-      return result.modifiedCount === 1
+    async softDelete(id, actorUserId) {
+      const now = new Date()
+      const applySoftDelete = async (session?: ClientSession): Promise<boolean> => {
+        const options = session ? { session } : undefined
+        const result = await collections.organisations.updateOne(
+          { _id: id, deletedAt: null },
+          { $set: { deletedAt: now, updatedAt: now } },
+          options,
+        )
+        if (result.modifiedCount !== 1) return false
+
+        await collections.memberships.updateMany(
+          { organisationId: id, deletedAt: null },
+          { $set: { deletedAt: now, updatedAt: now } },
+          options,
+        )
+        await collections.organisationInvitations.updateMany(
+          { organisationId: id, status: 'pending', deletedAt: null },
+          { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
+          options,
+        )
+        await collections.organisationInvitations.updateMany(
+          { organisationId: id, deletedAt: null },
+          { $set: { deletedAt: now, updatedAt: now } },
+          options,
+        )
+        await collections.simulationRuns.updateMany(
+          { organisationId: id, deletedAt: null },
+          { $set: { deletedAt: now } },
+          options,
+        )
+        await collections.simulationIntervals.updateMany(
+          { organisationId: id, deletedAt: null },
+          { $set: { deletedAt: now } },
+          options,
+        )
+        await collections.simulationSummaries.updateMany(
+          { organisationId: id, deletedAt: null },
+          { $set: { deletedAt: now } },
+          options,
+        )
+
+        const auditEvent: AuditEventDocument = {
+          _id: randomUUID(),
+          organisationId: id,
+          actorUserId,
+          action: 'organisation.soft_deleted',
+          entityType: 'organisation',
+          entityId: id,
+          metadata: {},
+          createdAt: now,
+        }
+        if (session) {
+          await collections.auditEvents.insertOne(auditEvent, { session })
+        } else {
+          await collections.auditEvents.insertOne(auditEvent)
+        }
+        return true
+      }
+
+      if (typeof client.startSession !== 'function') return applySoftDelete()
+
+      const session = client.startSession()
+      try {
+        let deleted = false
+        await session.withTransaction(async () => {
+          deleted = await applySoftDelete(session)
+        })
+        return deleted
+      } finally {
+        await session.endSession()
+      }
     },
   }
 }

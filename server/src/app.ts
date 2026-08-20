@@ -98,7 +98,7 @@ const transferOwnershipSchema = z.object({
 }).strict()
 
 export interface OrganisationRouteRepositories {
-  organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
+  organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser' | 'softDelete'>
   memberships: Pick<
     MembershipRepository,
     'find' | 'listForOrganisation' | 'updateRole' | 'remove' | 'transferOwnership'
@@ -494,6 +494,42 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
     return { organisation: serializeOrganisation(organisation, access.membership.role) }
+  })
+
+  app.delete('/api/v1/organisations/:organisationId', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    try {
+      const deleted = await repositorySet.organisations.softDelete(
+        parsedParams.data.organisationId,
+        access.session.user.id,
+      )
+      if (!deleted) {
+        return reply.code(409).send({ error: 'Organisation changed before deletion', code: 'ORGANISATION_CHANGED' })
+      }
+      return reply.code(204).send()
+    } catch (error) {
+      app.log.error({ err: error }, 'Organisation soft deletion failed')
+      return reply.code(500).send({ error: 'Organisation could not be deleted', code: 'ORGANISATION_DELETE_FAILED' })
+    }
   })
 
   app.post('/api/v1/organisations/:organisationId/simulations', async (request, reply) => {

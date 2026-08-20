@@ -52,6 +52,7 @@ const authenticatedAuth: AuthService = {
 
 function createRepositories(role: MembershipDocument['role'] = 'owner') {
   let receivedCreateInput: CreateOrganisationInput | undefined
+  let deletedByUserId: string | undefined
   const membership = createMembership(role)
   return {
     repositories: {
@@ -62,6 +63,10 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         },
         listForUser: async () => [organisation],
         findById: async () => organisation,
+        softDelete: async (_organisationId: string, actorUserId: string) => {
+          deletedByUserId = actorUserId
+          return true
+        },
       },
       memberships: {
         find: async () => membership,
@@ -108,6 +113,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
       },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
+    getDeletedByUserId: () => deletedByUserId,
   }
 }
 
@@ -232,5 +238,29 @@ describe('organisation REST API', () => {
     expect(response.json()).toMatchObject({
       organisation: { id: organisation._id, role: 'viewer' },
     })
+  })
+
+  it('allows only the owner to soft-delete an organisation', async () => {
+    const ownerFixture = createRepositories('owner')
+    const ownerApp = await buildApp({ logger: false, auth: authenticatedAuth, repositories: ownerFixture.repositories })
+    apps.push(ownerApp)
+
+    const deleted = await ownerApp.inject({
+      method: 'DELETE',
+      url: `/api/v1/organisations/${organisation._id}`,
+    })
+    expect(deleted.statusCode).toBe(204)
+    expect(deleted.body).toBe('')
+    expect(ownerFixture.getDeletedByUserId()).toBe('user_123')
+
+    const adminFixture = createRepositories('admin')
+    const adminApp = await buildApp({ logger: false, auth: authenticatedAuth, repositories: adminFixture.repositories })
+    apps.push(adminApp)
+    const forbidden = await adminApp.inject({
+      method: 'DELETE',
+      url: `/api/v1/organisations/${organisation._id}`,
+    })
+    expect(forbidden.statusCode).toBe(403)
+    expect(adminFixture.getDeletedByUserId()).toBeUndefined()
   })
 })

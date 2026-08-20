@@ -94,6 +94,18 @@ function createMemoryCollection() {
       }
       return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
     },
+    async updateMany(filter: Document, update: Document) {
+      const matched = documents.filter((document) => matches(document, filter))
+      for (const document of matched) {
+        if ('$set' in update) Object.assign(document, update.$set)
+        if ('$inc' in update) {
+          for (const [key, amount] of Object.entries(update.$inc as Record<string, number>)) {
+            document[key] = Number(document[key] ?? 0) + amount
+          }
+        }
+      }
+      return { acknowledged: true, matchedCount: matched.length, modifiedCount: matched.length }
+    },
   }
 }
 
@@ -299,7 +311,8 @@ describe('Volt Mongo repositories', () => {
   })
 
   it('creates organisations and memberships and hides soft-deleted organisations', async () => {
-    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    const db = createMemoryDb()
+    const repositories = createVoltRepositories(db, {} as MongoClient)
 
     const organisation = await repositories.organisations.create({
       name: 'Demo neighbourhood',
@@ -311,13 +324,33 @@ describe('Volt Mongo repositories', () => {
       userId: 'user_123',
       role: 'owner',
     })
+    await repositories.invitations.create({
+      organisationId: organisation._id,
+      email: 'invitee@example.com',
+      role: 'operator',
+      invitedByUserId: 'user_123',
+    })
+    const run = await repositories.simulations.createRun({
+      organisationId: organisation._id,
+      requestedByUserId: 'user_123',
+      seed: 'archive-seed',
+      modelVersion: 'monte-carlo-v1',
+      inputSnapshot: { sampleCount: 10 },
+      inputDigest: 'archive-input',
+    })
 
     expect(await repositories.organisations.findById(organisation._id)).toEqual(organisation)
     expect(await repositories.organisations.listForUser('user_123')).toEqual([organisation])
     expect(await repositories.memberships.find(organisation._id, 'user_123')).toMatchObject({ role: 'owner' })
 
-    expect(await repositories.organisations.softDelete(organisation._id)).toBe(true)
+    expect(await repositories.organisations.softDelete(organisation._id, 'user_123')).toBe(true)
     expect(await repositories.organisations.findById(organisation._id)).toBeNull()
+    expect(await repositories.memberships.find(organisation._id, 'user_123')).toBeNull()
+    expect(await repositories.invitations.listForOrganisation(organisation._id)).toHaveLength(0)
+    expect(await repositories.simulations.findRunById(run._id)).toBeNull()
+    expect(await repositories.audit.listForOrganisation(organisation._id)).toMatchObject([
+      { action: 'organisation.soft_deleted', actorUserId: 'user_123' },
+    ])
   })
 
   it('enforces the simulation lifecycle and stores append-only result batches', async () => {
