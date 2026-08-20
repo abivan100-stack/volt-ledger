@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:api": "vitest run --config server/vitest.config.ts",
+    "test:integration": "vitest run --config server/vitest.integration.config.ts",
     "typecheck:api": "tsc -p server/tsconfig.json --noEmit",
     "build:api": "tsc -p server/tsconfig.json",
     "openapi:write": "tsx server/src/openapi/write.ts",
