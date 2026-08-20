@@ -25,6 +25,7 @@
 - `npm run build` — Type-check + production build
 - `npm run lint` — oxlint
 - `npm test` — Vitest (tests co-located under `src/lib/__tests__/`, `src/api/__tests__/`, `src/store/__tests__/`, `src/hooks/__tests__/`)
+- `npm run test:integration` — integration suite against a real MongoDB replica set; needs `MONGODB_TEST_URI` and `MONGODB_TEST_DB_NAME` and fails without them
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:coverage` — Vitest with coverage
 
@@ -53,6 +54,7 @@
 - Each lib module has a corresponding test file (16 lib + 12 api + 15 store/hook + 20 component/page/theme test files, 663 tests)
 - API-client tests run in the default node environment and inject a fake `fetch`; they never hit a real server
 - RTL auto-cleanup is NOT enabled (no globals): call `cleanup()` in `afterEach` for every component/hook test, or timers and effects leak into the next case
+- Integration tests (`*.integration.test.ts`) are excluded from `test:api` and run only via `test:integration`, which disables file parallelism because they share one database and empty it between tests
 - Store tests reset the singleton store to its pristine state before each case; in-flight request handles live in store state (not module variables) so that reset actually clears them
 - No jest-dom: assert with `.textContent`, `.getAttribute()`, `toBeTruthy()`/`toBeNull()` rather than `toBeInTheDocument()`
 

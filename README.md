@@ -175,6 +175,29 @@ Organisations are loaded through `useOrganisationStore`, which keeps the current
 
 The API runs on its own origin, so `src/api/client.ts` issues absolute requests with `credentials: 'include'` for the session cookie. Browsers attach `Origin` automatically, satisfying the API's CSRF check on state-changing routes. `VITE_API_BASE_URL` must point at the origin whose `WEB_ORIGIN` matches where the client is served, or CORS and the CSRF check will both reject the request. Every failure — validation, authorization, quota, transport — surfaces as one `ApiError` carrying `status`, the server's `code`, any field `issues`, and parsed `Retry-After` seconds.
 
+### Integration tests against a real MongoDB
+
+Most of the API suite runs against stubs. The integration suite runs against a real database, because index behaviour, transaction rollback and write races cannot be faked:
+
+```bash
+npm run test:integration
+```
+
+It needs two variables, and refuses to run without them:
+
+```bash
+MONGODB_TEST_URI=mongodb://127.0.0.1:27017   # must be a REPLICA SET
+MONGODB_TEST_DB_NAME=volt_test               # dedicated and disposable
+```
+
+**The URI must point at a replica set**, even a single-node one. MongoDB transactions do not work on a standalone `mongod`, and several of Volt's guarantees — transactional organisation creation, the archival cascade, ownership transfer — are transactions. Suites that need one skip themselves on a standalone server rather than failing obscurely.
+
+**The named database is emptied between tests.** It qualifies only if its name contains `test`, differs from `MONGODB_DB_NAME`, and is not a MongoDB internal database; a name is never defaulted, because defaulting is how the wrong database gets chosen. Cleanup empties only the ten collections Volt owns rather than dropping the database, so a database that also holds something else cannot be destroyed by a misconfiguration.
+
+`npm run test:api` skips these suites when the URI is absent so the ordinary suite still runs on a laptop with no database. `npm run test:integration` treats the same missing configuration as a failure, so a staging run cannot pass while testing nothing.
+
+What it verifies: every declared index exists with its keys, uniqueness and partial filters; transactions roll back completely; the archival cascade soft-deletes access and working data while retaining ledger and audit history; soft-deleted rows disappear from every read path and free their unique slug; daily quota reservation is atomic under concurrent load and hands the last unit to exactly one caller; racing ownership transfers leave exactly one owner; a single-use invitation becomes exactly one membership under concurrent acceptance; expired invitations are revoked but retained; and settlement and adjustment are idempotent under retry, including concurrent retry.
+
 ### API contract (`docs/openapi.json`)
 
 The API publishes a versioned OpenAPI 3.1 description of every `/api/v1` route, served unauthenticated from `/openapi.json` and committed to `docs/openapi.json` so contract changes show up in review as a diff:
