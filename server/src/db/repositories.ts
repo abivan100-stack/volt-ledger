@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { ClientSession, Db, MongoClient } from 'mongodb'
+import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
 import {
@@ -18,6 +19,7 @@ import {
   type SimulationRunDocument,
   type SimulationStatus,
   type SimulationSummaryDocument,
+  type SimulationUsageDocument,
 } from './models.js'
 
 const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[]> = {
@@ -30,6 +32,7 @@ const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[
 
 const invitationRoles: readonly InvitationRole[] = ['admin', 'operator', 'viewer']
 const simulationLeaseMs = 15 * 60 * 1000
+export const simulationDailyRunLimit = env.SIMULATION_DAILY_RUN_LIMIT
 
 export interface CreateOrganisationInput {
   name: string
@@ -69,6 +72,14 @@ export interface CreateSimulationRunInput {
   modelVersion: string
   inputSnapshot: JsonObject
   inputDigest: string
+}
+
+export interface SimulationQuotaSnapshot {
+  usageDate: string
+  used: number
+  limit: number
+  remaining: number
+  resetsAt: Date
 }
 
 export interface CreateSimulationIntervalInput {
@@ -170,6 +181,7 @@ export interface MembershipRepository {
 
 export interface SimulationRepository {
   createRun(input: CreateSimulationRunInput): Promise<SimulationRunDocument>
+  getDailyQuota(organisationId: string): Promise<SimulationQuotaSnapshot>
   findRunById(id: string): Promise<SimulationRunDocument | null>
   listForOrganisation(organisationId: string, limit?: number): Promise<SimulationRunDocument[]>
   claimNextQueuedRun(): Promise<SimulationRunDocument | null>
@@ -277,6 +289,99 @@ function stableSerialize(value: unknown): string {
 
 function isDuplicateKeyError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000
+}
+
+function getSimulationUsageDate(now: Date): string {
+  return now.toISOString().slice(0, 10)
+}
+
+function getNextUtcMidnight(usageDate: string): Date {
+  const nextMidnight = new Date(`${usageDate}T00:00:00.000Z`)
+  nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1)
+  return nextMidnight
+}
+
+function createSimulationQuotaSnapshot(
+  usage: SimulationUsageDocument | null,
+  now: Date,
+): SimulationQuotaSnapshot {
+  const usageDate = getSimulationUsageDate(now)
+  const used = usage?.runCount ?? 0
+  return {
+    usageDate,
+    used,
+    limit: simulationDailyRunLimit,
+    remaining: Math.max(0, simulationDailyRunLimit - used),
+    resetsAt: getNextUtcMidnight(usageDate),
+  }
+}
+
+function getSimulationUsageId(organisationId: string, usageDate: string): string {
+  return `simulation:${organisationId}:${usageDate}`
+}
+
+async function ensureSimulationUsage(
+  collections: VoltCollections,
+  organisationId: string,
+  now: Date,
+): Promise<void> {
+  const usageDate = getSimulationUsageDate(now)
+  const usageId = getSimulationUsageId(organisationId, usageDate)
+  const update = {
+    $setOnInsert: {
+      _id: usageId,
+      organisationId,
+      usageDate,
+      runCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await collections.simulationUsage.updateOne({ _id: usageId }, update, { upsert: true })
+      return
+    } catch (error) {
+      if (!isDuplicateKeyError(error) || attempt === 1) throw error
+    }
+  }
+}
+
+async function reserveSimulationQuota(
+  collections: VoltCollections,
+  organisationId: string,
+  now: Date,
+  session?: ClientSession,
+): Promise<SimulationUsageDocument> {
+  const usageDate = getSimulationUsageDate(now)
+  const usageId = getSimulationUsageId(organisationId, usageDate)
+  const filter = {
+    _id: usageId,
+    organisationId,
+    usageDate,
+    runCount: { $lt: simulationDailyRunLimit },
+  }
+  const update = {
+    $inc: { runCount: 1 },
+    $set: { updatedAt: now },
+  }
+  const options = {
+    returnDocument: 'after' as const,
+    ...(session ? { session } : {}),
+  }
+
+  const existing = await collections.simulationUsage.findOne(
+    { _id: usageId, organisationId, usageDate },
+    session ? { session } : undefined,
+  )
+  if (existing && existing.runCount >= simulationDailyRunLimit) {
+    throw new Error('SIMULATION_QUOTA_EXCEEDED')
+  }
+
+  const usage = await collections.simulationUsage.findOneAndUpdate(filter, update, options)
+  if (!usage) throw new Error('SIMULATION_QUOTA_EXCEEDED')
+  return usage
 }
 
 function isValidIsoDate(value: string): boolean {
@@ -505,6 +610,7 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
 function createSimulationRepository(collections: VoltCollections, client: MongoClient): SimulationRepository {
   return {
     async createRun(input) {
+      const now = new Date()
       const document: SimulationRunDocument = {
         _id: randomUUID(),
         organisationId: input.organisationId,
@@ -514,15 +620,42 @@ function createSimulationRepository(collections: VoltCollections, client: MongoC
         inputSnapshot: input.inputSnapshot,
         inputDigest: input.inputDigest,
         status: 'queued',
-        createdAt: new Date(),
+        createdAt: now,
         startedAt: null,
         completedAt: null,
         resultDigest: null,
         errorCode: null,
         deletedAt: null,
       }
-      await collections.simulationRuns.insertOne(document)
+
+      if (typeof client.startSession !== 'function') {
+        await ensureSimulationUsage(collections, input.organisationId, now)
+        await reserveSimulationQuota(collections, input.organisationId, now)
+        await collections.simulationRuns.insertOne(document)
+        return document
+      }
+
+      await ensureSimulationUsage(collections, input.organisationId, now)
+      const session = client.startSession()
+      try {
+        await session.withTransaction(async () => {
+          await reserveSimulationQuota(collections, input.organisationId, now, session)
+          await collections.simulationRuns.insertOne(document, { session })
+        })
+      } finally {
+        await session.endSession()
+      }
       return document
+    },
+    async getDailyQuota(organisationId) {
+      const now = new Date()
+      const usageDate = getSimulationUsageDate(now)
+      const usage = await collections.simulationUsage.findOne({
+        _id: getSimulationUsageId(organisationId, usageDate),
+        organisationId,
+        usageDate,
+      })
+      return createSimulationQuotaSnapshot(usage, now)
     },
     findRunById(id) {
       return collections.simulationRuns.findOne({ _id: id, deletedAt: null })

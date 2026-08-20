@@ -8,6 +8,7 @@ import type {
   OrganisationInvitationDocument,
   SimulationIntervalDocument,
   SimulationRunDocument,
+  SimulationUsageDocument,
   SimulationSummaryDocument,
 } from './models.js'
 
@@ -16,6 +17,7 @@ export const collectionNames = {
   memberships: 'memberships',
   organisationInvitations: 'organisation_invitations',
   simulationRuns: 'simulation_runs',
+  simulationUsage: 'simulation_usage',
   simulationIntervals: 'simulation_intervals',
   simulationSummaries: 'simulation_summaries',
   ledgerEvents: 'ledger_events',
@@ -28,6 +30,7 @@ export interface VoltCollections {
   memberships: Collection<MembershipDocument>
   organisationInvitations: Collection<OrganisationInvitationDocument>
   simulationRuns: Collection<SimulationRunDocument>
+  simulationUsage: Collection<SimulationUsageDocument>
   simulationIntervals: Collection<SimulationIntervalDocument>
   simulationSummaries: Collection<SimulationSummaryDocument>
   ledgerEvents: Collection<LedgerEventDocument>
@@ -106,6 +109,17 @@ const collectionSpecs: CollectionSpec[] = [
       {
         key: { organisationId: 1, status: 1, createdAt: -1 },
         name: 'simulation_runs_organisation_status_created_at',
+      },
+    ],
+  },
+  {
+    key: 'simulationUsage',
+    name: collectionNames.simulationUsage,
+    indexes: [
+      {
+        key: { organisationId: 1, usageDate: 1 },
+        name: 'simulation_usage_organisation_date_unique',
+        unique: true,
       },
     ],
   },
@@ -203,6 +217,7 @@ export function getVoltCollections(db: Db): VoltCollections {
     memberships: db.collection<MembershipDocument>(collectionNames.memberships),
     organisationInvitations: db.collection<OrganisationInvitationDocument>(collectionNames.organisationInvitations),
     simulationRuns: db.collection<SimulationRunDocument>(collectionNames.simulationRuns),
+    simulationUsage: db.collection<SimulationUsageDocument>(collectionNames.simulationUsage),
     simulationIntervals: db.collection<SimulationIntervalDocument>(collectionNames.simulationIntervals),
     simulationSummaries: db.collection<SimulationSummaryDocument>(collectionNames.simulationSummaries),
     ledgerEvents: db.collection<LedgerEventDocument>(collectionNames.ledgerEvents),

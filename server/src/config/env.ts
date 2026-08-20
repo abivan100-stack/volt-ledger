@@ -26,6 +26,7 @@ const envSchema = z.object({
 
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
+  SIMULATION_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
 
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,

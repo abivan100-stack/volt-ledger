@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../auth/auth.js'
 import type { MembershipDocument, OrganisationDocument } from '../db/models.js'
-import type { CreateOrganisationInput } from '../db/repositories.js'
+import { simulationDailyRunLimit, type CreateOrganisationInput } from '../db/repositories.js'
 import { buildApp, type OrganisationRouteRepositories } from '../app.js'
 
 const apps: FastifyInstance[] = []
@@ -89,6 +89,13 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         listForOrganisation: async () => [],
         listIntervals: async () => [],
         listSummaries: async () => [],
+        getDailyQuota: async () => ({
+          usageDate: '2030-01-01',
+          used: 0,
+          limit: simulationDailyRunLimit,
+          remaining: simulationDailyRunLimit,
+          resetsAt: new Date('2030-01-02T00:00:00.000Z'),
+        }),
       },
       ledger: {
         settleCompletedRun: async () => { throw new Error('Ledger repository is not used by this test') },

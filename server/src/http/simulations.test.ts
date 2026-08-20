@@ -9,7 +9,7 @@ import type {
   SimulationRunDocument,
   SimulationSummaryDocument,
 } from '../db/models.js'
-import { createLedgerSeal } from '../db/repositories.js'
+import { createLedgerSeal, simulationDailyRunLimit } from '../db/repositories.js'
 import { buildApp } from '../app.js'
 
 const apps: FastifyInstance[] = []
@@ -191,6 +191,13 @@ function createRepositories(role: MembershipDocument['role'] = 'operator', initi
         listForOrganisation: async () => [initialRun],
         listIntervals: async () => [interval],
         listSummaries: async () => [summary],
+        getDailyQuota: async () => ({
+          usageDate: '2030-01-01',
+          used: 0,
+          limit: simulationDailyRunLimit,
+          remaining: simulationDailyRunLimit,
+          resetsAt: new Date('2030-01-02T00:00:00.000Z'),
+        }),
       },
       ledger: {
         settleCompletedRun: async () => ({ run: initialRun, events: [ledgerEvent], alreadySettled: false }),
@@ -272,6 +279,54 @@ describe('simulation REST API', () => {
     })
     expect(invalidResponse.statusCode).toBe(400)
     expect(ownerFixture.getReceivedInput()).toBeUndefined()
+  })
+
+  it('reports the daily quota and returns a retryable response when it is exhausted', async () => {
+    const fixture = createRepositories('operator')
+    fixture.repositories.simulations.getDailyQuota = async () => ({
+      usageDate: '2030-01-01',
+      used: simulationDailyRunLimit,
+      limit: simulationDailyRunLimit,
+      remaining: 0,
+      resetsAt: new Date('2030-01-02T00:00:00.000Z'),
+    })
+    fixture.repositories.simulations.createRun = async () => {
+      throw new Error('SIMULATION_QUOTA_EXCEEDED')
+    }
+    const app = await buildApp({ logger: false, auth: authFor('operator'), repositories: fixture.repositories as never })
+    apps.push(app)
+
+    const quotaResponse = await app.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/simulations/quota`,
+    })
+    expect(quotaResponse.statusCode).toBe(200)
+    expect(quotaResponse.json()).toEqual({
+      quota: {
+        usageDate: '2030-01-01',
+        used: simulationDailyRunLimit,
+        limit: simulationDailyRunLimit,
+        remaining: 0,
+        resetsAt: '2030-01-02T00:00:00.000Z',
+      },
+    })
+
+    const exhaustedResponse = await app.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/simulations`,
+      payload: {
+        seed: 'demo-seed',
+        simulationDate: '2030-01-01',
+        dayType: 'sunny-weekday',
+        households: [{ id: 'household_1', pvKw: 4.2, baseLoadKw: 0.6 }],
+      },
+    })
+    expect(exhaustedResponse.statusCode).toBe(429)
+    expect(exhaustedResponse.headers['retry-after']).toBeDefined()
+    expect(exhaustedResponse.json()).toMatchObject({
+      code: 'SIMULATION_QUOTA_EXCEEDED',
+      quota: { remaining: 0, limit: simulationDailyRunLimit },
+    })
   })
 
   it('lets organisation members inspect run status and completed results only', async () => {

@@ -72,6 +72,15 @@ export interface SimulationRunDocument {
   deletedAt: Date | null
 }
 
+export interface SimulationUsageDocument {
+  _id: string
+  organisationId: string
+  usageDate: string
+  runCount: number
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface SimulationIntervalDocument {
   _id: string
   organisationId: string

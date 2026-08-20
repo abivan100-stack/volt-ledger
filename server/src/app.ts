@@ -15,6 +15,7 @@ import {
   type LedgerRepository,
   type MembershipRepository,
   type OrganisationRepository,
+  type SimulationQuotaSnapshot,
   type SimulationRepository,
 } from './db/repositories.js'
 import type {
@@ -99,7 +100,7 @@ export interface OrganisationRouteRepositories {
   >
   simulations: Pick<
     SimulationRepository,
-    'createRun' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
+    'createRun' | 'getDailyQuota' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
   ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
 }
@@ -166,6 +167,16 @@ function serializeSimulationRun(run: SimulationRunDocument) {
     createdAt: run.createdAt.toISOString(),
     startedAt: run.startedAt?.toISOString() ?? null,
     completedAt: run.completedAt?.toISOString() ?? null,
+  }
+}
+
+function serializeSimulationQuota(quota: SimulationQuotaSnapshot) {
+  return {
+    usageDate: quota.usageDate,
+    used: quota.used,
+    limit: quota.limit,
+    remaining: quota.remaining,
+    resetsAt: quota.resetsAt.toISOString(),
   }
 }
 
@@ -510,12 +521,49 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
       return reply.code(202).send({ run: serializeSimulationRun(run) })
     } catch (error) {
+      if (error instanceof Error && error.message === 'SIMULATION_QUOTA_EXCEEDED') {
+        const quota = await repositorySet.simulations.getDailyQuota(parsedParams.data.organisationId)
+        const retryAfterSeconds = Math.max(1, Math.ceil((quota.resetsAt.getTime() - Date.now()) / 1000))
+        reply.header('Retry-After', retryAfterSeconds)
+        return reply.code(429).send({
+          error: 'Daily simulation quota exceeded',
+          code: 'SIMULATION_QUOTA_EXCEEDED',
+          quota: serializeSimulationQuota(quota),
+        })
+      }
       app.log.error({ err: error }, 'Simulation run creation failed')
       return reply.code(500).send({
         error: 'Simulation run could not be queued',
         code: 'SIMULATION_QUEUE_FAILED',
       })
     }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/simulations/quota', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    return { quota: serializeSimulationQuota(await repositorySet.simulations.getDailyQuota(parsedParams.data.organisationId)) }
   })
 
   app.get('/api/v1/organisations/:organisationId/simulations', async (request, reply) => {

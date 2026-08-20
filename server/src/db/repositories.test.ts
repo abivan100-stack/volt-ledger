@@ -1,6 +1,11 @@
 import type { Db, Document, MongoClient } from 'mongodb'
 import { describe, expect, it } from 'vitest'
-import { createLedgerSeal, createVoltRepositories, hashInvitationToken } from './repositories.js'
+import {
+  createLedgerSeal,
+  createVoltRepositories,
+  hashInvitationToken,
+  simulationDailyRunLimit,
+} from './repositories.js'
 import type { LedgerEventDocument } from './models.js'
 
 type MemoryDocument = Document & { _id: string }
@@ -363,8 +368,49 @@ describe('Volt Mongo repositories', () => {
     expect(completed).toMatchObject({ status: 'completed', resultDigest: 'result-digest' })
     expect(await repositories.simulations.listIntervals(run._id)).toHaveLength(1)
     expect(await repositories.simulations.listSummaries(run._id)).toHaveLength(1)
-    expect(transactionCount).toBe(1)
-    expect(endedSessionCount).toBe(1)
+    expect(transactionCount).toBe(2)
+    expect(endedSessionCount).toBe(2)
+  })
+
+  it('reserves one daily simulation quota unit and rejects a full quota', async () => {
+    const db = createMemoryDb()
+    const repositories = createVoltRepositories(db, {} as MongoClient)
+    const run = await repositories.simulations.createRun({
+      organisationId: 'org_123',
+      requestedByUserId: 'user_123',
+      seed: 'quota-seed',
+      modelVersion: 'monte-carlo-v1',
+      inputSnapshot: { sampleCount: 10 },
+      inputDigest: 'input-digest',
+    })
+
+    expect(run.status).toBe('queued')
+    expect(await repositories.simulations.getDailyQuota('org_123')).toMatchObject({
+      used: 1,
+      limit: simulationDailyRunLimit,
+      remaining: simulationDailyRunLimit - 1,
+    })
+
+    const usageDate = new Date().toISOString().slice(0, 10)
+    await db.collection('simulation_usage').insertOne({
+      _id: `simulation:org_456:${usageDate}`,
+      organisationId: 'org_456',
+      usageDate,
+      runCount: simulationDailyRunLimit,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never)
+
+    await expect(repositories.simulations.createRun({
+      organisationId: 'org_456',
+      requestedByUserId: 'user_123',
+      seed: 'quota-seed',
+      modelVersion: 'monte-carlo-v1',
+      inputSnapshot: { sampleCount: 10 },
+      inputDigest: 'input-digest',
+    })).rejects.toThrow('SIMULATION_QUOTA_EXCEEDED')
+    expect(await repositories.simulations.findRunById(run._id)).toEqual(run)
+    expect(await repositories.simulations.listForOrganisation('org_456')).toHaveLength(0)
   })
 
   it('settles one completed run idempotently into a hash-linked ledger batch', async () => {
