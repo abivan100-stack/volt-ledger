@@ -32,6 +32,11 @@ export interface CreateOrganisationInput {
   createdByUserId: string
 }
 
+export interface CreateOrganisationWithOwnerResult {
+  organisation: OrganisationDocument
+  membership: MembershipDocument
+}
+
 export interface CreateMembershipInput {
   organisationId: string
   userId: string
@@ -96,6 +101,7 @@ export interface CreateAuditEventInput {
 
 export interface OrganisationRepository {
   create(input: CreateOrganisationInput): Promise<OrganisationDocument>
+  createWithOwner(input: CreateOrganisationInput): Promise<CreateOrganisationWithOwnerResult>
   findById(id: string): Promise<OrganisationDocument | null>
   listForUser(userId: string): Promise<OrganisationDocument[]>
   softDelete(id: string): Promise<boolean>
@@ -144,6 +150,12 @@ function normaliseSlug(value: string): string {
   return slug
 }
 
+function normaliseOrganisationName(value: string): string {
+  const name = value.trim()
+  if (name.length === 0) throw new Error('Organisation name is required')
+  return name
+}
+
 function assertMembershipRole(role: MembershipRole): void {
   if (!membershipRoles.includes(role)) throw new Error(`Unsupported membership role: ${role}`)
 }
@@ -164,21 +176,75 @@ export function createLedgerSeal(payload: Omit<LedgerEventDocument, '_id' | 'can
   return createHash('sha256').update(stableSerialize(payload)).digest('hex')
 }
 
-function createOrganisationRepository(collections: VoltCollections): OrganisationRepository {
+function buildOrganisationDocument(input: CreateOrganisationInput, now: Date): OrganisationDocument {
+  return {
+    _id: randomUUID(),
+    name: normaliseOrganisationName(input.name),
+    slug: normaliseSlug(input.slug),
+    createdByUserId: input.createdByUserId,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
+}
+
+function buildMembershipDocument(input: CreateMembershipInput, now: Date): MembershipDocument {
+  assertMembershipRole(input.role)
+  return {
+    _id: randomUUID(),
+    organisationId: input.organisationId,
+    userId: input.userId,
+    role: input.role,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  }
+}
+
+function createOrganisationRepository(collections: VoltCollections, client: MongoClient): OrganisationRepository {
   return {
     async create(input) {
       const now = new Date()
-      const document: OrganisationDocument = {
-        _id: randomUUID(),
-        name: input.name.trim(),
-        slug: normaliseSlug(input.slug),
-        createdByUserId: input.createdByUserId,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      }
+      const document = buildOrganisationDocument(input, now)
       await collections.organisations.insertOne(document)
       return document
+    },
+    async createWithOwner(input) {
+      const session = client.startSession()
+      try {
+        let result: CreateOrganisationWithOwnerResult | undefined
+        await session.withTransaction(async () => {
+          const now = new Date()
+          const organisation = buildOrganisationDocument(input, now)
+          const membership = buildMembershipDocument(
+            {
+              organisationId: organisation._id,
+              userId: input.createdByUserId,
+              role: 'owner',
+            },
+            now,
+          )
+          const auditEvent: AuditEventDocument = {
+            _id: randomUUID(),
+            organisationId: organisation._id,
+            actorUserId: input.createdByUserId,
+            action: 'organisation.created',
+            entityType: 'organisation',
+            entityId: organisation._id,
+            metadata: { slug: organisation.slug },
+            createdAt: now,
+          }
+
+          await collections.organisations.insertOne(organisation, { session })
+          await collections.memberships.insertOne(membership, { session })
+          await collections.auditEvents.insertOne(auditEvent, { session })
+          result = { organisation, membership }
+        })
+        if (!result) throw new Error('Organisation could not be created')
+        return result
+      } finally {
+        await session.endSession()
+      }
     },
     findById(id) {
       return collections.organisations.findOne({ _id: id, deletedAt: null })
@@ -204,17 +270,8 @@ function createOrganisationRepository(collections: VoltCollections): Organisatio
 function createMembershipRepository(collections: VoltCollections): MembershipRepository {
   return {
     async create(input) {
-      assertMembershipRole(input.role)
       const now = new Date()
-      const document: MembershipDocument = {
-        _id: randomUUID(),
-        organisationId: input.organisationId,
-        userId: input.userId,
-        role: input.role,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      }
+      const document = buildMembershipDocument(input, now)
       await collections.memberships.insertOne(document)
       return document
     },
@@ -427,7 +484,7 @@ function createAuditRepository(collections: VoltCollections): AuditRepository {
 export function createVoltRepositories(db: Db, client: MongoClient = getMongoClient()): VoltRepositories {
   const collections = getVoltCollections(db)
   return {
-    organisations: createOrganisationRepository(collections),
+    organisations: createOrganisationRepository(collections, client),
     memberships: createMembershipRepository(collections),
     simulations: createSimulationRepository(collections),
     ledger: createLedgerRepository(collections, client),

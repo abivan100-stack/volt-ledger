@@ -75,6 +75,38 @@ function createMemoryDb(): Db {
 }
 
 describe('Volt Mongo repositories', () => {
+  it('creates an organisation and its owner membership in one transaction', async () => {
+    let transactionCount = 0
+    let endedSessionCount = 0
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => {
+          transactionCount += 1
+          await operation()
+        },
+        endSession: async () => {
+          endedSessionCount += 1
+        },
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(createMemoryDb(), client)
+
+    const created = await repositories.organisations.createWithOwner({
+      name: 'Demo neighbourhood',
+      slug: 'demo-neighbourhood',
+      createdByUserId: 'user_123',
+    })
+
+    expect(created.membership).toMatchObject({
+      organisationId: created.organisation._id,
+      userId: 'user_123',
+      role: 'owner',
+    })
+    expect(await repositories.organisations.listForUser('user_123')).toEqual([created.organisation])
+    expect(transactionCount).toBe(1)
+    expect(endedSessionCount).toBe(1)
+  })
+
   it('creates organisations and memberships and hides soft-deleted organisations', async () => {
     const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
 
