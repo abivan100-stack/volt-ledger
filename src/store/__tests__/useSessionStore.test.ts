@@ -4,14 +4,19 @@ import { ApiError } from '../../api/errors'
 import { notifyUnauthenticated } from '../../api/unauthenticated'
 import type { Session } from '../../api/session'
 
-const { fetchSessionMock, signOutMock } = vi.hoisted(() => ({
+const { fetchSessionMock, signOutMock, signInMock } = vi.hoisted(() => ({
   fetchSessionMock: vi.fn(),
   signOutMock: vi.fn(),
+  signInMock: vi.fn(),
 }))
 
 vi.mock('../../api/session', () => ({
   fetchSession: fetchSessionMock,
   signOut: signOutMock,
+}))
+
+vi.mock('../../api/auth', () => ({
+  signInWithEmail: signInMock,
 }))
 
 const SESSION: Session = {
@@ -25,6 +30,7 @@ beforeEach(() => {
   useSessionStore.setState(pristine, true)
   fetchSessionMock.mockReset()
   signOutMock.mockReset()
+  signInMock.mockReset()
 })
 
 afterEach(() => {
@@ -214,5 +220,79 @@ describe('unauthenticated API responses', () => {
     const state = useSessionStore.getState()
     expect(state.status).toBe('anonymous')
     expect(state.expired).toBe(false)
+  })
+})
+
+describe('signIn', () => {
+  it('authenticates and loads the resulting session', async () => {
+    signInMock.mockResolvedValue(undefined)
+    fetchSessionMock.mockResolvedValue(SESSION)
+
+    await useSessionStore.getState().signIn({ email: 'asha@example.com', password: 'a-long-password' })
+
+    expect(signInMock).toHaveBeenCalledWith({ email: 'asha@example.com', password: 'a-long-password' })
+    const state = useSessionStore.getState()
+    expect(state.status).toBe('authenticated')
+    expect(state.user).toEqual(SESSION.user)
+  })
+
+  it('clears a previous expiry notice on a successful sign-in', async () => {
+    fetchSessionMock.mockResolvedValue(SESSION)
+    await useSessionStore.getState().restore()
+    useSessionStore.getState().expire()
+    expect(useSessionStore.getState().expired).toBe(true)
+
+    signInMock.mockResolvedValue(undefined)
+    await useSessionStore.getState().signIn({ email: 'asha@example.com', password: 'a-long-password' })
+    expect(useSessionStore.getState().expired).toBe(false)
+  })
+
+  it('rejects to the caller and leaves the visitor signed out on bad credentials', async () => {
+    fetchSessionMock.mockResolvedValue(null)
+    await useSessionStore.getState().restore()
+    fetchSessionMock.mockClear()
+
+    signInMock.mockRejectedValue(
+      new ApiError({ message: 'Invalid email or password', status: 401, code: 'INVALID_EMAIL_OR_PASSWORD' }),
+    )
+
+    await expect(
+      useSessionStore.getState().signIn({ email: 'asha@example.com', password: 'wrong' }),
+    ).rejects.toMatchObject({ code: 'INVALID_EMAIL_OR_PASSWORD' })
+
+    const state = useSessionStore.getState()
+    expect(state.status).toBe('anonymous')
+    expect(state.user).toBeNull()
+    // A refused credential is not worth a round trip to /api/v1/me.
+    expect(fetchSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects when the address has not been verified yet', async () => {
+    fetchSessionMock.mockResolvedValue(null)
+    await useSessionStore.getState().restore()
+
+    signInMock.mockRejectedValue(
+      new ApiError({ message: 'Email not verified', status: 403, code: 'EMAIL_NOT_VERIFIED' }),
+    )
+
+    await expect(
+      useSessionStore.getState().signIn({ email: 'asha@example.com', password: 'a-long-password' }),
+    ).rejects.toMatchObject({ status: 403 })
+    expect(useSessionStore.getState().status).toBe('anonymous')
+    expect(useSessionStore.getState().user).toBeNull()
+  })
+
+  it('does not fabricate a status when sign-in fails before anything is known', async () => {
+    signInMock.mockRejectedValue(
+      new ApiError({ message: 'Invalid email or password', status: 401, code: 'INVALID_EMAIL_OR_PASSWORD' }),
+    )
+
+    await expect(
+      useSessionStore.getState().signIn({ email: 'asha@example.com', password: 'wrong' }),
+    ).rejects.toMatchObject({ status: 401 })
+
+    const state = useSessionStore.getState()
+    expect(state.status).toBe('unknown')
+    expect(state.user).toBeNull()
   })
 })

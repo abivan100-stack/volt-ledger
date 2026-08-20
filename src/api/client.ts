@@ -33,16 +33,37 @@ export interface ApiClientConfig {
   fetchImpl?: FetchLike
 }
 
-interface ErrorEnvelope {
-  error: string
-  code: string
+interface ParsedErrorBody {
+  message: string
+  code: string | null
   issues?: ApiErrorIssue[]
 }
 
-function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
-  if (typeof value !== 'object' || value === null) return false
+/**
+ * Two envelopes reach this client: Volt's own `{ error, code, issues? }` on
+ * `/api/v1`, and Better Auth's `{ message, code? }` on `/api/auth`. Read either
+ * so a sign-in failure shows its real reason instead of a status number.
+ */
+function parseErrorBody(value: unknown): ParsedErrorBody | null {
+  if (typeof value !== 'object' || value === null) return null
   const candidate = value as Record<string, unknown>
-  return typeof candidate.error === 'string' && typeof candidate.code === 'string'
+
+  if (typeof candidate.error === 'string') {
+    return {
+      message: candidate.error,
+      code: typeof candidate.code === 'string' ? candidate.code : null,
+      issues: candidate.issues as ApiErrorIssue[] | undefined,
+    }
+  }
+
+  if (typeof candidate.message === 'string') {
+    return {
+      message: candidate.message,
+      code: typeof candidate.code === 'string' ? candidate.code : null,
+    }
+  }
+
+  return null
 }
 
 function buildUrl(baseUrl: string, path: string, query: ApiRequestOptions['query']): string {
@@ -84,21 +105,13 @@ async function readJson(response: Response): Promise<unknown> {
 async function toApiError(response: Response): Promise<ApiError> {
   const payload = await readJson(response)
   const retryAfterSeconds = parseRetryAfter(response)
-
-  if (isErrorEnvelope(payload)) {
-    return new ApiError({
-      message: payload.error,
-      status: response.status,
-      code: payload.code,
-      issues: payload.issues,
-      retryAfterSeconds,
-    })
-  }
+  const parsed = parseErrorBody(payload)
 
   return new ApiError({
-    message: `Request failed with status ${response.status}`,
+    message: parsed?.message ?? `Request failed with status ${response.status}`,
     status: response.status,
-    code: 'UNEXPECTED_RESPONSE',
+    code: parsed?.code ?? 'UNEXPECTED_RESPONSE',
+    issues: parsed?.issues,
     retryAfterSeconds,
   })
 }

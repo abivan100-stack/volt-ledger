@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (375 tests)
+npm test               # run the client test suite once (387 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -112,6 +112,8 @@ VITE_API_BASE_URL=http://localhost:4000
 Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
 
 Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out; any route answering `401` triggers that centrally, so no caller has to remember to handle it.
+
+Email sign-in and sign-up go through Better Auth (`src/api/auth.ts`). Because the API sets `requireEmailVerification`, sign-up does **not** start a session — it sends a verification email — and signing in before verifying is refused with `403` while a fresh verification email goes out; the UI must say so rather than assume success. `useSessionStore.signIn()` reads the session back from `/api/v1/me` after the cookie is set instead of inventing state from the submitted credentials.
 
 Organisations are loaded through `useOrganisationStore`, which keeps the current selection pointing at a real organisation across refreshes and clears itself when a session ends. List failures stay on the store so the selector can retry; `create` and `archive` reject to their caller so a form or confirmation dialog can show the error next to the control that caused it. `src/lib/permissions.ts` mirrors the API's role rules to decide what the UI offers — the server re-checks every one of them and remains the only authority.
 
@@ -145,6 +147,7 @@ src/
     unauthenticated.ts    #   One-slot 401 registry the session store subscribes to
     resource.ts           #   Shared client/signal plumbing for resource modules
     organisations.ts      #   Organisation list, create, read, archive
+    auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
     simulation.ts         #   24-hour generation/demand curves, day types, household ticks

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { signInWithEmail, type EmailSignInInput } from '../api/auth'
 import { ApiError } from '../api/errors'
 import { fetchSession, signOut as signOutRequest, type SessionUser } from '../api/session'
 import { setUnauthenticatedHandler } from '../api/unauthenticated'
@@ -33,6 +34,8 @@ export interface SessionState {
   /** True when a previously authenticated session was lost, not deliberately ended. */
   expired: boolean
   restore: () => Promise<void>
+  /** Signs in with email and password, then loads the resulting session. */
+  signIn: (input: EmailSignInInput) => Promise<void>
   signOut: () => Promise<void>
   /** Called when any API request reports a 401, so the UI can explain the drop-out. */
   expire: () => void
@@ -88,6 +91,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       })
 
     return inFlightRestore
+  },
+
+  signIn: async (input) => {
+    // Deliberately not caught: a bad password or an unverified address belongs
+    // next to the sign-in form, not in the store's global error slot.
+    await signInWithEmail(input)
+    // The cookie is set but its user is not, so read the session back rather
+    // than inventing state from the credentials that were submitted.
+    inFlightRestore = null
+    await get().restore()
   },
 
   signOut: async () => {

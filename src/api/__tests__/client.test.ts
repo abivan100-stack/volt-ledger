@@ -225,3 +225,34 @@ describe('unauthenticated notification', () => {
     expect(handler).not.toHaveBeenCalled()
   })
 })
+
+describe('Better Auth error responses', () => {
+  it('reads the { message, code } envelope used by /api/auth routes', async () => {
+    const { client } = clientWith(
+      jsonResponse({ message: 'Invalid email or password', code: 'INVALID_EMAIL_OR_PASSWORD' }, { status: 401 }),
+    )
+
+    const error = await rejection(client.request('/api/auth/sign-in/email', { method: 'POST', body: {} }))
+    expect(error.message).toBe('Invalid email or password')
+    expect(error.code).toBe('INVALID_EMAIL_OR_PASSWORD')
+    expect(error.status).toBe(401)
+  })
+
+  it('keeps the message when Better Auth omits a code', async () => {
+    const { client } = clientWith(jsonResponse({ message: 'Email not verified' }, { status: 403 }))
+
+    const error = await rejection(client.request('/api/auth/sign-in/email', { method: 'POST', body: {} }))
+    expect(error.message).toBe('Email not verified')
+    expect(error.code).toBe('UNEXPECTED_RESPONSE')
+  })
+
+  it('prefers the Volt envelope when both shapes are present', async () => {
+    const { client } = clientWith(
+      jsonResponse({ error: 'Authentication required', code: 'UNAUTHENTICATED', message: 'ignored' }, { status: 401 }),
+    )
+
+    const error = await rejection(client.request('/api/v1/me'))
+    expect(error.message).toBe('Authentication required')
+    expect(error.code).toBe('UNAUTHENTICATED')
+  })
+})
