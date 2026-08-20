@@ -13,12 +13,18 @@ afterEach(() => {
 })
 
 describe('themeMode', () => {
-  it('defaults to system and applies an explicit preference', () => {
-    expect(readThemePreference()).toBe('system')
+  it('defaults to light and applies an explicit preference', () => {
+    expect(readThemePreference()).toBe('light')
     setThemePreference('dark')
     expect(readThemePreference()).toBe('dark')
     expect(effectiveTheme()).toBe('dark')
     setThemePreference('light')
+    expect(effectiveTheme()).toBe('light')
+  })
+
+  it('marks the document light on load when no preference is stored', () => {
+    initializeTheme()
+    expect(document.documentElement.dataset.theme).toBe('light')
     expect(effectiveTheme()).toBe('light')
   })
 

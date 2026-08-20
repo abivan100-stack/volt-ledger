@@ -5,8 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Volt — A transparent, tamper-evident ledger for peer-to-peer rooftop-solar energy trading. Built for the Open Energy Challenge 2026." />
-    <meta name="theme-color" content="#F2EEE4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#17140F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F2EEE4" />
+
+    <script>
+      // Light is Volt's default: apply the stored preference before first paint
+      // so the ledger never flashes dark while the bundle loads.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('volt-theme')
+          if (stored === 'system') return
+          document.documentElement.dataset.theme = stored === 'dark' ? 'dark' : 'light'
+        } catch (error) {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
 
     <meta property="og:title" content="Volt — Local Energy Ledger" />
     <meta property="og:description" content="A transparent, tamper-evident ledger for peer-to-peer rooftop-solar energy trading." />

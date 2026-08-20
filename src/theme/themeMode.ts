@@ -2,6 +2,11 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'volt-theme'
 
+/* Volt ships light-first: with no stored preference the ledger loads in light
+   mode regardless of the operating-system setting. `index.html` applies the
+   same default before first paint so there is no dark flash while loading. */
+const DEFAULT_THEME_MODE: ThemeMode = 'light'
+
 function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'system' || value === 'light' || value === 'dark'
 }
@@ -9,9 +14,9 @@ function isThemeMode(value: string | null): value is ThemeMode {
 export function readThemePreference(): ThemeMode {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-    return isThemeMode(stored) ? stored : 'system'
+    return isThemeMode(stored) ? stored : DEFAULT_THEME_MODE
   } catch {
-    return 'system'
+    return DEFAULT_THEME_MODE
   }
 }
 
