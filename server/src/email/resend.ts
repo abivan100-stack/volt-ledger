@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { env } from '../config/env.js'
+import { announceLink } from './devLinks.js'
 import type { InvitationRole } from '../db/models.js'
 
 let resendClient: Resend | undefined
@@ -44,6 +45,10 @@ export async function sendVerificationEmail({ to, url }: VerificationEmailInput)
     throw new Error('EMAIL_FROM is not configured')
   }
 
+  // Before the send, not after: a provider that files the message as spam still
+  // leaves a link the developer can open.
+  announceLink('Verify your Volt account', to, url)
+
   const client = getResendClient()
   const safeUrl = escapeHtml(url)
 
@@ -69,6 +74,8 @@ export async function sendOrganisationInvitationEmail({
   if (!env.EMAIL_FROM) {
     throw new Error('EMAIL_FROM is not configured')
   }
+
+  announceLink(`Invitation to ${organisationName}`, to, url)
 
   const client = getResendClient()
   const safeOrganisationName = escapeHtml(organisationName)
