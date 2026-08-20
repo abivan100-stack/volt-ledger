@@ -298,3 +298,36 @@ describe('JSON Schema conversion', () => {
     }
   })
 })
+
+describe('strictness', () => {
+  it('rejects an undocumented extra field, so a serializer cannot add one silently', () => {
+    const valid = { id: 'm1', userId: 'u1', email: null, role: 'operator', createdAt: WHEN, updatedAt: WHEN }
+    expect(membershipSchema.safeParse(valid).success).toBe(true)
+
+    // Adding a field is a contract change; the suite must notice it.
+    const withExtra = { ...valid, internalNote: 'leaked' }
+    expect(membershipSchema.safeParse(withExtra).success).toBe(false)
+  })
+
+  it('does not let an extra field slip through a wrapper either', () => {
+    const event = ledgerEvent()
+    const page = {
+      events: [{ ...event, secret: 'x' }],
+      integrity: { valid: true, complete: true, checkedEvents: 1, firstSequence: 1, lastSequence: 1 },
+    }
+    expect(ledgerListResponseSchema.safeParse(page).success).toBe(false)
+  })
+
+  it('still allows free-form audit metadata, which is not a fixed shape', () => {
+    const event = {
+      id: 'audit-1',
+      actorUserId: 'user-1',
+      action: 'organisation.created',
+      entityType: 'organisation',
+      entityId: UUID,
+      metadata: { anything: { nested: true }, count: 3 },
+      createdAt: WHEN,
+    }
+    expect(auditEventPageResponseSchema.safeParse({ events: [event], nextCursor: null }).success).toBe(true)
+  })
+})

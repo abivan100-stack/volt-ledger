@@ -7,15 +7,57 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  client:
+    name: Client
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npm run build
       - run: npm test
       - run: npm run test:coverage
+
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck:api
+      - run: npm run build:api
+      # server/.env is not committed, and config/env.ts validates at import time.
+      # These are placeholders, not secrets: the API tests stub every repository
+      # and the database ping, so nothing connects to MongoDB or Better Auth.
+      - run: npm run test:api
+        env:
+          NODE_ENV: test
+          WEB_ORIGIN: http://localhost:5173
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_DB_NAME: volt_ci
+          BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-for-signing-anything
+          BETTER_AUTH_URL: http://localhost:4000
+
+  contract:
+    name: API contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Validates the generated description against the official OpenAPI 3.1
+      # meta-schema, then fails if docs/openapi.json no longer matches the code.
+      # A change to a route or schema must therefore land with its contract diff.
+      - name: Validate and diff the OpenAPI document
+        run: npm run openapi:check
