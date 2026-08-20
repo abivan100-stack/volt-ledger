@@ -1,0 +1,3680 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Volt API",
+    "version": "1.0.0",
+    "description": "REST API for Volt, a tamper-evident ledger for synthetic neighbourhood solar exchange.\n\n**All data is synthetic.** Simulation outcomes are Monte Carlo bands over a seeded, replayable model; ledger energy is an accepted outcome's synthetic exported kWh and estimated credit is illustrative. Nothing here is a meter reading, a forecast, or a payment obligation.\n\n**Authentication** is a session cookie issued by Better Auth. Sign-in, sign-up and sign-out live under `/api/auth/*`, which Better Auth owns and this document therefore does not describe; obtain a session there, then call these routes with the cookie. Cookie-authenticated state-changing requests must also carry a same-origin `Origin` or `Referer`, or the API answers 403 `CSRF_ORIGIN_MISMATCH`. Requests are rate limited and the body size is bounded.\n\n**Errors** all share one envelope: `error` for people, `code` for programs, and an optional `issues` array naming the fields that failed. Each response below lists the codes that status can carry.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Liveness."
+    },
+    {
+      "name": "Session",
+      "description": "The signed-in user."
+    },
+    {
+      "name": "Organisations",
+      "description": "Organisations and their lifecycle."
+    },
+    {
+      "name": "Memberships",
+      "description": "Roles and ownership."
+    },
+    {
+      "name": "Invitations",
+      "description": "Email-backed access grants."
+    },
+    {
+      "name": "Simulations",
+      "description": "Queued synthetic Monte Carlo runs."
+    },
+    {
+      "name": "Ledger",
+      "description": "Append-only settlements and corrections."
+    },
+    {
+      "name": "Audit",
+      "description": "Cursor-paginated organisation history."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "Session cookie issued by Better Auth. Send with `credentials: \"include\"`."
+      }
+    },
+    "schemas": {
+      "CreateOrganisationRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ],
+        "additionalProperties": false
+      },
+      "CreateSimulationRequest": {
+        "type": "object",
+        "properties": {
+          "seed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "simulationDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dayType": {
+            "type": "string",
+            "enum": [
+              "sunny-weekday",
+              "cloudy",
+              "weekend",
+              "heatwave"
+            ]
+          },
+          "households": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "pvKw": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 20
+                },
+                "baseLoadKw": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 20
+                }
+              },
+              "required": [
+                "id",
+                "pvKw",
+                "baseLoadKw"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sampleCount": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 250
+          },
+          "intervalMinutes": {
+            "default": 60,
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 10
+              },
+              {
+                "type": "number",
+                "const": 30
+              },
+              {
+                "type": "number",
+                "const": 60
+              }
+            ]
+          },
+          "rateInrPerKwh": {
+            "default": 5.5,
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "seed",
+          "simulationDate",
+          "dayType",
+          "households"
+        ],
+        "additionalProperties": false
+      },
+      "SettleSimulationRequest": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "default": "selected",
+            "type": "string",
+            "enum": [
+              "p10",
+              "p50",
+              "p90",
+              "selected"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateAdjustmentRequest": {
+        "type": "object",
+        "properties": {
+          "targetEventId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "energyKwh": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "estimatedCreditInr": {
+            "type": "number",
+            "minimum": -1000000000,
+            "maximum": 1000000000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "targetEventId",
+          "idempotencyKey",
+          "energyKwh",
+          "estimatedCreditInr",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "TransferOwnershipRequest": {
+        "type": "object",
+        "properties": {
+          "newOwnerUserId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "newOwnerUserId"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateMembershipRoleRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "operator",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "CreateInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "operator",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "AcceptInvitationRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable message; safe to show a user"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable code"
+          },
+          "issues": {
+            "description": "Field-level validation detail, present on some 400 responses",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "QuotaErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable message; safe to show a user"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable code"
+          },
+          "issues": {
+            "description": "Field-level validation detail, present on some 400 responses",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "quota": {
+            "$ref": "#/components/schemas/SimulationQuota"
+          }
+        },
+        "required": [
+          "error",
+          "code",
+          "quota"
+        ],
+        "additionalProperties": false
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "service": {
+            "type": "string",
+            "const": "volt-api"
+          },
+          "database": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "database"
+        ],
+        "additionalProperties": false
+      },
+      "HealthDegradedResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "degraded"
+          },
+          "service": {
+            "type": "string",
+            "const": "volt-api"
+          },
+          "database": {
+            "type": "string",
+            "const": "unavailable"
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "database"
+        ],
+        "additionalProperties": false
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "emailVerified": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "email",
+              "emailVerified"
+            ],
+            "additionalProperties": false
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "expiresAt": {
+                "type": "string",
+                "description": "ISO-8601 timestamp"
+              }
+            },
+            "required": [
+              "id",
+              "expiresAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "user",
+          "session"
+        ],
+        "additionalProperties": false
+      },
+      "Organisation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "viewer"
+            ],
+            "description": "The requesting user's own role"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "OrganisationListResponse": {
+        "type": "object",
+        "properties": {
+          "organisations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Organisation"
+            }
+          }
+        },
+        "required": [
+          "organisations"
+        ],
+        "additionalProperties": false
+      },
+      "OrganisationResponse": {
+        "type": "object",
+        "properties": {
+          "organisation": {
+            "$ref": "#/components/schemas/Organisation"
+          }
+        },
+        "required": [
+          "organisation"
+        ],
+        "additionalProperties": false
+      },
+      "Membership": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when no address was recorded for the membership"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "viewer"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "email",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "MembershipListResponse": {
+        "type": "object",
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Membership"
+            }
+          }
+        },
+        "required": [
+          "members"
+        ],
+        "additionalProperties": false
+      },
+      "MembershipResponse": {
+        "type": "object",
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/Membership"
+          }
+        },
+        "required": [
+          "member"
+        ],
+        "additionalProperties": false
+      },
+      "OwnershipTransferResponse": {
+        "type": "object",
+        "properties": {
+          "ownership": {
+            "type": "object",
+            "properties": {
+              "previousOwner": {
+                "description": "The acting owner, now demoted to admin",
+                "$ref": "#/components/schemas/Membership"
+              },
+              "newOwner": {
+                "$ref": "#/components/schemas/Membership"
+              }
+            },
+            "required": [
+              "previousOwner",
+              "newOwner"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ownership"
+        ],
+        "additionalProperties": false
+      },
+      "Invitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "operator",
+              "viewer"
+            ],
+            "description": "Never owner; ownership moves only by transfer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "revoked"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "createdAt": {
+            "description": "Present on the list route only",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "InvitationListResponse": {
+        "type": "object",
+        "properties": {
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invitation"
+            }
+          }
+        },
+        "required": [
+          "invitations"
+        ],
+        "additionalProperties": false
+      },
+      "InvitationResponse": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/Invitation"
+          }
+        },
+        "required": [
+          "invitation"
+        ],
+        "additionalProperties": false
+      },
+      "AcceptInvitationResponse": {
+        "type": "object",
+        "properties": {
+          "organisationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "viewer"
+            ]
+          }
+        },
+        "required": [
+          "organisationId",
+          "membershipId",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organisationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requestedByUserId": {
+            "type": "string"
+          },
+          "seed": {
+            "type": "string"
+          },
+          "modelVersion": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "inputDigest": {
+            "type": "string"
+          },
+          "resultDigest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set once the run completes"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when the run failed"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "ISO-8601 timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "ISO-8601 timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "organisationId",
+          "requestedByUserId",
+          "seed",
+          "modelVersion",
+          "status",
+          "inputDigest",
+          "resultDigest",
+          "errorCode",
+          "createdAt",
+          "startedAt",
+          "completedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationRunResponse": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/SimulationRun"
+          }
+        },
+        "required": [
+          "run"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationRunListResponse": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SimulationRun"
+            }
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationQuota": {
+        "type": "object",
+        "properties": {
+          "usageDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "UTC calendar day the usage applies to"
+          },
+          "used": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "remaining": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "resetsAt": {
+            "type": "string",
+            "description": "Next UTC midnight"
+          }
+        },
+        "required": [
+          "usageDate",
+          "used",
+          "limit",
+          "remaining",
+          "resetsAt"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationQuotaResponse": {
+        "type": "object",
+        "properties": {
+          "quota": {
+            "$ref": "#/components/schemas/SimulationQuota"
+          }
+        },
+        "required": [
+          "quota"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationInterval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "householdId": {
+            "type": "string"
+          },
+          "intervalStart": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "intervalEnd": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "generatedKwh": {
+            "type": "number"
+          },
+          "consumedKwh": {
+            "type": "number"
+          },
+          "importedKwh": {
+            "type": "number"
+          },
+          "exportedKwh": {
+            "type": "number"
+          },
+          "estimatedCreditInr": {
+            "type": "number"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "p10",
+              "p50",
+              "p90",
+              "selected"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "householdId",
+          "intervalStart",
+          "intervalEnd",
+          "generatedKwh",
+          "consumedKwh",
+          "importedKwh",
+          "exportedKwh",
+          "estimatedCreditInr",
+          "outcome",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "householdId": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "p10",
+              "p50",
+              "p90",
+              "selected"
+            ]
+          },
+          "intervalCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "generatedKwh": {
+            "type": "number"
+          },
+          "consumedKwh": {
+            "type": "number"
+          },
+          "importedKwh": {
+            "type": "number"
+          },
+          "exportedKwh": {
+            "type": "number"
+          },
+          "estimatedCreditInr": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "householdId",
+          "outcome",
+          "intervalCount",
+          "generatedKwh",
+          "consumedKwh",
+          "importedKwh",
+          "exportedKwh",
+          "estimatedCreditInr",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationResultsResponse": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/SimulationRun"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SimulationInterval"
+            }
+          },
+          "summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SimulationSummary"
+            }
+          }
+        },
+        "required": [
+          "run",
+          "intervals",
+          "summaries"
+        ],
+        "additionalProperties": false
+      },
+      "LedgerEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Monotonic within the organisation, from 1"
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "settlement",
+              "adjustment"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "p10",
+              "p50",
+              "p90",
+              "selected"
+            ],
+            "description": "The accepted Monte Carlo outcome"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "householdId": {
+            "type": "string"
+          },
+          "settlementDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Calendar date, YYYY-MM-DD"
+          },
+          "sourceRunId": {
+            "type": "string"
+          },
+          "simulationResultDigest": {
+            "type": "string"
+          },
+          "energyKwh": {
+            "type": "number",
+            "description": "Synthetic exported kWh; not a meter reading"
+          },
+          "estimatedCreditInr": {
+            "type": "number",
+            "description": "Illustrative rupee value; not a payment obligation"
+          },
+          "previousSeal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null only for sequence 1"
+          },
+          "canonicalSeal": {
+            "type": "string",
+            "description": "Server-generated hash linking this event to the previous"
+          },
+          "adjustmentTargetEventId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set on adjustment events only"
+          },
+          "adjustmentReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set on adjustment events only"
+          },
+          "idempotencyKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set on adjustment events only"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "eventType",
+          "outcome",
+          "actorUserId",
+          "householdId",
+          "settlementDate",
+          "sourceRunId",
+          "simulationResultDigest",
+          "energyKwh",
+          "estimatedCreditInr",
+          "previousSeal",
+          "canonicalSeal",
+          "adjustmentTargetEventId",
+          "adjustmentReason",
+          "idempotencyKey",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "LedgerIntegrity": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "Every seal recomputed and every link matched"
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "The returned slice begins at sequence 1"
+          },
+          "checkedEvents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "firstSequence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastSequence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "valid",
+          "complete",
+          "checkedEvents",
+          "firstSequence",
+          "lastSequence"
+        ],
+        "additionalProperties": false
+      },
+      "LedgerListResponse": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerEvent"
+            }
+          },
+          "integrity": {
+            "$ref": "#/components/schemas/LedgerIntegrity"
+          }
+        },
+        "required": [
+          "events",
+          "integrity"
+        ],
+        "additionalProperties": false
+      },
+      "SettlementResponse": {
+        "type": "object",
+        "properties": {
+          "settlement": {
+            "type": "object",
+            "properties": {
+              "runId": {
+                "type": "string"
+              },
+              "resultDigest": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "p10",
+                  "p50",
+                  "p90",
+                  "selected"
+                ]
+              },
+              "alreadySettled": {
+                "type": "boolean",
+                "description": "True when this exact settlement already existed"
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LedgerEvent"
+                }
+              }
+            },
+            "required": [
+              "runId",
+              "resultDigest",
+              "outcome",
+              "alreadySettled",
+              "events"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "settlement"
+        ],
+        "additionalProperties": false
+      },
+      "AdjustmentResponse": {
+        "type": "object",
+        "properties": {
+          "adjustment": {
+            "type": "object",
+            "properties": {
+              "alreadyApplied": {
+                "type": "boolean",
+                "description": "True when the idempotency key had already been used"
+              },
+              "event": {
+                "$ref": "#/components/schemas/LedgerEvent"
+              }
+            },
+            "required": [
+              "alreadyApplied",
+              "event"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "adjustment"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "description": "Dotted action name, e.g. organisation.created"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "actorUserId",
+          "action",
+          "entityType",
+          "entityId",
+          "metadata",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEventPageResponse": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            },
+            "description": "Newest first"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque position marker; null on the last page"
+          }
+        },
+        "required": [
+          "events",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Liveness and database reachability",
+        "description": "Unauthenticated. Answers 503 when the MongoDB ping fails.",
+        "tags": [
+          "System"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The API and its database are reachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database could not be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDegradedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "summary": "This document",
+        "description": "Unauthenticated. Describes the shape of the API, never its data, and clients need it before they have a session.",
+        "tags": [
+          "System"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI 3.1 description of this API."
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getCurrentSession",
+        "summary": "The signed-in user and session",
+        "description": "Used to restore a session on page load.",
+        "tags": [
+          "Session"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations": {
+      "post": {
+        "operationId": "createOrganisation",
+        "summary": "Create an organisation",
+        "description": "The caller becomes its owner. The organisation and the owner membership are created in one transaction.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganisationRequest"
+              },
+              "example": {
+                "name": "Nolambur Microgrid",
+                "slug": "nolambur-microgrid"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_REQUEST` — The name or slug failed validation; `issues` lists the fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `ORGANISATION_SLUG_CONFLICT` — Another organisation already uses this slug.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `ORGANISATION_CREATE_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listOrganisations",
+        "summary": "Organisations the user belongs to",
+        "description": "Each entry carries the requesting user's own role.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every active membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}": {
+      "get": {
+        "operationId": "getOrganisation",
+        "summary": "Read one organisation",
+        "description": "Readable by any member.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "archiveOrganisation",
+        "summary": "Archive an organisation",
+        "description": "Owner only, and soft: active memberships, invitations, simulation runs, intervals and summaries are marked deleted in one transaction, and pending invitations are revoked. Ledger and audit history are retained for provenance. There is no undo.\n\n**Roles.** `owner`.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archived. No body."
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `ORGANISATION_CHANGED` — The organisation changed before deletion; retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `ORGANISATION_DELETE_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/memberships": {
+      "get": {
+        "operationId": "listMemberships",
+        "summary": "Active members",
+        "description": "Readable by any member. `email` may be null when none was recorded.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Memberships"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every active member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/memberships/{userId}": {
+      "patch": {
+        "operationId": "updateMembershipRole",
+        "summary": "Change a member role",
+        "description": "Owner or admin. The owner membership is never editable here — ownership moves only through `/ownership/transfer` — and an admin may neither reach another admin nor grant the admin role.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Memberships"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The member's user identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMembershipRoleRequest"
+              },
+              "example": {
+                "role": "operator"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_MEMBERSHIP_ID` — The organisation or user identifier in the path is invalid.\n- `INVALID_REQUEST` — The role is not one of admin, operator, viewer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.\n- `MEMBERSHIP_OWNER_PROTECTED` — The target is the owner membership.\n- `MEMBERSHIP_ROLE_FORBIDDEN` — Your role cannot grant or change that role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `MEMBERSHIP_NOT_FOUND` — No such membership in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `MEMBERSHIP_CHANGED` — The membership changed before the update; retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `MEMBERSHIP_UPDATE_FAILED` — The update could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeMembership",
+        "summary": "Remove a member",
+        "description": "Owner or admin. The owner membership cannot be removed.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Memberships"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The member's user identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed. No body."
+          },
+          "400": {
+            "description": "- `INVALID_MEMBERSHIP_ID` — The organisation or user identifier in the path is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.\n- `MEMBERSHIP_OWNER_PROTECTED` — The target is the owner membership.\n- `MEMBERSHIP_ROLE_FORBIDDEN` — Your role cannot remove that membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `MEMBERSHIP_NOT_FOUND` — No such membership in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `MEMBERSHIP_CHANGED` — The membership changed before removal; retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `MEMBERSHIP_REMOVE_FAILED` — The removal could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/ownership/transfer": {
+      "post": {
+        "operationId": "transferOwnership",
+        "summary": "Hand ownership to another member",
+        "description": "Owner only. Atomically promotes an existing active member to owner and demotes the acting owner to admin, so the caller loses owner rights as part of the success path. Audited.\n\n**Roles.** `owner`.",
+        "tags": [
+          "Memberships"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOwnershipRequest"
+              },
+              "example": {
+                "newOwnerUserId": "user_01J8YZ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Both sides of the transfer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnershipTransferResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The body is missing `newOwnerUserId`.\n- `OWNER_TRANSFER_INVALID` — The new owner must be a different active member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.\n- `MEMBERSHIP_NOT_FOUND` — The target membership does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `OWNER_TRANSFER_TARGET_INVALID` — The target is already the owner.\n- `MEMBERSHIP_CHANGED` — A membership changed before the transfer; retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `OWNER_TRANSFER_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/invitations": {
+      "post": {
+        "operationId": "createInvitation",
+        "summary": "Invite somebody by email",
+        "description": "Owner or admin; an admin may not invite an admin. Delivery is part of the operation: if the email cannot be sent the server revokes the invitation and answers 503, so a 201 means the recipient has been written to. Only a hash of the single-use token is stored.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Invitations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationRequest"
+              },
+              "example": {
+                "email": "asha@example.com",
+                "role": "operator"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The pending invitation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The email or role failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.\n- `INVITATION_ROLE_FORBIDDEN` — An admin cannot invite another admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `INVITATION_ALREADY_PENDING` — An invitation is already pending for this email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `INVITATION_CREATE_FAILED` — The invitation could not be created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `INVITATION_DELIVERY_FAILED` — The email could not be sent; the invitation was revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listInvitations",
+        "summary": "Invitation history",
+        "description": "Owner or admin. Includes accepted and revoked invitations; records are retained.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Invitations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every invitation, with `createdAt`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/invitations/{invitationId}": {
+      "delete": {
+        "operationId": "revokeInvitation",
+        "summary": "Revoke a pending invitation",
+        "description": "Owner or admin; an admin may not revoke an admin invitation. The record and its token hash are retained for history.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Invitations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "invitationId",
+            "in": "path",
+            "required": true,
+            "description": "Invitation identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked. No body."
+          },
+          "400": {
+            "description": "- `INVALID_INVITATION_ID` — The organisation or invitation identifier is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.\n- `INVITATION_ROLE_FORBIDDEN` — An admin cannot revoke an admin invitation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `INVITATION_NOT_FOUND` — No such invitation in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `INVITATION_NOT_PENDING` — The invitation is already accepted or revoked.\n- `INVITATION_CHANGED` — The invitation changed before revocation; retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `INVITATION_REVOKE_FAILED` — The revocation could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations/accept": {
+      "post": {
+        "operationId": "acceptInvitation",
+        "summary": "Accept an invitation",
+        "description": "Requires an authenticated user whose **verified** email matches the invited address. Turns the invitation into a membership. Not organisation-scoped: the token names the organisation.",
+        "tags": [
+          "Invitations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationRequest"
+              },
+              "example": {
+                "token": "inv_9f2c…"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The membership just created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptInvitationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_REQUEST` — The body is missing a token.\n- `INVITATION_INVALID` — The invitation is unknown, expired, or already used.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `EMAIL_NOT_VERIFIED` — Verify your email address before accepting.\n- `INVITATION_EMAIL_MISMATCH` — The invitation was issued to a different address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `MEMBERSHIP_EXISTS` — You already belong to this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `INVITATION_ACCEPT_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations": {
+      "post": {
+        "operationId": "createSimulationRun",
+        "summary": "Queue a simulation run",
+        "description": "Owner, admin or operator. Answers 202: the run is **queued**, not computed. A separate worker claims it, so poll `GET /simulations/{runId}` for status. One unit of the organisation's UTC daily allowance is reserved in the same transaction as the queue insert. Runs are replayable from their seed, model version and input digest. All data is synthetic.\n\n**Roles.** `owner`, `admin`, `operator`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSimulationRequest"
+              },
+              "example": {
+                "seed": "nolambur-2026-08-01",
+                "simulationDate": "2026-08-01",
+                "dayType": "sunny-weekday",
+                "households": [
+                  {
+                    "id": "h1",
+                    "pvKw": 3.2,
+                    "baseLoadKw": 0.9
+                  },
+                  {
+                    "id": "h2",
+                    "pvKw": 0,
+                    "baseLoadKw": 1.4
+                  }
+                ],
+                "sampleCount": 100,
+                "intervalMinutes": 60,
+                "rateInrPerKwh": 5.5
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The queued run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationRunResponse"
+                },
+                "example": {
+                  "run": {
+                    "id": "run_01J8Z0",
+                    "organisationId": "3f1a7c92-9e5b-4a1d-8f2c-6b0d5e4a1c33",
+                    "requestedByUserId": "user_01J8YZ",
+                    "seed": "nolambur-2026-08-01",
+                    "modelVersion": "volt-monte-carlo-1",
+                    "status": "queued",
+                    "inputDigest": "b2f1c0d9e8a7",
+                    "resultDigest": null,
+                    "errorCode": null,
+                    "createdAt": "2026-08-01T09:15:00.000Z",
+                    "startedAt": null,
+                    "completedAt": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The simulation input failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `SIMULATION_QUOTA_EXCEEDED` — The daily allowance is spent. Carries `quota` and a `Retry-After` header.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the allowance resets.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `SIMULATION_QUEUE_FAILED` — The run could not be queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listSimulationRuns",
+        "summary": "Recent simulation runs",
+        "description": "Readable by any member. Newest first.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum runs to return. Defaults to 50.",
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The runs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationRunListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The `limit` is outside 1–100.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations/quota": {
+      "get": {
+        "operationId": "getSimulationQuota",
+        "summary": "Daily run allowance",
+        "description": "Readable by any member. The allowance is per UTC calendar day and resets at the next UTC midnight.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current allowance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationQuotaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations/{runId}": {
+      "get": {
+        "operationId": "getSimulationRun",
+        "summary": "Simulation run status",
+        "description": "Readable by any member. Poll this while `status` is `queued` or `running`; it settles on `completed`, `failed` or `cancelled`.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "description": "Simulation run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_SIMULATION_ID` — The organisation or run identifier is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.\n- `SIMULATION_NOT_FOUND` — No such run in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations/{runId}/results": {
+      "get": {
+        "operationId": "getSimulationResults",
+        "summary": "Interval and summary results",
+        "description": "Readable by any member, and only once the run has completed. Outcomes are the P10, P50, P90 and selected-sample bands of a synthetic Monte Carlo run — not forecasts or meter readings.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "description": "Simulation run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum intervals to return. Defaults to 1000.",
+            "schema": {
+              "default": 1000,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run with its intervals and summaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationResultsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_SIMULATION_ID` — The organisation or run identifier is invalid.\n- `INVALID_REQUEST` — The `limit` is outside 1–10000.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.\n- `SIMULATION_NOT_FOUND` — No such run in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `SIMULATION_NOT_COMPLETE` — The run has not finished; this is normal while queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations/{runId}/settlement": {
+      "post": {
+        "operationId": "settleSimulationRun",
+        "summary": "Accept a completed outcome into the ledger",
+        "description": "Owner or admin. Appends one immutable, hash-linked settlement event per household, binding the run's result digest and the chosen outcome. Energy is that outcome's synthetic `exportedKwh` — not a meter reading or a payment.\n\n**Idempotency.** Repeating the same acceptance returns 200 with `alreadySettled: true` and the existing events; nothing is appended twice. Accepting a *different* outcome for an already-settled run is refused with 409.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Ledger"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "description": "Simulation run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleSimulationRequest"
+              },
+              "example": {
+                "outcome": "p50"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already settled with this outcome; nothing was appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponse"
+                },
+                "example": {
+                  "settlement": {
+                    "runId": "run_01J8Z0",
+                    "resultDigest": "a91c77e0b3d4",
+                    "outcome": "p50",
+                    "alreadySettled": true,
+                    "events": [
+                      {
+                        "id": "evt_01J8Z4",
+                        "sequence": 1,
+                        "eventType": "settlement",
+                        "outcome": "p50",
+                        "actorUserId": "user_01J8YZ",
+                        "householdId": "h1",
+                        "settlementDate": "2026-08-01",
+                        "sourceRunId": "run_01J8Z0",
+                        "simulationResultDigest": "a91c77e0b3d4",
+                        "energyKwh": 4.75,
+                        "estimatedCreditInr": 26.13,
+                        "previousSeal": null,
+                        "canonicalSeal": "7d3a9f21c4e85b60a1f2d8c37e94b5a0d6e1f8b2",
+                        "adjustmentTargetEventId": null,
+                        "adjustmentReason": null,
+                        "idempotencyKey": null,
+                        "createdAt": "2026-08-01T10:02:11.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The settlement events just appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponse"
+                },
+                "example": {
+                  "settlement": {
+                    "runId": "run_01J8Z0",
+                    "resultDigest": "a91c77e0b3d4",
+                    "outcome": "p50",
+                    "alreadySettled": false,
+                    "events": [
+                      {
+                        "id": "evt_01J8Z4",
+                        "sequence": 1,
+                        "eventType": "settlement",
+                        "outcome": "p50",
+                        "actorUserId": "user_01J8YZ",
+                        "householdId": "h1",
+                        "settlementDate": "2026-08-01",
+                        "sourceRunId": "run_01J8Z0",
+                        "simulationResultDigest": "a91c77e0b3d4",
+                        "energyKwh": 4.75,
+                        "estimatedCreditInr": 26.13,
+                        "previousSeal": null,
+                        "canonicalSeal": "7d3a9f21c4e85b60a1f2d8c37e94b5a0d6e1f8b2",
+                        "adjustmentTargetEventId": null,
+                        "adjustmentReason": null,
+                        "idempotencyKey": null,
+                        "createdAt": "2026-08-01T10:02:11.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_SIMULATION_ID` — The organisation or run identifier is invalid.\n- `INVALID_REQUEST` — The outcome is not one of p10, p50, p90, selected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.\n- `SIMULATION_NOT_FOUND` — No such run in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `SIMULATION_NOT_COMPLETE` — Only a completed run can be settled.\n- `SIMULATION_ALREADY_SETTLED_DIFFERENT_OUTCOME` — The run was already settled with another outcome.\n- `SIMULATION_SUMMARIES_INCOMPLETE` — The run has no summaries for the chosen outcome.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `SIMULATION_RESULT_DIGEST_MISSING` — The run carries no result digest to bind.\n- `SIMULATION_DATE_MISSING` — The frozen input snapshot has no simulation date.\n- `SIMULATION_HOUSEHOLDS_MISSING` — The frozen input snapshot has no households.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `LEDGER_SETTLEMENT_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/ledger": {
+      "get": {
+        "operationId": "listLedgerEvents",
+        "summary": "Settlement ledger history",
+        "description": "Readable by any member. Returns the events together with the server's own integrity verdict over the returned slice: every seal is recomputed and every link re-checked. `complete` is false when the slice does not begin at sequence 1.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Ledger"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum events to return. Defaults to 100.",
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The events and their integrity verdict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerListResponse"
+                },
+                "example": {
+                  "events": [
+                    {
+                      "id": "evt_01J8Z4",
+                      "sequence": 1,
+                      "eventType": "settlement",
+                      "outcome": "p50",
+                      "actorUserId": "user_01J8YZ",
+                      "householdId": "h1",
+                      "settlementDate": "2026-08-01",
+                      "sourceRunId": "run_01J8Z0",
+                      "simulationResultDigest": "a91c77e0b3d4",
+                      "energyKwh": 4.75,
+                      "estimatedCreditInr": 26.13,
+                      "previousSeal": null,
+                      "canonicalSeal": "7d3a9f21c4e85b60a1f2d8c37e94b5a0d6e1f8b2",
+                      "adjustmentTargetEventId": null,
+                      "adjustmentReason": null,
+                      "idempotencyKey": null,
+                      "createdAt": "2026-08-01T10:02:11.000Z"
+                    }
+                  ],
+                  "integrity": {
+                    "valid": true,
+                    "complete": true,
+                    "checkedEvents": 1,
+                    "firstSequence": 1,
+                    "lastSequence": 1
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The `limit` is outside 1–500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/ledger/adjustments": {
+      "post": {
+        "operationId": "createLedgerAdjustment",
+        "summary": "Append a correction to an accepted settlement",
+        "description": "Owner or admin. Appends a new immutable event carrying a signed energy and credit delta against a target settlement event. **The target is never modified** — history is corrected by addition, not edit. The adjustment inherits the target's settlement provenance.\n\n**Idempotency.** `idempotencyKey` makes retries safe: replaying a key with the same values returns 200 with `alreadyApplied: true`, while reusing it with different values is refused with 409.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Ledger"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdjustmentRequest"
+              },
+              "example": {
+                "targetEventId": "evt_01J8Z4",
+                "idempotencyKey": "correction-h1-2026-08-01",
+                "energyKwh": -0.5,
+                "estimatedCreditInr": -2.75,
+                "reason": "Duplicate export corrected after inverter audit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "This idempotency key was already applied; nothing was appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdjustmentResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The correction event just appended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdjustmentResponse"
+                },
+                "example": {
+                  "adjustment": {
+                    "alreadyApplied": false,
+                    "event": {
+                      "id": "evt_01J8Z5",
+                      "sequence": 2,
+                      "eventType": "adjustment",
+                      "outcome": "p50",
+                      "actorUserId": "user_01J8YZ",
+                      "householdId": "h1",
+                      "settlementDate": "2026-08-01",
+                      "sourceRunId": "run_01J8Z0",
+                      "simulationResultDigest": "a91c77e0b3d4",
+                      "energyKwh": -0.5,
+                      "estimatedCreditInr": -2.75,
+                      "previousSeal": "7d3a9f21c4e85b60a1f2d8c37e94b5a0d6e1f8b2",
+                      "canonicalSeal": "c15e93a7f2048d6b",
+                      "adjustmentTargetEventId": "evt_01J8Z4",
+                      "adjustmentReason": "Duplicate export corrected after inverter audit",
+                      "idempotencyKey": "correction-h1-2026-08-01",
+                      "createdAt": "2026-08-01T10:02:11.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The adjustment failed validation, including a delta that changes neither energy nor credit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.\n- `LEDGER_TARGET_NOT_FOUND` — The target event does not exist in this organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `LEDGER_ADJUSTMENT_TARGET_INVALID` — The target cannot be adjusted; corrections target settlement events.\n- `LEDGER_IDEMPOTENCY_CONFLICT` — This key was already used with different values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `LEDGER_ADJUSTMENT_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/audit-events": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "summary": "Organisation audit history",
+        "description": "Owner or admin only. Ordered newest first by creation time then event id.\n\n**Pagination.** Follow the opaque `nextCursor` rather than an offset: it encodes only a position, carries no authorization, and stays stable while new events are appended ahead of it. `nextCursor` is null on the last page. Re-send the same `action` filter with each page — a cursor belongs to the query that produced it. Audit history is retained for provenance, including after an organisation is archived.\n\n**Roles.** `owner`, `admin`.",
+        "tags": [
+          "Audit"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum events per page. Defaults to 100.",
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "description": "Exact action match, e.g. `organisation.created`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque `nextCursor` from the previous page.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of audit events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.\n- `INVALID_REQUEST` — The `limit`, `action` or `cursor` failed validation.\n- `INVALID_AUDIT_CURSOR` — The cursor is not a position marker this API issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

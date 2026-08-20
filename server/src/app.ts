@@ -38,6 +38,7 @@ import {
   type OrganisationInvitationEmailInput,
 } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
+import { buildOpenApiDocument } from './openapi/document.js'
 import {
   acceptInvitationBodySchema,
   auditEventQuerySchema,
@@ -351,6 +352,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   const invitationEmail = (): InvitationEmailSender => options.invitationEmail ?? {
     sendOrganisationInvitationEmail,
   }
+
+  // The published contract. Unauthenticated by design: it describes the shape of
+  // the API, never its data, and clients need it before they have a session.
+  app.get('/openapi.json', async () => buildOpenApiDocument({ serverUrl: env.BETTER_AUTH_URL }))
 
   app.get('/health', async (_request, reply) => {
     try {

@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Generated artefact compared byte-for-byte by `npm run openapi:check`.
+# Pin it to LF so a Windows checkout does not rewrite it into a failing diff.
+docs/openapi.json text eol=lf
