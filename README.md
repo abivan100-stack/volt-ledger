@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (311 tests)
+npm test               # run the client test suite once (328 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -110,6 +110,8 @@ VITE_API_BASE_URL=http://localhost:4000
 ```
 
 Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
+
+Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out.
 
 The API runs on its own origin, so `src/api/client.ts` issues absolute requests with `credentials: 'include'` for the session cookie. Browsers attach `Origin` automatically, satisfying the API's CSRF check on state-changing routes. `VITE_API_BASE_URL` must point at the origin whose `WEB_ORIGIN` matches where the client is served, or CORS and the CSRF check will both reject the request. Every failure — validation, authorization, quota, transport — surfaces as one `ApiError` carrying `status`, the server's `code`, any field `issues`, and parsed `Retry-After` seconds.
 
@@ -154,6 +156,7 @@ src/
     easing.ts             #   Shared easing functions for animation
   store/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)
+    useSessionStore.ts    # Zustand authenticated-session state (restore, sign-out, expiry)
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)

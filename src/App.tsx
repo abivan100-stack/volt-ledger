@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
+import { useRestoreSession } from './hooks/useRestoreSession'
 import { DAY_TYPES, type DayType } from './lib/simulation'
 import VoltPage from './pages/VoltPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -33,6 +34,9 @@ function applyScenarioFromUrl(search: string): void {
 function App() {
   const location = useLocation()
   usePauseSimOnHidden()
+  // Settles on `anonymous` without a network call when no API is configured,
+  // so the browser-only demo below is unaffected.
+  useRestoreSession()
 
   useEffect(() => {
     applyScenarioFromUrl(location.search)
