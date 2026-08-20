@@ -498,6 +498,22 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
       const now = new Date()
       const applySoftDelete = async (session?: ClientSession): Promise<boolean> => {
         const options = session ? { session } : undefined
+        const ownerMembership = await collections.memberships.findOne(
+          { organisationId: id, userId: actorUserId, role: 'owner', deletedAt: null },
+          options,
+        )
+        if (!ownerMembership) return false
+
+        // Touch the owner membership inside the transaction. This turns the
+        // authorization check into a write conflict if ownership changes
+        // concurrently before the archive commits.
+        const ownerLock = await collections.memberships.updateOne(
+          { _id: ownerMembership._id, organisationId: id, userId: actorUserId, role: 'owner', deletedAt: null },
+          { $set: { updatedAt: now } },
+          options,
+        )
+        if (ownerLock.matchedCount !== 1) return false
+
         const result = await collections.organisations.updateOne(
           { _id: id, deletedAt: null },
           { $set: { deletedAt: now, updatedAt: now } },

@@ -353,6 +353,24 @@ describe('Volt Mongo repositories', () => {
     ])
   })
 
+  it('refuses to soft-delete when the actor is no longer an active owner', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    const organisation = await repositories.organisations.create({
+      name: 'Demo neighbourhood',
+      slug: 'demo-neighbourhood',
+      createdByUserId: 'user_123',
+    })
+    await repositories.memberships.create({
+      organisationId: organisation._id,
+      userId: 'user_123',
+      role: 'admin',
+    })
+
+    expect(await repositories.organisations.softDelete(organisation._id, 'user_123')).toBe(false)
+    expect(await repositories.organisations.findById(organisation._id)).toEqual(organisation)
+    expect(await repositories.audit.listForOrganisation(organisation._id)).toEqual([])
+  })
+
   it('enforces the simulation lifecycle and stores append-only result batches', async () => {
     const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
     const run = await repositories.simulations.createRun({
