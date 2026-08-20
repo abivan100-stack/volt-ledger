@@ -26,6 +26,7 @@ function createMembership(role: MembershipDocument['role'] = 'owner'): Membershi
     _id: 'membership_123',
     organisationId: organisation._id,
     userId: 'user_123',
+    email: 'asha@example.com',
     role,
     createdAt: organisation.createdAt,
     updatedAt: organisation.updatedAt,

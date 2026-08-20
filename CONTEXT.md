@@ -50,6 +50,10 @@ _Avoid_: Account, tenant
 A user's role-bound relationship to one organisation.
 _Avoid_: User role, admin flag
 
+**Organisation invitation**:
+A time-limited request for a person to join one organisation with a specified role; it becomes a Membership only after the invited person accepts it.
+_Avoid_: Pending membership, access token
+
 **Owner**:
 The membership role accountable for an organisation's ownership and destructive administrative actions.
 _Avoid_: Super admin, root user

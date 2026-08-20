@@ -1,6 +1,6 @@
 import type { Db, Document, MongoClient } from 'mongodb'
 import { describe, expect, it } from 'vitest'
-import { createLedgerSeal, createVoltRepositories } from './repositories.js'
+import { createLedgerSeal, createVoltRepositories, hashInvitationToken } from './repositories.js'
 import type { LedgerEventDocument } from './models.js'
 
 type MemoryDocument = Document & { _id: string }
@@ -75,6 +75,27 @@ function createMemoryDb(): Db {
 }
 
 describe('Volt Mongo repositories', () => {
+  it('stores only a hash of an invitation token and normalises its email', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: ' Asha@Example.COM ',
+      role: 'operator',
+      invitedByUserId: 'user_123',
+    })
+
+    expect(created.token).toMatch(/^[a-f0-9]{64}$/)
+    expect(created.invitation.email).toBe('asha@example.com')
+    expect(created.invitation.tokenHash).toBe(hashInvitationToken(created.token))
+    expect(created.invitation).not.toHaveProperty('token')
+    expect(await repositories.invitations.findPendingByToken(created.token)).toMatchObject({
+      _id: created.invitation._id,
+      email: 'asha@example.com',
+      role: 'operator',
+    })
+  })
+
   it('creates an organisation and its owner membership in one transaction', async () => {
     let transactionCount = 0
     let endedSessionCount = 0

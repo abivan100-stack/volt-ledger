@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { ClientSession, Db, MongoClient } from 'mongodb'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
@@ -11,6 +11,8 @@ import {
   type MembershipDocument,
   type MembershipRole,
   type OrganisationDocument,
+  type OrganisationInvitationDocument,
+  type InvitationRole,
   type SimulationIntervalDocument,
   type SimulationOutcome,
   type SimulationRunDocument,
@@ -30,6 +32,7 @@ export interface CreateOrganisationInput {
   name: string
   slug: string
   createdByUserId: string
+  createdByUserEmail?: string | null
 }
 
 export interface CreateOrganisationWithOwnerResult {
@@ -40,7 +43,20 @@ export interface CreateOrganisationWithOwnerResult {
 export interface CreateMembershipInput {
   organisationId: string
   userId: string
+  email?: string | null
   role: MembershipRole
+}
+
+export interface CreateInvitationInput {
+  organisationId: string
+  email: string
+  role: InvitationRole
+  invitedByUserId: string
+}
+
+export interface CreateInvitationResult {
+  invitation: OrganisationInvitationDocument
+  token: string
 }
 
 export interface CreateSimulationRunInput {
@@ -134,13 +150,24 @@ export interface AuditRepository {
   append(input: CreateAuditEventInput): Promise<AuditEventDocument>
 }
 
+export interface InvitationRepository {
+  create(input: CreateInvitationInput): Promise<CreateInvitationResult>
+  findPendingByEmail(organisationId: string, email: string): Promise<OrganisationInvitationDocument | null>
+  findPendingByToken(token: string): Promise<OrganisationInvitationDocument | null>
+  listForOrganisation(organisationId: string): Promise<OrganisationInvitationDocument[]>
+  revoke(organisationId: string, invitationId: string): Promise<boolean>
+}
+
 export interface VoltRepositories {
   organisations: OrganisationRepository
   memberships: MembershipRepository
   simulations: SimulationRepository
   ledger: LedgerRepository
   audit: AuditRepository
+  invitations: InvitationRepository
 }
+
+export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
 
 function normaliseSlug(value: string): string {
   const slug = value.trim().toLowerCase()
@@ -154,6 +181,20 @@ function normaliseOrganisationName(value: string): string {
   const name = value.trim()
   if (name.length === 0) throw new Error('Organisation name is required')
   return name
+}
+
+export function normaliseInvitationEmail(value: string): string {
+  const email = value.trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Invitation email is invalid')
+  return email
+}
+
+export function createInvitationToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+export function hashInvitationToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
 }
 
 function assertMembershipRole(role: MembershipRole): void {
@@ -194,6 +235,7 @@ function buildMembershipDocument(input: CreateMembershipInput, now: Date): Membe
     _id: randomUUID(),
     organisationId: input.organisationId,
     userId: input.userId,
+    email: input.email ? normaliseInvitationEmail(input.email) : null,
     role: input.role,
     createdAt: now,
     updatedAt: now,
@@ -220,6 +262,7 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
             {
               organisationId: organisation._id,
               userId: input.createdByUserId,
+              email: input.createdByUserEmail,
               role: 'owner',
             },
             now,
@@ -481,6 +524,66 @@ function createAuditRepository(collections: VoltCollections): AuditRepository {
   }
 }
 
+function createInvitationRepository(collections: VoltCollections): InvitationRepository {
+  return {
+    async create(input) {
+      const now = new Date()
+      const token = createInvitationToken()
+      const document: OrganisationInvitationDocument = {
+        _id: randomUUID(),
+        organisationId: input.organisationId,
+        email: normaliseInvitationEmail(input.email),
+        role: input.role,
+        tokenHash: hashInvitationToken(token),
+        status: 'pending',
+        invitedByUserId: input.invitedByUserId,
+        expiresAt: new Date(now.getTime() + invitationTtlMs),
+        acceptedByUserId: null,
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      }
+      await collections.organisationInvitations.insertOne(document)
+      return { invitation: document, token }
+    },
+    async findPendingByEmail(organisationId, email) {
+      const invitation = await collections.organisationInvitations.findOne({
+        organisationId,
+        email: normaliseInvitationEmail(email),
+        status: 'pending',
+        deletedAt: null,
+      })
+      if (!invitation || invitation.expiresAt <= new Date()) return null
+      return invitation
+    },
+    async findPendingByToken(token) {
+      const invitation = await collections.organisationInvitations.findOne({
+        tokenHash: hashInvitationToken(token),
+        status: 'pending',
+        deletedAt: null,
+      })
+      if (!invitation || invitation.expiresAt <= new Date()) return null
+      return invitation
+    },
+    listForOrganisation(organisationId) {
+      return collections.organisationInvitations
+        .find({ organisationId, deletedAt: null })
+        .sort({ createdAt: -1 })
+        .toArray()
+    },
+    async revoke(organisationId, invitationId) {
+      const now = new Date()
+      const result = await collections.organisationInvitations.updateOne(
+        { _id: invitationId, organisationId, status: 'pending', deletedAt: null },
+        { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
+      )
+      return result.modifiedCount === 1
+    },
+  }
+}
+
 export function createVoltRepositories(db: Db, client: MongoClient = getMongoClient()): VoltRepositories {
   const collections = getVoltCollections(db)
   return {
@@ -489,5 +592,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     simulations: createSimulationRepository(collections),
     ledger: createLedgerRepository(collections, client),
     audit: createAuditRepository(collections),
+    invitations: createInvitationRepository(collections),
   }
 }

@@ -24,6 +24,7 @@ function membership(role: MembershipDocument['role']): MembershipDocument {
     _id: 'membership_123',
     organisationId: 'org_123',
     userId: 'user_123',
+    email: 'asha@example.com',
     role,
     createdAt: new Date('2030-01-01T00:00:00.000Z'),
     updatedAt: new Date('2030-01-01T00:00:00.000Z'),

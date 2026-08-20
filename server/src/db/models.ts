@@ -10,6 +10,11 @@ export type SimulationOutcome = (typeof simulationOutcomes)[number]
 export const ledgerEventTypes = ['settlement', 'adjustment'] as const
 export type LedgerEventType = (typeof ledgerEventTypes)[number]
 
+export const invitationStatuses = ['pending', 'accepted', 'revoked'] as const
+export type InvitationStatus = (typeof invitationStatuses)[number]
+
+export type InvitationRole = Exclude<MembershipRole, 'owner'>
+
 export type JsonObject = Record<string, unknown>
 
 export interface OrganisationDocument {
@@ -26,7 +31,25 @@ export interface MembershipDocument {
   _id: string
   organisationId: string
   userId: string
+  email: string | null
   role: MembershipRole
+  createdAt: Date
+  updatedAt: Date
+  deletedAt: Date | null
+}
+
+export interface OrganisationInvitationDocument {
+  _id: string
+  organisationId: string
+  email: string
+  role: InvitationRole
+  tokenHash: string
+  status: InvitationStatus
+  invitedByUserId: string
+  expiresAt: Date
+  acceptedByUserId: string | null
+  acceptedAt: Date | null
+  revokedAt: Date | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null

@@ -5,6 +5,7 @@ import type {
   LedgerEventDocument,
   MembershipDocument,
   OrganisationDocument,
+  OrganisationInvitationDocument,
   SimulationIntervalDocument,
   SimulationRunDocument,
   SimulationSummaryDocument,
@@ -13,6 +14,7 @@ import type {
 export const collectionNames = {
   organisations: 'organisations',
   memberships: 'memberships',
+  organisationInvitations: 'organisation_invitations',
   simulationRuns: 'simulation_runs',
   simulationIntervals: 'simulation_intervals',
   simulationSummaries: 'simulation_summaries',
@@ -24,6 +26,7 @@ export const collectionNames = {
 export interface VoltCollections {
   organisations: Collection<OrganisationDocument>
   memberships: Collection<MembershipDocument>
+  organisationInvitations: Collection<OrganisationInvitationDocument>
   simulationRuns: Collection<SimulationRunDocument>
   simulationIntervals: Collection<SimulationIntervalDocument>
   simulationSummaries: Collection<SimulationSummaryDocument>
@@ -68,6 +71,27 @@ const collectionSpecs: CollectionSpec[] = [
       {
         key: { userId: 1, organisationId: 1 },
         name: 'memberships_user_organisation',
+      },
+    ],
+  },
+  {
+    key: 'organisationInvitations',
+    name: collectionNames.organisationInvitations,
+    indexes: [
+      {
+        key: { tokenHash: 1 },
+        name: 'organisation_invitations_token_hash_unique',
+        unique: true,
+      },
+      {
+        key: { organisationId: 1, email: 1 },
+        name: 'organisation_invitations_organisation_email_pending_unique',
+        unique: true,
+        partialFilterExpression: { status: 'pending', deletedAt: null },
+      },
+      {
+        key: { organisationId: 1, status: 1, createdAt: -1 },
+        name: 'organisation_invitations_organisation_status_created_at',
       },
     ],
   },
@@ -165,6 +189,7 @@ export function getVoltCollections(db: Db): VoltCollections {
   return {
     organisations: db.collection<OrganisationDocument>(collectionNames.organisations),
     memberships: db.collection<MembershipDocument>(collectionNames.memberships),
+    organisationInvitations: db.collection<OrganisationInvitationDocument>(collectionNames.organisationInvitations),
     simulationRuns: db.collection<SimulationRunDocument>(collectionNames.simulationRuns),
     simulationIntervals: db.collection<SimulationIntervalDocument>(collectionNames.simulationIntervals),
     simulationSummaries: db.collection<SimulationSummaryDocument>(collectionNames.simulationSummaries),
