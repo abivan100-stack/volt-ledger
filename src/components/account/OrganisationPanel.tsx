@@ -7,6 +7,7 @@ import CreateOrganisationForm from './CreateOrganisationForm'
 import ArchiveOrganisation from './ArchiveOrganisation'
 import InvitationPanel from './InvitationPanel'
 import MemberList from './MemberList'
+import SimulationPanel from './SimulationPanel'
 import './OrganisationPanel.css'
 
 /**
@@ -107,6 +108,7 @@ function SignedInOrganisations() {
 
       <MemberList />
       <InvitationPanel />
+      <SimulationPanel />
       <ArchiveOrganisation />
     </section>
   )

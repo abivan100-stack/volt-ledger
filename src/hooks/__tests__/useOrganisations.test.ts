@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
-import { renderHook, waitFor } from '@testing-library/react'
-import { act } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useOrganisations } from '../useOrganisations'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
 import { useSessionStore } from '../../store/useSessionStore'
@@ -32,6 +31,10 @@ beforeEach(() => {
   useSessionStore.setState(pristineSession, true)
   listMock.mockReset()
   listMock.mockResolvedValue([ORGANISATION])
+})
+
+afterEach(() => {
+  cleanup()
 })
 
 describe('useOrganisations', () => {

@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (545 tests)
+npm test               # run the client test suite once (592 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,13 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+The simulation panel shows the organisation's UTC daily allowance, queues runs, and displays the per-household
+outcome bands of a completed one. Because a run is executed by a separate worker rather than in the request, the panel
+polls only while a run is still `queued` or `running` and stops as soon as every run has settled — an idle organisation
+issues no traffic. Operators and above can queue runs; viewers get the list only. Submission is disabled once the
+allowance is spent, and a `429` reports the exhausted quota. A run that has not finished reads as pending rather than
+failed. Everything shown is synthetic, and the panel says so.
 
 Archiving is offered to the owner alone, behind a disclosure, and requires the organisation's identifier to be typed
 out before it will run — it is soft-deletion, but there is no undo from Volt. The warning states exactly what goes
@@ -185,6 +192,7 @@ src/
     organisations.ts      #   Organisation list, create, read, archive
     memberships.ts        #   Member list, role change, removal, ownership transfer
     invitations.ts        #   Invitation list, create, revoke, accept
+    simulations.ts        #   Run queue, status, results, and daily quota
     auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
@@ -208,6 +216,7 @@ src/
     useOrganisationStore.ts # Zustand organisation list and current selection
     useMembershipStore.ts # Zustand member list for the selected organisation
     useInvitationStore.ts # Zustand invitations for the selected organisation
+    useSimulationStore.ts # Zustand simulation runs, quota, and results
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)

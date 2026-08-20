@@ -46,8 +46,9 @@
 
 ## Testing
 - Lib tests are in `src/lib/__tests__/`; API-client tests in `src/api/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (16 lib + 9 api + 11 store/hook + 17 component/page/theme test files, 545 tests)
+- Each lib module has a corresponding test file (16 lib + 10 api + 13 store/hook + 18 component/page/theme test files, 592 tests)
 - API-client tests run in the default node environment and inject a fake `fetch`; they never hit a real server
+- RTL auto-cleanup is NOT enabled (no globals): call `cleanup()` in `afterEach` for every component/hook test, or timers and effects leak into the next case
 - Store tests reset the singleton store to its pristine state before each case; in-flight request handles live in store state (not module variables) so that reset actually clears them
 - No jest-dom: assert with `.textContent`, `.getAttribute()`, `toBeTruthy()`/`toBeNull()` rather than `toBeInTheDocument()`
 
