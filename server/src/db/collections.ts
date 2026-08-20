@@ -96,6 +96,11 @@ const collectionSpecs: CollectionSpec[] = [
         key: { organisationId: 1, status: 1, createdAt: -1 },
         name: 'organisation_invitations_organisation_status_created_at',
       },
+      {
+        key: { status: 1, expiresAt: 1 },
+        name: 'organisation_invitations_pending_expiry',
+        partialFilterExpression: { status: 'pending', deletedAt: null },
+      },
     ],
   },
   {

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { SimulationRunDocument } from '../db/models.js'
 import { digestSimulationInput } from './monteCarlo.js'
-import { executeClaimedSimulationRun, processNextSimulationRun } from './worker.js'
+import {
+  executeClaimedSimulationRun,
+  expirePendingInvitations,
+  processNextSimulationRun,
+  runSimulationWorker,
+} from './worker.js'
 
 const inputSnapshot = {
   simulationDate: '2030-01-01',
@@ -32,6 +37,7 @@ const run: SimulationRunDocument = {
 function repositories() {
   let completionInput: unknown
   let failedRun: { id: string; errorCode: string } | undefined
+  let invitationCleanupCount = 0
   return {
     simulations: {
       completeRun: async (input: unknown) => {
@@ -44,8 +50,15 @@ function repositories() {
       },
       claimNextQueuedRun: async () => ({ ...run }),
     },
+    invitations: {
+      expirePending: async () => {
+        invitationCleanupCount += 1
+        return 0
+      },
+    },
     getCompletionInput: () => completionInput,
     getFailedRun: () => failedRun,
+    getInvitationCleanupCount: () => invitationCleanupCount,
   }
 }
 
@@ -77,6 +90,31 @@ describe('simulation worker', () => {
     const processed = await processNextSimulationRun(fixture)
 
     expect(processed).toMatchObject({ _id: run._id, status: 'completed' })
+  })
+
+  it('runs expired-invitation cleanup through the worker maintenance seam', async () => {
+    const fixture = repositories()
+
+    expect(await expirePendingInvitations(fixture)).toBe(0)
+    expect(fixture.getInvitationCleanupCount()).toBe(1)
+  })
+
+  it('runs maintenance before the first simulation queue poll', async () => {
+    const fixture = repositories()
+    const controller = new AbortController()
+    const claimNextQueuedRun = fixture.simulations.claimNextQueuedRun
+    fixture.simulations.claimNextQueuedRun = async () => {
+      controller.abort()
+      return claimNextQueuedRun()
+    }
+
+    await runSimulationWorker(fixture, {
+      signal: controller.signal,
+      pollIntervalMs: 100,
+      maintenanceIntervalMs: 1_000,
+    })
+
+    expect(fixture.getInvitationCleanupCount()).toBe(1)
   })
 
   it('marks invalid claimed input failed without exposing raw exception details', async () => {

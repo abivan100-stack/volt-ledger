@@ -20,6 +20,10 @@ type SimulationWorkerRepositories = {
   >
 }
 
+type InvitationWorkerRepositories = {
+  invitations: Pick<VoltRepositories['invitations'], 'expirePending'>
+}
+
 function isPermanentSimulationError(error: unknown): error is Error {
   if (
     error instanceof Error &&
@@ -101,8 +105,15 @@ export async function processNextSimulationRun(
   return executeClaimedSimulationRun(repositories, claimed)
 }
 
+export async function expirePendingInvitations(
+  repositories: InvitationWorkerRepositories,
+): Promise<number> {
+  return repositories.invitations.expirePending()
+}
+
 export interface SimulationWorkerOptions {
   pollIntervalMs?: number
+  maintenanceIntervalMs?: number
   signal?: AbortSignal
 }
 
@@ -123,11 +134,17 @@ function waitForPoll(milliseconds: number, signal?: AbortSignal): Promise<void> 
 }
 
 export async function runSimulationWorker(
-  repositories: SimulationWorkerRepositories,
+  repositories: SimulationWorkerRepositories & InvitationWorkerRepositories,
   options: SimulationWorkerOptions = {},
 ): Promise<void> {
   const pollIntervalMs = Math.min(Math.max(options.pollIntervalMs ?? 1_000, 100), 60_000)
+  const maintenanceIntervalMs = Math.min(Math.max(options.maintenanceIntervalMs ?? 60_000, 1_000), 3_600_000)
+  let nextMaintenanceAt = 0
   while (!options.signal?.aborted) {
+    if (Date.now() >= nextMaintenanceAt) {
+      await expirePendingInvitations(repositories)
+      nextMaintenanceAt = Date.now() + maintenanceIntervalMs
+    }
     const processed = await processNextSimulationRun(repositories)
     if (!processed) await waitForPoll(pollIntervalMs, options.signal)
   }

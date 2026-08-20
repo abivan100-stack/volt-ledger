@@ -237,6 +237,7 @@ export interface AuditRepository {
 
 export interface InvitationRepository {
   create(input: CreateInvitationInput): Promise<CreateInvitationResult>
+  expirePending(now?: Date): Promise<number>
   findById(organisationId: string, invitationId: string): Promise<OrganisationInvitationDocument | null>
   findPendingByEmail(organisationId: string, email: string): Promise<OrganisationInvitationDocument | null>
   findPendingByToken(token: string): Promise<OrganisationInvitationDocument | null>
@@ -1398,6 +1399,13 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
       }
       await collections.organisationInvitations.insertOne(document)
       return { invitation: document, token }
+    },
+    async expirePending(now = new Date()) {
+      const result = await collections.organisationInvitations.updateMany(
+        { status: 'pending', deletedAt: null, expiresAt: { $lte: now } },
+        { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
+      )
+      return result.modifiedCount
     },
     findById(organisationId, invitationId) {
       return collections.organisationInvitations.findOne({

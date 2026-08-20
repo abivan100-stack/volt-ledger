@@ -18,6 +18,9 @@ function matches(document: MemoryDocument, filter: Document): boolean {
     if (expected && typeof expected === 'object' && '$lt' in expected) {
       return document[key] < expected.$lt
     }
+    if (expected && typeof expected === 'object' && '$lte' in expected) {
+      return document[key] <= expected.$lte
+    }
     if (expected && typeof expected === 'object' && '$in' in expected) {
       return (expected.$in as unknown[]).includes(document[key])
     }
@@ -191,6 +194,24 @@ describe('Volt Mongo repositories', () => {
     expect(await repositories.invitations.findPendingByToken(created.token)).toBeNull()
     expect(transactionCount).toBe(1)
     expect(endedSessionCount).toBe(1)
+  })
+
+  it('revokes expired pending invitations without deleting their history', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: 'expired@example.com',
+      role: 'viewer',
+      invitedByUserId: 'user_123',
+    })
+
+    const expiryCheck = new Date(created.invitation.expiresAt.getTime() + 1)
+    expect(await repositories.invitations.expirePending(expiryCheck)).toBe(1)
+    expect(await repositories.invitations.expirePending(expiryCheck)).toBe(0)
+    expect(await repositories.invitations.findPendingByToken(created.token)).toBeNull()
+    expect(await repositories.invitations.listForOrganisation('org_123')).toMatchObject([
+      { _id: created.invitation._id, status: 'revoked', deletedAt: null },
+    ])
   })
 
   it('creates an organisation and its owner membership in one transaction', async () => {
