@@ -394,8 +394,17 @@ describe('simulation REST API', () => {
           eventType: 'adjustment',
           adjustmentTargetEventId: ledgerEvent._id,
           adjustmentReason: 'Corrected the synthetic export estimate',
+          idempotencyKey: 'correction-1',
         },
       },
     })
+
+    const csrfBlocked = await adminApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/simulations/${run._id}/settlement`,
+      headers: { cookie: 'better-auth.session_token=test-session' },
+      payload: { outcome: 'selected' },
+    })
+    expect(csrfBlocked.statusCode).toBe(403)
   })
 })

@@ -917,7 +917,6 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
             if (existing) {
               if (
                 existing.adjustmentTargetEventId !== input.targetEventId ||
-                existing.actorUserId !== input.actorUserId ||
                 existing.energyKwh !== input.energyKwh ||
                 existing.estimatedCreditInr !== input.estimatedCreditInr ||
                 existing.adjustmentReason !== input.reason.trim()
@@ -1002,7 +1001,6 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
           if (
             existing &&
             existing.adjustmentTargetEventId === input.targetEventId &&
-            existing.actorUserId === input.actorUserId &&
             existing.energyKwh === input.energyKwh &&
             existing.estimatedCreditInr === input.estimatedCreditInr &&
             existing.adjustmentReason === input.reason.trim()

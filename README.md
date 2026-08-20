@@ -99,6 +99,8 @@ npm run dev:worker    # claims queued runs and persists completed outcomes
 
 The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. An owner or admin can accept one completed outcome through `/simulations/:runId/settlement`; the server then appends one immutable, hash-linked event per household. Members can inspect those events through `/ledger`, while owners/admins can append signed correction deltas through `/ledger/adjustments` without editing history. Settlement energy is the accepted outcome's synthetic `exportedKwh`, and retries are idempotent. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
 
+Cookie-authenticated state-changing API requests must include a same-origin `Origin` or `Referer`; the API also enforces a bounded request body size.
+
 ## Deployment
 
 The project targets [Render](https://render.com) for static deployment. Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:

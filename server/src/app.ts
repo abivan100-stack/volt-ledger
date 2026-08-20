@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -217,6 +217,7 @@ function serializeLedgerEvent(event: LedgerEventDocument) {
     canonicalSeal: event.canonicalSeal,
     adjustmentTargetEventId: event.adjustmentTargetEventId,
     adjustmentReason: event.adjustmentReason,
+    idempotencyKey: event.idempotencyKey,
     createdAt: event.createdAt.toISOString(),
   }
 }
@@ -277,9 +278,23 @@ function isDuplicateKeyError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000
 }
 
+function isSameOriginRequest(request: FastifyRequest): boolean {
+  const configuredOrigin = new URL(env.WEB_ORIGIN).origin
+  const origin = request.headers.origin
+  if (origin) return origin === configuredOrigin
+  const referer = request.headers.referer
+  if (!referer) return false
+  try {
+    return new URL(referer).origin === configuredOrigin
+  } catch {
+    return false
+  }
+}
+
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: options.logger ?? true,
+    bodyLimit: 256 * 1024,
   })
 
   await app.register(helmet)
@@ -292,6 +307,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     global: true,
     max: 100,
     timeWindow: '1 minute',
+  })
+
+  app.addHook('onRequest', async (request, reply) => {
+    const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
+    const cookieAuthenticated = typeof request.headers.cookie === 'string' && request.headers.cookie.length > 0
+    if (stateChanging && request.url.startsWith('/api/v1/') && cookieAuthenticated && !isSameOriginRequest(request)) {
+      return reply.code(403).send({ error: 'Cross-site request rejected', code: 'CSRF_ORIGIN_MISMATCH' })
+    }
   })
 
   const databasePing = options.databasePing ?? (async () => {

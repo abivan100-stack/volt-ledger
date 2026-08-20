@@ -467,6 +467,16 @@ describe('Volt Mongo repositories', () => {
       reason: 'Corrected the synthetic export estimate',
     })
     expect(adjustmentRetry).toEqual({ event: adjustment.event, alreadyApplied: true })
+    const adjustmentFromAnotherAdmin = await repositories.ledger.appendAdjustment({
+      organisationId: 'org_123',
+      targetEventId: first.events[0]._id,
+      actorUserId: 'admin_456',
+      idempotencyKey: 'correction-1',
+      energyKwh: -0.1,
+      estimatedCreditInr: -0.55,
+      reason: 'Corrected the synthetic export estimate',
+    })
+    expect(adjustmentFromAnotherAdmin).toEqual({ event: adjustment.event, alreadyApplied: true })
     await expect(repositories.ledger.appendAdjustment({
       organisationId: 'org_123',
       targetEventId: first.events[0]._id,
