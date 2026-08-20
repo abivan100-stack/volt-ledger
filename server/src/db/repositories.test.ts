@@ -128,6 +128,38 @@ describe('Volt Mongo repositories', () => {
     expect(endedSessionCount).toBe(1)
   })
 
+  it('changes and removes non-owner memberships transactionally while protecting owners', async () => {
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => operation(),
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(createMemoryDb(), client)
+    const created = await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_456',
+      email: 'operator@example.com',
+      role: 'operator',
+    })
+
+    const updated = await repositories.memberships.updateRole('org_123', 'user_456', 'viewer', 'user_owner')
+    expect(updated).toMatchObject({ _id: created._id, role: 'viewer' })
+    const removed = await repositories.memberships.remove('org_123', 'user_456', 'user_owner')
+    expect(removed).toMatchObject({ _id: created._id, role: 'viewer' })
+    expect(await repositories.memberships.find('org_123', 'user_456')).toBeNull()
+
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_owner',
+      email: 'owner@example.com',
+      role: 'owner',
+    })
+    await expect(repositories.memberships.remove('org_123', 'user_owner', 'user_owner')).rejects.toThrow(
+      'OWNER_PROTECTED',
+    )
+  })
+
   it('creates organisations and memberships and hides soft-deleted organisations', async () => {
     const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
 

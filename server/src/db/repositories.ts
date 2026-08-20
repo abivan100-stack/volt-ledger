@@ -127,6 +127,8 @@ export interface MembershipRepository {
   create(input: CreateMembershipInput): Promise<MembershipDocument>
   find(organisationId: string, userId: string): Promise<MembershipDocument | null>
   listForOrganisation(organisationId: string): Promise<MembershipDocument[]>
+  updateRole(organisationId: string, userId: string, role: MembershipRole, actorUserId: string): Promise<MembershipDocument | null>
+  remove(organisationId: string, userId: string, actorUserId: string): Promise<MembershipDocument | null>
   softDelete(organisationId: string, userId: string): Promise<boolean>
 }
 
@@ -310,7 +312,7 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
   }
 }
 
-function createMembershipRepository(collections: VoltCollections): MembershipRepository {
+function createMembershipRepository(collections: VoltCollections, client: MongoClient): MembershipRepository {
   return {
     async create(input) {
       const now = new Date()
@@ -323,6 +325,91 @@ function createMembershipRepository(collections: VoltCollections): MembershipRep
     },
     listForOrganisation(organisationId) {
       return collections.memberships.find({ organisationId, deletedAt: null }).sort({ createdAt: 1 }).toArray()
+    },
+    async updateRole(organisationId, userId, role, actorUserId) {
+      assertMembershipRole(role)
+      const session = client.startSession()
+      try {
+        let updated: MembershipDocument | null = null
+        await session.withTransaction(async () => {
+          const current = await collections.memberships.findOne(
+            { organisationId, userId, deletedAt: null },
+            { session },
+          )
+          if (!current) return
+          if (current.role === 'owner' || role === 'owner') throw new Error('OWNER_PROTECTED')
+          if (current.role === role) {
+            updated = current
+            return
+          }
+
+          const now = new Date()
+          const result = await collections.memberships.updateOne(
+            { _id: current._id, role: current.role, deletedAt: null },
+            { $set: { role, updatedAt: now } },
+            { session },
+          )
+          if (result.modifiedCount !== 1) throw new Error('MEMBERSHIP_CHANGED')
+
+          await collections.auditEvents.insertOne(
+            {
+              _id: randomUUID(),
+              organisationId,
+              actorUserId,
+              action: 'membership.role_changed',
+              entityType: 'membership',
+              entityId: current._id,
+              metadata: { userId, previousRole: current.role, role },
+              createdAt: now,
+            },
+            { session },
+          )
+          updated = { ...current, role, updatedAt: now }
+        })
+        return updated
+      } finally {
+        await session.endSession()
+      }
+    },
+    async remove(organisationId, userId, actorUserId) {
+      const session = client.startSession()
+      try {
+        let removed: MembershipDocument | null = null
+        await session.withTransaction(async () => {
+          const current = await collections.memberships.findOne(
+            { organisationId, userId, deletedAt: null },
+            { session },
+          )
+          if (!current) return
+          if (current.role === 'owner') throw new Error('OWNER_PROTECTED')
+
+          const now = new Date()
+          const result = await collections.memberships.updateOne(
+            { _id: current._id, deletedAt: null },
+            { $set: { deletedAt: now, updatedAt: now } },
+            { session },
+          )
+          if (result.modifiedCount !== 1) throw new Error('MEMBERSHIP_CHANGED')
+
+          await collections.auditEvents.insertOne(
+            {
+              _id: randomUUID(),
+              organisationId,
+              actorUserId,
+              action: 'membership.removed',
+              entityType: 'membership',
+              entityId: current._id,
+              metadata: { userId, previousRole: current.role },
+              createdAt: now,
+            },
+            { session },
+          )
+          removed = { ...current, deletedAt: now, updatedAt: now }
+        })
+        return removed
+      } finally {
+        await session.endSession()
+      }
     },
     async softDelete(organisationId, userId) {
       const result = await collections.memberships.updateOne(
@@ -588,7 +675,7 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
   const collections = getVoltCollections(db)
   return {
     organisations: createOrganisationRepository(collections, client),
-    memberships: createMembershipRepository(collections),
+    memberships: createMembershipRepository(collections, client),
     simulations: createSimulationRepository(collections),
     ledger: createLedgerRepository(collections, client),
     audit: createAuditRepository(collections),

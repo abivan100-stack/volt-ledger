@@ -13,7 +13,7 @@ import {
   type MembershipRepository,
   type OrganisationRepository,
 } from './db/repositories.js'
-import type { MembershipRole, OrganisationDocument } from './db/models.js'
+import type { MembershipDocument, MembershipRole, OrganisationDocument } from './db/models.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 
 const organisationIdSchema = z.object({
@@ -29,7 +29,7 @@ const createOrganisationSchema = z
 
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
-  memberships: Pick<MembershipRepository, 'find'>
+  memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
 }
 
 export interface AppOptions {
@@ -48,6 +48,30 @@ function serializeOrganisation(organisation: OrganisationDocument, role: Members
     createdAt: organisation.createdAt.toISOString(),
     updatedAt: organisation.updatedAt.toISOString(),
   }
+}
+
+function serializeMembership(membership: MembershipDocument) {
+  return {
+    id: membership._id,
+    userId: membership.userId,
+    email: membership.email,
+    role: membership.role,
+    createdAt: membership.createdAt.toISOString(),
+    updatedAt: membership.updatedAt.toISOString(),
+  }
+}
+
+function isRoleManagementAllowed(
+  actorRole: MembershipRole,
+  targetRole: MembershipRole,
+  nextRole?: MembershipRole,
+): boolean {
+  if (targetRole === 'owner' || nextRole === 'owner') return false
+  if (actorRole === 'owner') return true
+  if (actorRole === 'admin') {
+    return (targetRole === 'operator' || targetRole === 'viewer') && nextRole !== 'admin'
+  }
+  return false
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -212,6 +236,128 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
     return { organisation: serializeOrganisation(organisation, access.membership.role) }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/memberships', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const members = await repositorySet.memberships.listForOrganisation(parsedParams.data.organisationId)
+    return { members: members.map(serializeMembership) }
+  })
+
+  app.patch('/api/v1/organisations/:organisationId/memberships/:userId', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), userId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid membership identifier', code: 'INVALID_MEMBERSHIP_ID' })
+    }
+    const parsedBody = z.object({ role: z.enum(['admin', 'operator', 'viewer']) }).strict().safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid membership role', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const target = await repositorySet.memberships.find(
+      parsedParams.data.organisationId,
+      parsedParams.data.userId,
+    )
+    if (!target) return reply.code(404).send({ error: 'Membership not found', code: 'MEMBERSHIP_NOT_FOUND' })
+    if (!isRoleManagementAllowed(access.membership.role, target.role, parsedBody.data.role)) {
+      return reply.code(403).send({
+        error: target.role === 'owner' ? 'The Owner membership is protected' : 'You cannot grant or change that membership role',
+        code: target.role === 'owner' ? 'MEMBERSHIP_OWNER_PROTECTED' : 'MEMBERSHIP_ROLE_FORBIDDEN',
+      })
+    }
+
+    try {
+      const updated = await repositorySet.memberships.updateRole(
+        parsedParams.data.organisationId,
+        parsedParams.data.userId,
+        parsedBody.data.role,
+        access.session.user.id,
+      )
+      if (!updated) return reply.code(409).send({ error: 'Membership changed before update', code: 'MEMBERSHIP_CHANGED' })
+      return { member: serializeMembership(updated) }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'OWNER_PROTECTED') {
+        return reply.code(403).send({ error: 'The Owner membership is protected', code: 'MEMBERSHIP_OWNER_PROTECTED' })
+      }
+      app.log.error({ err: error }, 'Membership role update failed')
+      return reply.code(500).send({ error: 'Membership role could not be updated', code: 'MEMBERSHIP_UPDATE_FAILED' })
+    }
+  })
+
+  app.delete('/api/v1/organisations/:organisationId/memberships/:userId', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), userId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid membership identifier', code: 'INVALID_MEMBERSHIP_ID' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const target = await repositorySet.memberships.find(
+      parsedParams.data.organisationId,
+      parsedParams.data.userId,
+    )
+    if (!target) return reply.code(404).send({ error: 'Membership not found', code: 'MEMBERSHIP_NOT_FOUND' })
+    if (!isRoleManagementAllowed(access.membership.role, target.role)) {
+      return reply.code(403).send({
+        error: target.role === 'owner' ? 'The Owner membership is protected' : 'You cannot remove that membership',
+        code: target.role === 'owner' ? 'MEMBERSHIP_OWNER_PROTECTED' : 'MEMBERSHIP_ROLE_FORBIDDEN',
+      })
+    }
+
+    try {
+      const removed = await repositorySet.memberships.remove(
+        parsedParams.data.organisationId,
+        parsedParams.data.userId,
+        access.session.user.id,
+      )
+      if (!removed) return reply.code(409).send({ error: 'Membership changed before removal', code: 'MEMBERSHIP_CHANGED' })
+      return reply.code(204).send()
+    } catch (error) {
+      if (error instanceof Error && error.message === 'OWNER_PROTECTED') {
+        return reply.code(403).send({ error: 'The Owner membership is protected', code: 'MEMBERSHIP_OWNER_PROTECTED' })
+      }
+      app.log.error({ err: error }, 'Membership removal failed')
+      return reply.code(500).send({ error: 'Membership could not be removed', code: 'MEMBERSHIP_REMOVE_FAILED' })
+    }
   })
 
   return app
