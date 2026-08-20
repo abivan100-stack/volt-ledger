@@ -1,0 +1,121 @@
+.invitation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.invitation-panel-heading {
+  margin: 0;
+  font-family: Archivo, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.invitation-form {
+  gap: 14px;
+}
+
+.invitation-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invitation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+.invitation-row-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.invitation-row-email {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.invitation-row-role {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.invitation-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.invitation-status {
+  padding: 3px 7px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  color: var(--ink-soft);
+}
+
+.invitation-status-pending {
+  color: var(--sun);
+  border-color: color-mix(in srgb, var(--sun) 40%, transparent);
+}
+
+.invitation-status-accepted {
+  color: var(--settle);
+  border-color: color-mix(in srgb, var(--settle) 40%, transparent);
+}
+
+.invitation-revoke {
+  padding: 7px 10px;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.invitation-revoke:hover:not(:disabled) {
+  color: var(--void);
+  border-color: var(--void);
+}
+
+.invitation-revoke:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.invitation-row-error {
+  flex-basis: 100%;
+}
+
+.invitation-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}

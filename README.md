@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (491 tests)
+npm test               # run the client test suite once (525 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,12 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+Owners and admins can also issue and revoke invitations. The role choices exclude owner entirely — ownership moves
+only through a transfer — and an admin is offered neither the ability to invite another admin nor to revoke an admin
+invitation, matching the API. A resolved send means the email was actually delivered: the server revokes the
+invitation and answers `503` if delivery fails, so the panel never claims an invitation is waiting when it is not.
+Revoking marks the record revoked rather than deleting it, because invitation history is retained.
 
 The member list shows every active member of the selected organisation and only the controls the caller's role
 permits: an owner may reassign or remove anyone but the owner, an admin may reach operators and viewers and cannot mint
@@ -166,6 +172,7 @@ src/
     resource.ts           #   Shared client/signal plumbing for resource modules
     organisations.ts      #   Organisation list, create, read, archive
     memberships.ts        #   Member list, role change, removal, ownership transfer
+    invitations.ts        #   Invitation list, create, revoke, accept
     auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
@@ -188,6 +195,7 @@ src/
     useSessionStore.ts    # Zustand authenticated-session state (restore, sign-out, expiry)
     useOrganisationStore.ts # Zustand organisation list and current selection
     useMembershipStore.ts # Zustand member list for the selected organisation
+    useInvitationStore.ts # Zustand invitations for the selected organisation
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)
