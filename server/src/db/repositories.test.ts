@@ -96,6 +96,51 @@ describe('Volt Mongo repositories', () => {
     })
   })
 
+  it('accepts an invitation and creates the membership in one transaction', async () => {
+    let transactionCount = 0
+    let endedSessionCount = 0
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => {
+          transactionCount += 1
+          await operation()
+        },
+        endSession: async () => {
+          endedSessionCount += 1
+        },
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(createMemoryDb(), client)
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      invitedByUserId: 'owner_123',
+    })
+
+    const accepted = await repositories.invitations.accept(
+      created.token,
+      'user_456',
+      'FRIEND@example.com',
+    )
+
+    expect(accepted.invitation).toMatchObject({
+      _id: created.invitation._id,
+      status: 'accepted',
+      acceptedByUserId: 'user_456',
+      email: 'friend@example.com',
+    })
+    expect(accepted.membership).toMatchObject({
+      organisationId: 'org_123',
+      userId: 'user_456',
+      email: 'friend@example.com',
+      role: 'operator',
+    })
+    expect(await repositories.invitations.findPendingByToken(created.token)).toBeNull()
+    expect(transactionCount).toBe(1)
+    expect(endedSessionCount).toBe(1)
+  })
+
   it('creates an organisation and its owner membership in one transaction', async () => {
     let transactionCount = 0
     let endedSessionCount = 0

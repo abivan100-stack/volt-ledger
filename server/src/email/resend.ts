@@ -1,10 +1,18 @@
 import { Resend } from 'resend'
 import { env } from '../config/env.js'
+import type { InvitationRole } from '../db/models.js'
 
 let resendClient: Resend | undefined
 
 export interface VerificationEmailInput {
   to: string
+  url: string
+}
+
+export interface OrganisationInvitationEmailInput {
+  to: string
+  organisationName: string
+  role: InvitationRole
   url: string
 }
 
@@ -45,6 +53,34 @@ export async function sendVerificationEmail({ to, url }: VerificationEmailInput)
     subject: 'Verify your Volt account',
     text: `Verify your Volt account by opening this link:\n${url}`,
     html: `<p>Verify your Volt account to continue.</p><p><a href="${safeUrl}">Verify email address</a></p>`,
+  })
+
+  if (error) {
+    throw new Error(`Resend email failed: ${error.message}`)
+  }
+}
+
+export async function sendOrganisationInvitationEmail({
+  to,
+  organisationName,
+  role,
+  url,
+}: OrganisationInvitationEmailInput): Promise<void> {
+  if (!env.EMAIL_FROM) {
+    throw new Error('EMAIL_FROM is not configured')
+  }
+
+  const client = getResendClient()
+  const safeOrganisationName = escapeHtml(organisationName)
+  const safeUrl = escapeHtml(url)
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+
+  const { error } = await client.emails.send({
+    from: env.EMAIL_FROM,
+    to,
+    subject: `You're invited to ${organisationName} on Volt`,
+    text: `You have been invited to join ${organisationName} on Volt as a ${role}. Accept the invitation here:\n${url}`,
+    html: `<p>You have been invited to join <strong>${safeOrganisationName}</strong> on Volt as a ${roleLabel}.</p><p><a href="${safeUrl}">Accept invitation</a></p>`,
   })
 
   if (error) {

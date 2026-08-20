@@ -69,6 +69,18 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         updateRole: async () => null,
         remove: async () => null,
       },
+      invitations: {
+        create: async () => {
+          throw new Error('Invitation repository is not used by this test')
+        },
+        findById: async () => null,
+        findPendingByEmail: async () => null,
+        listForOrganisation: async () => [],
+        revoke: async () => false,
+        accept: async () => {
+          throw new Error('Invitation repository is not used by this test')
+        },
+      },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
   }

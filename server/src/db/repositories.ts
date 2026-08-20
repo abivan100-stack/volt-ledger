@@ -28,6 +28,8 @@ const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[
   cancelled: [],
 }
 
+const invitationRoles: readonly InvitationRole[] = ['admin', 'operator', 'viewer']
+
 export interface CreateOrganisationInput {
   name: string
   slug: string
@@ -154,10 +156,16 @@ export interface AuditRepository {
 
 export interface InvitationRepository {
   create(input: CreateInvitationInput): Promise<CreateInvitationResult>
+  findById(organisationId: string, invitationId: string): Promise<OrganisationInvitationDocument | null>
   findPendingByEmail(organisationId: string, email: string): Promise<OrganisationInvitationDocument | null>
   findPendingByToken(token: string): Promise<OrganisationInvitationDocument | null>
   listForOrganisation(organisationId: string): Promise<OrganisationInvitationDocument[]>
   revoke(organisationId: string, invitationId: string): Promise<boolean>
+  accept(
+    token: string,
+    userId: string,
+    userEmail: string,
+  ): Promise<{ invitation: OrganisationInvitationDocument; membership: MembershipDocument }>
 }
 
 export interface VoltRepositories {
@@ -201,6 +209,12 @@ export function hashInvitationToken(token: string): string {
 
 function assertMembershipRole(role: MembershipRole): void {
   if (!membershipRoles.includes(role)) throw new Error(`Unsupported membership role: ${role}`)
+}
+
+function assertInvitationRole(role: InvitationRole): void {
+  if (!invitationRoles.includes(role)) {
+    throw new Error(`Unsupported invitation role: ${role}`)
+  }
 }
 
 function stableSerialize(value: unknown): string {
@@ -611,9 +625,10 @@ function createAuditRepository(collections: VoltCollections): AuditRepository {
   }
 }
 
-function createInvitationRepository(collections: VoltCollections): InvitationRepository {
+function createInvitationRepository(collections: VoltCollections, client: MongoClient): InvitationRepository {
   return {
     async create(input) {
+      assertInvitationRole(input.role)
       const now = new Date()
       const token = createInvitationToken()
       const document: OrganisationInvitationDocument = {
@@ -634,6 +649,13 @@ function createInvitationRepository(collections: VoltCollections): InvitationRep
       }
       await collections.organisationInvitations.insertOne(document)
       return { invitation: document, token }
+    },
+    findById(organisationId, invitationId) {
+      return collections.organisationInvitations.findOne({
+        _id: invitationId,
+        organisationId,
+        deletedAt: null,
+      })
     },
     async findPendingByEmail(organisationId, email) {
       const invitation = await collections.organisationInvitations.findOne({
@@ -668,6 +690,98 @@ function createInvitationRepository(collections: VoltCollections): InvitationRep
       )
       return result.modifiedCount === 1
     },
+    async accept(token, userId, userEmail) {
+      const session = client.startSession()
+      try {
+        let result:
+          | { invitation: OrganisationInvitationDocument; membership: MembershipDocument }
+          | undefined
+
+        await session.withTransaction(async () => {
+          const invitation = await collections.organisationInvitations.findOne(
+            {
+              tokenHash: hashInvitationToken(token),
+              status: 'pending',
+              deletedAt: null,
+            },
+            { session },
+          )
+          if (!invitation) throw new Error('INVITATION_NOT_FOUND')
+          if (invitation.expiresAt <= new Date()) throw new Error('INVITATION_EXPIRED')
+
+          const normalisedEmail = normaliseInvitationEmail(userEmail)
+          if (normalisedEmail !== invitation.email) throw new Error('INVITATION_EMAIL_MISMATCH')
+
+          const existingMembership = await collections.memberships.findOne(
+            { organisationId: invitation.organisationId, userId, deletedAt: null },
+            { session },
+          )
+          if (existingMembership) throw new Error('MEMBERSHIP_EXISTS')
+
+          const now = new Date()
+          const membership: MembershipDocument = {
+            _id: randomUUID(),
+            organisationId: invitation.organisationId,
+            userId,
+            email: normalisedEmail,
+            role: invitation.role,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          }
+          const acceptedInvitation: OrganisationInvitationDocument = {
+            ...invitation,
+            status: 'accepted',
+            acceptedByUserId: userId,
+            acceptedAt: now,
+            updatedAt: now,
+          }
+
+          const update = await collections.organisationInvitations.updateOne(
+            { _id: invitation._id, status: 'pending', deletedAt: null },
+            {
+              $set: {
+                status: 'accepted',
+                acceptedByUserId: userId,
+                acceptedAt: now,
+                updatedAt: now,
+              },
+            },
+            { session },
+          )
+          if (update.modifiedCount !== 1) throw new Error('INVITATION_CHANGED')
+
+          try {
+            await collections.memberships.insertOne(membership, { session })
+          } catch (error) {
+            if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
+              throw new Error('MEMBERSHIP_EXISTS')
+            }
+            throw error
+          }
+          await collections.auditEvents.insertOne(
+            {
+              _id: randomUUID(),
+              organisationId: invitation.organisationId,
+              actorUserId: userId,
+              action: 'membership.accepted',
+              entityType: 'membership',
+              entityId: membership._id,
+              metadata: { invitationId: invitation._id, role: invitation.role },
+              createdAt: now,
+            },
+            { session },
+          )
+
+          result = { invitation: acceptedInvitation, membership }
+        })
+
+        if (!result) throw new Error('INVITATION_ACCEPT_FAILED')
+        return result
+      } finally {
+        await session.endSession()
+      }
+    },
   }
 }
 
@@ -679,6 +793,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     simulations: createSimulationRepository(collections),
     ledger: createLedgerRepository(collections, client),
     audit: createAuditRepository(collections),
-    invitations: createInvitationRepository(collections),
+    invitations: createInvitationRepository(collections, client),
   }
 }

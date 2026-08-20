@@ -10,10 +10,21 @@ import { env } from './config/env.js'
 import { getMongoDb } from './db/mongo.js'
 import {
   createVoltRepositories,
+  type InvitationRepository,
   type MembershipRepository,
   type OrganisationRepository,
 } from './db/repositories.js'
-import type { MembershipDocument, MembershipRole, OrganisationDocument } from './db/models.js'
+import type {
+  InvitationRole,
+  MembershipDocument,
+  MembershipRole,
+  OrganisationDocument,
+  OrganisationInvitationDocument,
+} from './db/models.js'
+import {
+  sendOrganisationInvitationEmail,
+  type OrganisationInvitationEmailInput,
+} from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 
 const organisationIdSchema = z.object({
@@ -30,6 +41,14 @@ const createOrganisationSchema = z
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
   memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
+  invitations: Pick<
+    InvitationRepository,
+    'create' | 'findById' | 'findPendingByEmail' | 'listForOrganisation' | 'revoke' | 'accept'
+  >
+}
+
+export interface InvitationEmailSender {
+  sendOrganisationInvitationEmail(input: OrganisationInvitationEmailInput): Promise<void>
 }
 
 export interface AppOptions {
@@ -37,6 +56,7 @@ export interface AppOptions {
   databasePing?: () => Promise<void>
   auth?: AuthService
   repositories?: OrganisationRouteRepositories
+  invitationEmail?: InvitationEmailSender
 }
 
 function serializeOrganisation(organisation: OrganisationDocument, role: MembershipRole) {
@@ -58,6 +78,20 @@ function serializeMembership(membership: MembershipDocument) {
     role: membership.role,
     createdAt: membership.createdAt.toISOString(),
     updatedAt: membership.updatedAt.toISOString(),
+  }
+}
+
+function serializeInvitation(
+  invitation: OrganisationInvitationDocument,
+  includeCreatedAt = false,
+) {
+  return {
+    id: invitation._id,
+    email: invitation.email,
+    role: invitation.role,
+    status: invitation.status,
+    expiresAt: invitation.expiresAt.toISOString(),
+    ...(includeCreatedAt ? { createdAt: invitation.createdAt.toISOString() } : {}),
   }
 }
 
@@ -100,6 +134,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
   const auth = (): AuthService => options.auth ?? getAuthService()
   const repositories = (): OrganisationRouteRepositories => options.repositories ?? createVoltRepositories(getMongoDb())
+  const invitationEmail = (): InvitationEmailSender => options.invitationEmail ?? {
+    sendOrganisationInvitationEmail,
+  }
 
   app.get('/health', async (_request, reply) => {
     try {
@@ -357,6 +394,230 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       }
       app.log.error({ err: error }, 'Membership removal failed')
       return reply.code(500).send({ error: 'Membership could not be removed', code: 'MEMBERSHIP_REMOVE_FAILED' })
+    }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/invitations', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const parsedBody = z
+      .object({
+        email: z.string().trim().email().max(320),
+        role: z.enum(['admin', 'operator', 'viewer']),
+      })
+      .strict()
+      .safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid invitation input', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const role: InvitationRole = parsedBody.data.role
+    if (access.membership.role === 'admin' && role === 'admin') {
+      return reply.code(403).send({
+        error: 'You cannot grant or change that membership role',
+        code: 'INVITATION_ROLE_FORBIDDEN',
+      })
+    }
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const existing = await repositorySet.invitations.findPendingByEmail(
+      parsedParams.data.organisationId,
+      parsedBody.data.email,
+    )
+    if (existing) {
+      return reply.code(409).send({
+        error: 'An invitation is already pending for this email',
+        code: 'INVITATION_ALREADY_PENDING',
+      })
+    }
+
+    let created: Awaited<ReturnType<InvitationRepository['create']>>
+    try {
+      created = await repositorySet.invitations.create({
+        organisationId: parsedParams.data.organisationId,
+        email: parsedBody.data.email,
+        role,
+        invitedByUserId: access.session.user.id,
+      })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        return reply.code(409).send({
+          error: 'An invitation is already pending for this email',
+          code: 'INVITATION_ALREADY_PENDING',
+        })
+      }
+      app.log.error({ err: error }, 'Organisation invitation creation failed')
+      return reply.code(500).send({
+        error: 'Invitation could not be created',
+        code: 'INVITATION_CREATE_FAILED',
+      })
+    }
+
+    const invitationUrl = new URL('/invite/accept', env.WEB_ORIGIN)
+    invitationUrl.searchParams.set('token', created.token)
+    try {
+      await invitationEmail().sendOrganisationInvitationEmail({
+        to: created.invitation.email,
+        organisationName: organisation.name,
+        role,
+        url: invitationUrl.toString(),
+      })
+    } catch (error) {
+      await repositorySet.invitations.revoke(
+        parsedParams.data.organisationId,
+        created.invitation._id,
+      ).catch((revokeError) => {
+        app.log.error({ err: revokeError, invitationId: created.invitation._id }, 'Failed to revoke undelivered invitation')
+      })
+      app.log.error({ err: error, invitationId: created.invitation._id }, 'Organisation invitation email delivery failed')
+      return reply.code(503).send({
+        error: 'Invitation email could not be sent',
+        code: 'INVITATION_DELIVERY_FAILED',
+      })
+    }
+
+    return reply.code(201).send({ invitation: serializeInvitation(created.invitation) })
+  })
+
+  app.get('/api/v1/organisations/:organisationId/invitations', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const invitations = await repositorySet.invitations.listForOrganisation(parsedParams.data.organisationId)
+    return { invitations: invitations.map((invitation) => serializeInvitation(invitation, true)) }
+  })
+
+  app.delete('/api/v1/organisations/:organisationId/invitations/:invitationId', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), invitationId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid invitation identifier', code: 'INVALID_INVITATION_ID' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const invitation = await repositorySet.invitations.findById(
+      parsedParams.data.organisationId,
+      parsedParams.data.invitationId,
+    )
+    if (!invitation) return reply.code(404).send({ error: 'Invitation not found', code: 'INVITATION_NOT_FOUND' })
+    if (access.membership.role === 'admin' && invitation.role === 'admin') {
+      return reply.code(403).send({
+        error: 'You cannot grant or change that membership role',
+        code: 'INVITATION_ROLE_FORBIDDEN',
+      })
+    }
+    if (invitation.status !== 'pending') {
+      return reply.code(409).send({ error: 'Invitation is no longer pending', code: 'INVITATION_NOT_PENDING' })
+    }
+
+    try {
+      const revoked = await repositorySet.invitations.revoke(
+        parsedParams.data.organisationId,
+        parsedParams.data.invitationId,
+      )
+      if (!revoked) {
+        return reply.code(409).send({ error: 'Invitation changed before revocation', code: 'INVITATION_CHANGED' })
+      }
+      return reply.code(204).send()
+    } catch (error) {
+      app.log.error({ err: error }, 'Organisation invitation revocation failed')
+      return reply.code(500).send({
+        error: 'Invitation could not be revoked',
+        code: 'INVITATION_REVOKE_FAILED',
+      })
+    }
+  })
+
+  app.post('/api/v1/invitations/accept', async (request, reply) => {
+    const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+    if (!access.session.user.emailVerified) {
+      return reply.code(403).send({ error: 'Email verification is required', code: 'EMAIL_NOT_VERIFIED' })
+    }
+
+    const parsedBody = z.object({ token: z.string().min(1).max(256) }).strict().safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid invitation acceptance input', code: 'INVALID_REQUEST' })
+    }
+
+    try {
+      const accepted = await repositories().invitations.accept(
+        parsedBody.data.token,
+        access.session.user.id,
+        access.session.user.email,
+      )
+      return {
+        organisationId: accepted.invitation.organisationId,
+        membershipId: accepted.membership._id,
+        role: accepted.membership.role,
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : ''
+      if (reason === 'INVITATION_EMAIL_MISMATCH') {
+        return reply.code(403).send({
+          error: 'This invitation belongs to a different email address',
+          code: 'INVITATION_EMAIL_MISMATCH',
+        })
+      }
+      if (reason === 'INVITATION_NOT_FOUND' || reason === 'INVITATION_EXPIRED') {
+        return reply.code(400).send({ error: 'Invitation is invalid or expired', code: 'INVITATION_INVALID' })
+      }
+      if (reason === 'MEMBERSHIP_EXISTS') {
+        return reply.code(409).send({
+          error: 'You already belong to this organisation',
+          code: 'MEMBERSHIP_EXISTS',
+        })
+      }
+      app.log.error({ err: error }, 'Organisation invitation acceptance failed')
+      return reply.code(500).send({
+        error: 'Invitation could not be accepted',
+        code: 'INVITATION_ACCEPT_FAILED',
+      })
     }
   })
 
