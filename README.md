@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (631 tests)
+npm test               # run the client test suite once (663 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -134,6 +134,11 @@ accepted event. Nothing in the client edits or deletes an event: a correction is
 panel says so next to the form. Acceptance is idempotent, a repeat reports that nothing was appended, and an adjustment
 requires an idempotency key so a retry cannot double-count. After either write the whole slice is re-read, so the
 integrity report always describes what is actually stored rather than something inferred locally.
+
+Owners and admins can also read the organisation's audit history. Paging follows the API's opaque cursor and appends,
+so the list grows into one continuous history rather than jumping between pages, and applying an action filter starts a
+fresh page because an existing cursor belongs to the previous filter. A failed page keeps what has already loaded. The
+panel notes that audit history is retained for provenance, including after an organisation is archived.
 
 Archiving is offered to the owner alone, behind a disclosure, and requires the organisation's identifier to be typed
 out before it will run — it is soft-deletion, but there is no undo from Volt. The warning states exactly what goes
@@ -202,6 +207,7 @@ src/
     invitations.ts        #   Invitation list, create, revoke, accept
     simulations.ts        #   Run queue, status, results, and daily quota
     ledger.ts             #   Settlement acceptance, ledger history, adjustments
+    audit.ts              #   Cursor-paginated organisation audit stream
     auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
@@ -227,6 +233,7 @@ src/
     useInvitationStore.ts # Zustand invitations for the selected organisation
     useSimulationStore.ts # Zustand simulation runs, quota, and results
     useLedgerStore.ts     # Zustand settlement ledger and integrity verdict
+    useAuditStore.ts      # Zustand cursor-paginated audit history
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)

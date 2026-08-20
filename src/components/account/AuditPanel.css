@@ -1,0 +1,138 @@
+.audit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.audit-panel-heading {
+  margin: 0;
+  font-family: Archivo, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.audit-note,
+.audit-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.audit-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.audit-filter-field {
+  flex: 1 1 220px;
+}
+
+.audit-filter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.audit-filter-apply,
+.audit-filter-clear {
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 12px 15px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.audit-filter-apply:hover,
+.audit-filter-clear:hover {
+  border-color: var(--ink);
+}
+
+.audit-active-filter {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--sun);
+}
+
+.audit-events {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-event {
+  padding: 11px 13px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+.audit-event-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.audit-event-action {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.audit-event-time {
+  flex-shrink: 0;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.audit-event-entity {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.audit-more {
+  align-self: flex-start;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 11px 17px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.audit-more:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.audit-more:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
