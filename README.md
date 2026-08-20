@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (592 tests)
+npm test               # run the client test suite once (631 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -126,6 +126,14 @@ polls only while a run is still `queued` or `running` and stops as soon as every
 issues no traffic. Operators and above can queue runs; viewers get the list only. Submission is disabled once the
 allowance is spent, and a `429` reports the exhausted quota. A run that has not finished reads as pending rather than
 failed. Everything shown is synthetic, and the panel says so.
+
+The ledger panel shows the organisation's append-only settlement chain with the server's own integrity verdict on it —
+`CHAIN VERIFIED`, or `INTEGRITY VOID` raised as an alert. Every member can read it. Owners and admins can accept one
+completed run's outcome, which appends one immutable event per household, and can append signed corrections against an
+accepted event. Nothing in the client edits or deletes an event: a correction is a new event carrying a delta, and the
+panel says so next to the form. Acceptance is idempotent, a repeat reports that nothing was appended, and an adjustment
+requires an idempotency key so a retry cannot double-count. After either write the whole slice is re-read, so the
+integrity report always describes what is actually stored rather than something inferred locally.
 
 Archiving is offered to the owner alone, behind a disclosure, and requires the organisation's identifier to be typed
 out before it will run — it is soft-deletion, but there is no undo from Volt. The warning states exactly what goes
@@ -193,6 +201,7 @@ src/
     memberships.ts        #   Member list, role change, removal, ownership transfer
     invitations.ts        #   Invitation list, create, revoke, accept
     simulations.ts        #   Run queue, status, results, and daily quota
+    ledger.ts             #   Settlement acceptance, ledger history, adjustments
     auth.ts               #   Better Auth email sign-in and sign-up
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
@@ -217,6 +226,7 @@ src/
     useMembershipStore.ts # Zustand member list for the selected organisation
     useInvitationStore.ts # Zustand invitations for the selected organisation
     useSimulationStore.ts # Zustand simulation runs, quota, and results
+    useLedgerStore.ts     # Zustand settlement ledger and integrity verdict
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)

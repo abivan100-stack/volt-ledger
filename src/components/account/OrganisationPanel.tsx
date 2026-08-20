@@ -6,6 +6,7 @@ import { useSessionStore } from '../../store/useSessionStore'
 import CreateOrganisationForm from './CreateOrganisationForm'
 import ArchiveOrganisation from './ArchiveOrganisation'
 import InvitationPanel from './InvitationPanel'
+import LedgerPanel from './LedgerPanel'
 import MemberList from './MemberList'
 import SimulationPanel from './SimulationPanel'
 import './OrganisationPanel.css'
@@ -109,6 +110,7 @@ function SignedInOrganisations() {
       <MemberList />
       <InvitationPanel />
       <SimulationPanel />
+      <LedgerPanel />
       <ArchiveOrganisation />
     </section>
   )
