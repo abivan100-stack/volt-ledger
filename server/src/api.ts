@@ -1,9 +1,11 @@
 import { buildApp } from './app.js'
 import { env } from './config/env.js'
-import { connectToMongo, disconnectFromMongo } from './db/mongo.js'
+import { connectToMongo, disconnectFromMongo, getMongoDb } from './db/mongo.js'
+import { initializeVoltDatabase } from './db/collections.js'
 
 async function startApi(): Promise<void> {
   await connectToMongo()
+  await initializeVoltDatabase(getMongoDb())
   const app = await buildApp()
   await app.listen({ host: env.API_HOST, port: env.API_PORT })
 

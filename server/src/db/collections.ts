@@ -1,0 +1,197 @@
+import type { Collection, Db, IndexDescription } from 'mongodb'
+import type {
+  AuditEventDocument,
+  CounterDocument,
+  LedgerEventDocument,
+  MembershipDocument,
+  OrganisationDocument,
+  SimulationIntervalDocument,
+  SimulationRunDocument,
+  SimulationSummaryDocument,
+} from './models.js'
+
+export const collectionNames = {
+  organisations: 'organisations',
+  memberships: 'memberships',
+  simulationRuns: 'simulation_runs',
+  simulationIntervals: 'simulation_intervals',
+  simulationSummaries: 'simulation_summaries',
+  ledgerEvents: 'ledger_events',
+  counters: 'counters',
+  auditEvents: 'audit_events',
+} as const
+
+export interface VoltCollections {
+  organisations: Collection<OrganisationDocument>
+  memberships: Collection<MembershipDocument>
+  simulationRuns: Collection<SimulationRunDocument>
+  simulationIntervals: Collection<SimulationIntervalDocument>
+  simulationSummaries: Collection<SimulationSummaryDocument>
+  ledgerEvents: Collection<LedgerEventDocument>
+  counters: Collection<CounterDocument>
+  auditEvents: Collection<AuditEventDocument>
+}
+
+interface CollectionSpec {
+  key: keyof VoltCollections
+  name: string
+  indexes: IndexDescription[]
+}
+
+const collectionSpecs: CollectionSpec[] = [
+  {
+    key: 'organisations',
+    name: collectionNames.organisations,
+    indexes: [
+      {
+        key: { slug: 1 },
+        name: 'organisations_slug_active_unique',
+        unique: true,
+        partialFilterExpression: { deletedAt: null },
+      },
+      {
+        key: { createdByUserId: 1, createdAt: -1 },
+        name: 'organisations_creator_created_at',
+      },
+    ],
+  },
+  {
+    key: 'memberships',
+    name: collectionNames.memberships,
+    indexes: [
+      {
+        key: { organisationId: 1, userId: 1 },
+        name: 'memberships_organisation_user_active_unique',
+        unique: true,
+        partialFilterExpression: { deletedAt: null },
+      },
+      {
+        key: { userId: 1, organisationId: 1 },
+        name: 'memberships_user_organisation',
+      },
+    ],
+  },
+  {
+    key: 'simulationRuns',
+    name: collectionNames.simulationRuns,
+    indexes: [
+      {
+        key: { organisationId: 1, createdAt: -1 },
+        name: 'simulation_runs_organisation_created_at',
+      },
+      {
+        key: { organisationId: 1, status: 1, createdAt: -1 },
+        name: 'simulation_runs_organisation_status_created_at',
+      },
+    ],
+  },
+  {
+    key: 'simulationIntervals',
+    name: collectionNames.simulationIntervals,
+    indexes: [
+      {
+        key: { runId: 1, householdId: 1, intervalStart: 1, outcome: 1 },
+        name: 'simulation_intervals_run_household_start_outcome_unique',
+        unique: true,
+      },
+      {
+        key: { organisationId: 1, intervalStart: 1, householdId: 1 },
+        name: 'simulation_intervals_organisation_start_household',
+      },
+    ],
+  },
+  {
+    key: 'simulationSummaries',
+    name: collectionNames.simulationSummaries,
+    indexes: [
+      {
+        key: { runId: 1, householdId: 1, outcome: 1 },
+        name: 'simulation_summaries_run_household_outcome_unique',
+        unique: true,
+      },
+      {
+        key: { organisationId: 1, householdId: 1, outcome: 1 },
+        name: 'simulation_summaries_organisation_household_outcome',
+      },
+    ],
+  },
+  {
+    key: 'ledgerEvents',
+    name: collectionNames.ledgerEvents,
+    indexes: [
+      {
+        key: { organisationId: 1, sequence: 1 },
+        name: 'ledger_events_organisation_sequence_unique',
+        unique: true,
+      },
+      {
+        key: { organisationId: 1, settlementDate: 1, householdId: 1 },
+        name: 'ledger_events_organisation_date_household',
+      },
+      {
+        key: { organisationId: 1, createdAt: -1 },
+        name: 'ledger_events_organisation_created_at',
+      },
+    ],
+  },
+  {
+    key: 'counters',
+    name: collectionNames.counters,
+    indexes: [
+      {
+        key: { organisationId: 1, name: 1 },
+        name: 'counters_organisation_name_unique',
+        unique: true,
+      },
+    ],
+  },
+  {
+    key: 'auditEvents',
+    name: collectionNames.auditEvents,
+    indexes: [
+      {
+        key: { organisationId: 1, createdAt: -1 },
+        name: 'audit_events_organisation_created_at',
+      },
+      {
+        key: { actorUserId: 1, createdAt: -1 },
+        name: 'audit_events_actor_created_at',
+      },
+    ],
+  },
+]
+
+export function getVoltCollections(db: Db): VoltCollections {
+  return {
+    organisations: db.collection<OrganisationDocument>(collectionNames.organisations),
+    memberships: db.collection<MembershipDocument>(collectionNames.memberships),
+    simulationRuns: db.collection<SimulationRunDocument>(collectionNames.simulationRuns),
+    simulationIntervals: db.collection<SimulationIntervalDocument>(collectionNames.simulationIntervals),
+    simulationSummaries: db.collection<SimulationSummaryDocument>(collectionNames.simulationSummaries),
+    ledgerEvents: db.collection<LedgerEventDocument>(collectionNames.ledgerEvents),
+    counters: db.collection<CounterDocument>(collectionNames.counters),
+    auditEvents: db.collection<AuditEventDocument>(collectionNames.auditEvents),
+  }
+}
+
+export async function initializeVoltDatabase(db: Db): Promise<void> {
+  const existing = new Set(
+    (await db.listCollections({}, { nameOnly: true }).toArray()).map(({ name }) => name),
+  )
+
+  for (const spec of collectionSpecs) {
+    if (!existing.has(spec.name)) await db.createCollection(spec.name)
+  }
+
+  const collections = getVoltCollections(db)
+  await Promise.all(
+    collectionSpecs.map((spec) => {
+      const collection = collections[spec.key]
+      return collection.createIndexes(spec.indexes)
+    }),
+  )
+}
+
+export function getCollectionSpecs(): readonly CollectionSpec[] {
+  return collectionSpecs
+}
