@@ -41,3 +41,17 @@
 - Lib tests are in `src/lib/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
 - Each lib module has a corresponding test file (14 lib files + 5 store/hook + 5 component test files, 258 tests)
 - Store tests reset the singleton store to its pristine state before each case
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues and are managed with `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Uses a single-context layout with root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.

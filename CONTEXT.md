@@ -19,3 +19,65 @@ _Avoid_: Importer
 **Energy flow**:
 A recent local transfer from a producing household to a consuming household.
 _Avoid_: Connection, wire
+
+## Simulation and access
+
+**Synthetic neighbourhood**:
+A fictional collection of households used to explore Volt; it is not a representation of real metering or settled energy data.
+_Avoid_: Live neighbourhood, customer site
+
+**Simulation run**:
+One reproducible synthetic energy scenario defined by a model version, an input snapshot, and a seed.
+_Avoid_: Live reading, forecast
+
+**Interval energy**:
+The kWh generated, consumed, imported, or exported during a defined time interval.
+_Avoid_: Instantaneous energy, kW reading
+
+**Simulation outcome**:
+A P10, P50, P90, or selected-sample result produced by a synthetic simulation run; it is not a forecast or meter reading.
+_Avoid_: Prediction, actual result
+
+**Estimated credit**:
+An illustrative rupee value calculated from synthetic interval energy and a configured community rate; it is not a payment obligation.
+_Avoid_: Earnings, money owed
+
+**Organisation**:
+The group that owns a synthetic neighbourhood and its Volt configuration.
+_Avoid_: Account, tenant
+
+**Membership**:
+A user's role-bound relationship to one organisation.
+_Avoid_: User role, admin flag
+
+**Owner**:
+The membership role accountable for an organisation's ownership and destructive administrative actions.
+_Avoid_: Super admin, root user
+
+**Admin**:
+The membership role that manages organisation access and Volt configuration.
+_Avoid_: Global admin
+
+**Operator**:
+The membership role that creates and runs simulations without managing organisation access.
+_Avoid_: Editor
+
+**Viewer**:
+The membership role that may inspect an organisation's saved Volt data but cannot change it.
+_Avoid_: Read-only user
+
+**Demo session**:
+A non-persistent public exploration of a prebuilt synthetic neighbourhood.
+_Avoid_: Anonymous account, trial account
+
+**Ledger event**:
+An immutable, server-recorded event in Volt's tamper-evident settlement history.
+_Avoid_: Editable transaction, ledger row
+
+**Canonical seal**:
+The server-generated cryptographic link for a ledger event, including the accepted simulation result digest.
+_Avoid_: Client hash, browser seal
+
+**Settlement**:
+The daily, per-household energy total accepted from a completed simulation run and recorded as a ledger event.
+_Avoid_: Interval trade, live payment
