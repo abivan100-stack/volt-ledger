@@ -21,6 +21,7 @@ const RUN: SimulationRunDocument = {
   inputSnapshot: {},
   inputDigest: 'digest',
   status: 'running',
+  attemptCount: 0,
   createdAt: new Date('2030-01-01T00:00:00.000Z'),
   startedAt: new Date('2030-01-01T00:00:00.000Z'),
   completedAt: null,

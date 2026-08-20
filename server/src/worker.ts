@@ -1,6 +1,6 @@
 import { connectToMongo, disconnectFromMongo, getMongoDb } from './db/mongo.js'
 import { initializeVoltDatabase } from './db/collections.js'
-import { createVoltRepositories } from './db/repositories.js'
+import { createVoltRepositories, simulationMaxAttempts } from './db/repositories.js'
 import { createLogger, type LogLevel } from './observability/logger.js'
 import { runSimulationWorker } from './simulations/worker.js'
 
@@ -28,6 +28,7 @@ async function startWorker(): Promise<void> {
     await runSimulationWorker(createVoltRepositories(getMongoDb()), {
       signal: controller.signal,
       logger,
+      maxAttempts: simulationMaxAttempts,
     })
   } finally {
     await disconnectFromMongo()

@@ -32,6 +32,13 @@ const simulationTransitions: Record<SimulationStatus, readonly SimulationStatus[
 
 const invitationRoles: readonly InvitationRole[] = ['admin', 'operator', 'viewer']
 const simulationLeaseMs = 15 * 60 * 1000
+
+/**
+ * How many times a run may be claimed before it is treated as poisonous.
+ * Claims include stale-lease reclaims, so a run that repeatedly kills its worker
+ * is counted too.
+ */
+export const simulationMaxAttempts = env.SIMULATION_MAX_ATTEMPTS
 export const simulationDailyRunLimit = env.SIMULATION_DAILY_RUN_LIMIT
 
 export interface CreateOrganisationInput {
@@ -785,6 +792,7 @@ function createSimulationRepository(collections: VoltCollections, client: MongoC
         inputSnapshot: input.inputSnapshot,
         inputDigest: input.inputDigest,
         status: 'queued',
+        attemptCount: 0,
         createdAt: now,
         startedAt: null,
         completedAt: null,
@@ -842,7 +850,12 @@ function createSimulationRepository(collections: VoltCollections, client: MongoC
             { status: 'running', startedAt: { $lt: new Date(now.getTime() - simulationLeaseMs) } },
           ],
         },
-        { $set: { status: 'running', startedAt: now, errorCode: null } },
+        {
+          $set: { status: 'running', startedAt: now, errorCode: null },
+          // Counted here rather than in the worker so a claim that never reports
+          // back — a killed process, a lost connection — is still counted.
+          $inc: { attemptCount: 1 },
+        },
         { sort: { createdAt: 1 }, returnDocument: 'after' },
       )
     },

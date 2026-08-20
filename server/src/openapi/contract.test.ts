@@ -110,6 +110,7 @@ function run(status: SimulationRunDocument['status'] = 'completed'): SimulationR
     inputSnapshot: { simulationDate: '2030-01-01', households: [{ id: 'h1' }] },
     inputDigest: 'digest',
     status,
+    attemptCount: status === 'queued' ? 0 : 1,
     createdAt: WHEN,
     startedAt: status === 'queued' ? null : WHEN,
     completedAt: status === 'completed' ? WHEN : null,

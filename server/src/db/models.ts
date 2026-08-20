@@ -64,6 +64,8 @@ export interface SimulationRunDocument {
   inputSnapshot: JsonObject
   inputDigest: string
   status: SimulationStatus
+  /** Incremented on every claim, including a stale-lease reclaim. */
+  attemptCount: number
   createdAt: Date
   startedAt: Date | null
   completedAt: Date | null

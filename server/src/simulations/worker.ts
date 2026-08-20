@@ -26,6 +26,24 @@ type InvitationWorkerRepositories = {
   invitations: Pick<VoltRepositories['invitations'], 'expirePending'>
 }
 
+/** Error code recorded on a run that exhausted its attempt budget. */
+export const SIMULATION_MAX_ATTEMPTS_ERROR = 'SIMULATION_MAX_ATTEMPTS_EXCEEDED'
+
+export interface SimulationExecutionOptions {
+  /** Claims allowed before the run is quarantined. Omit to disable the check. */
+  maxAttempts?: number
+}
+
+/**
+ * Whether a run has been claimed more times than its budget allows.
+ *
+ * Documents written before attempts were counted have no `attemptCount`; those
+ * are treated as a first attempt rather than as instantly poisonous.
+ */
+export function isQuarantined(run: SimulationRunDocument, maxAttempts: number): boolean {
+  return (run.attemptCount ?? 0) > maxAttempts
+}
+
 function isPermanentSimulationError(error: unknown): error is Error {
   if (
     error instanceof Error &&
@@ -78,8 +96,22 @@ export async function executeClaimedSimulationRun(
   repositories: SimulationWorkerRepositories,
   run: SimulationRunDocument,
   logger: Logger = createSilentLogger(),
+  options: SimulationExecutionOptions = {},
 ): Promise<SimulationRunDocument> {
   if (run.status !== 'running') throw new Error('SIMULATION_RUN_NOT_RUNNING')
+
+  // Checked before any work: a run that keeps failing would otherwise be
+  // reclaimed on every pass and block everything queued behind it.
+  if (options.maxAttempts !== undefined && isQuarantined(run, options.maxAttempts)) {
+    logger.error('simulation.quarantined', {
+      attemptCount: run.attemptCount,
+      maxAttempts: options.maxAttempts,
+      errorCode: SIMULATION_MAX_ATTEMPTS_ERROR,
+    })
+    return repositories.simulations.transitionRun(run._id, 'failed', {
+      errorCode: SIMULATION_MAX_ATTEMPTS_ERROR,
+    })
+  }
 
   let completionInput: CompleteSimulationRunInput
   try {
@@ -110,6 +142,7 @@ export async function executeClaimedSimulationRun(
 export async function processNextSimulationRun(
   repositories: SimulationWorkerRepositories,
   logger: Logger = createSilentLogger(),
+  options: SimulationExecutionOptions = {},
 ): Promise<SimulationRunDocument | null> {
   const claimed = await repositories.simulations.claimNextQueuedRun()
   if (!claimed) return null
@@ -117,11 +150,14 @@ export async function processNextSimulationRun(
   // Every line about this run carries its identity, so a failure can be traced
   // without correlating timestamps.
   const scoped = logger.child({ runId: claimed._id, organisationId: claimed.organisationId })
-  scoped.info('simulation.claimed', { modelVersion: claimed.modelVersion })
+  scoped.info('simulation.claimed', {
+    modelVersion: claimed.modelVersion,
+    attemptCount: claimed.attemptCount,
+  })
 
   const startedAt = Date.now()
   try {
-    const finished = await executeClaimedSimulationRun(repositories, claimed, scoped)
+    const finished = await executeClaimedSimulationRun(repositories, claimed, scoped, options)
     scoped.info('simulation.finished', {
       status: finished.status,
       errorCode: finished.errorCode,
@@ -147,6 +183,8 @@ export interface SimulationWorkerOptions {
   logger?: Logger
   /** Ceiling for retry backoff after consecutive failures. */
   maxBackoffMs?: number
+  /** Claims allowed per run before it is quarantined as permanently failing. */
+  maxAttempts?: number
   /** Injected in tests so pacing is observed rather than waited on. */
   sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>
   /** Jitter source. Operational only; nothing in the simulation model uses it. */
@@ -180,7 +218,12 @@ export async function runSimulationWorker(
   const sleep = options.sleep ?? waitForPoll
   const random = options.random ?? Math.random
 
-  logger.info('worker.started', { pollIntervalMs, maintenanceIntervalMs, maxBackoffMs })
+  logger.info('worker.started', {
+    pollIntervalMs,
+    maintenanceIntervalMs,
+    maxBackoffMs,
+    maxAttempts: options.maxAttempts ?? null,
+  })
 
   let nextMaintenanceAt = 0
   let consecutiveFailures = 0
@@ -201,7 +244,9 @@ export async function runSimulationWorker(
     }
 
     try {
-      const processed = await processNextSimulationRun(repositories, logger)
+      const processed = await processNextSimulationRun(repositories, logger, {
+        ...(options.maxAttempts === undefined ? {} : { maxAttempts: options.maxAttempts }),
+      })
       consecutiveFailures = 0
       if (!processed) await sleep(pollIntervalMs, options.signal)
     } catch (error) {

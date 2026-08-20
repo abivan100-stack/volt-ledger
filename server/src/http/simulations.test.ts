@@ -44,6 +44,7 @@ const run: SimulationRunDocument = {
   },
   inputDigest: 'input-digest',
   status: 'queued',
+  attemptCount: 0,
   createdAt: new Date('2030-01-01T00:00:00.000Z'),
   startedAt: null,
   completedAt: null,
@@ -333,6 +334,7 @@ describe('simulation REST API', () => {
     const completedRun = {
       ...run,
       status: 'completed' as const,
+      attemptCount: 0,
       startedAt: new Date('2030-01-01T00:01:00.000Z'),
       completedAt: new Date('2030-01-01T00:03:00.000Z'),
       resultDigest: 'result-digest',
