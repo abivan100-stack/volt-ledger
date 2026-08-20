@@ -4,6 +4,7 @@ import { useOrganisations } from '../../hooks/useOrganisations'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import CreateOrganisationForm from './CreateOrganisationForm'
+import ArchiveOrganisation from './ArchiveOrganisation'
 import InvitationPanel from './InvitationPanel'
 import MemberList from './MemberList'
 import './OrganisationPanel.css'
@@ -106,6 +107,7 @@ function SignedInOrganisations() {
 
       <MemberList />
       <InvitationPanel />
+      <ArchiveOrganisation />
     </section>
   )
 }

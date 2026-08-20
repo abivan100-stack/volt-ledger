@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (536 tests)
+npm test               # run the client test suite once (545 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,11 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+Archiving is offered to the owner alone, behind a disclosure, and requires the organisation's identifier to be typed
+out before it will run — it is soft-deletion, but there is no undo from Volt. The warning states exactly what goes
+(every member's access, plus simulation runs and results) and what stays (ledger and audit history, retained for
+provenance).
 
 ### Accepting an invitation (`/invite/accept`)
 

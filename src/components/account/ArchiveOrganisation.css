@@ -1,0 +1,86 @@
+.archive-organisation {
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.archive-open {
+  padding: 10px 15px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.archive-open:hover {
+  color: var(--void);
+  border-color: var(--void);
+}
+
+.archive-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 17px;
+  background: color-mix(in srgb, var(--void) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--void) 34%, transparent);
+  border-radius: 4px;
+}
+
+.archive-warning {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.archive-warning strong {
+  font-weight: 600;
+}
+
+.archive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.archive-confirm {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 12px 18px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--paper);
+  background: var(--void);
+  border: 1px solid var(--void);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.archive-confirm:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.archive-cancel {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 12px 18px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.archive-cancel:hover {
+  border-color: var(--ink);
+}
