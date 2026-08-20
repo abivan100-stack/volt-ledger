@@ -292,6 +292,9 @@ describe('Volt Mongo repositories', () => {
         metadata: { previousOwnerUserId: 'user_owner', newOwnerUserId: 'user_admin' },
       }),
     ])
+    expect(await repositories.audit.listForOrganisation('org_123')).toMatchObject([
+      { action: 'membership.owner_transferred', entityId: 'org_123' },
+    ])
     expect(transactionCount).toBe(1)
   })
 

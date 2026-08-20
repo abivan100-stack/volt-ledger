@@ -103,6 +103,9 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         appendAdjustment: async () => { throw new Error('Ledger repository is not used by this test') },
         list: async () => [],
       },
+      audit: {
+        listForOrganisation: async () => [],
+      },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
   }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../auth/auth.js'
-import type { MembershipDocument, OrganisationDocument } from '../db/models.js'
+import type { AuditEventDocument, MembershipDocument, OrganisationDocument } from '../db/models.js'
 import { buildApp } from '../app.js'
 
 const apps: FastifyInstance[] = []
@@ -29,6 +29,17 @@ const actorMembership: MembershipDocument = {
   createdAt: organisation.createdAt,
   updatedAt: organisation.updatedAt,
   deletedAt: null,
+}
+
+const auditEvent: AuditEventDocument = {
+  _id: 'audit_123',
+  organisationId: organisation._id,
+  actorUserId: 'user_123',
+  action: 'membership.owner_transferred',
+  entityType: 'organisation',
+  entityId: organisation._id,
+  metadata: { previousOwnerUserId: 'user_123', newOwnerUserId: 'user_456' },
+  createdAt: new Date('2030-01-01T00:05:00.000Z'),
 }
 
 function member(userId: string, role: MembershipDocument['role']): MembershipDocument {
@@ -60,7 +71,10 @@ const authenticatedAuth: AuthService = {
   }),
 }
 
-function createRepositories(targetRole: MembershipDocument['role'] = 'operator') {
+function createRepositories(
+  targetRole: MembershipDocument['role'] = 'operator',
+  actorRole: MembershipDocument['role'] = 'owner',
+) {
   const target = member('user_456', targetRole)
   let updatedRole: MembershipDocument['role'] | undefined
   let removedUserId: string | undefined
@@ -74,7 +88,7 @@ function createRepositories(targetRole: MembershipDocument['role'] = 'operator')
       },
       memberships: {
         find: async (_organisationId: string, userId: string) =>
-          userId === actorMembership.userId ? actorMembership : userId === target.userId ? target : null,
+          userId === actorMembership.userId ? { ...actorMembership, role: actorRole } : userId === target.userId ? target : null,
         listForOrganisation: async () => [actorMembership, target],
         updateRole: async (_organisationId: string, userId: string, role: MembershipDocument['role']) => {
           updatedRole = role
@@ -91,6 +105,9 @@ function createRepositories(targetRole: MembershipDocument['role'] = 'operator')
             newOwner: { ...target, userId: nextOwnerUserId, role: 'owner' as const },
           }
         },
+      },
+      audit: {
+        listForOrganisation: async () => [auditEvent],
       },
     },
     getUpdatedRole: () => updatedRole,
@@ -131,6 +148,38 @@ describe('membership REST API', () => {
         },
       ],
     })
+  })
+
+  it('lets owners and admins inspect organisation audit events but not viewers', async () => {
+    const ownerFixture = createRepositories('owner')
+    const ownerApp = await buildApp({ logger: false, auth: authenticatedAuth, repositories: ownerFixture.repositories as never })
+    apps.push(ownerApp)
+
+    const ownerResponse = await ownerApp.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/audit-events?limit=10`,
+    })
+    expect(ownerResponse.statusCode).toBe(200)
+    expect(ownerResponse.json()).toEqual({
+      events: [{
+        id: auditEvent._id,
+        actorUserId: auditEvent.actorUserId,
+        action: auditEvent.action,
+        entityType: auditEvent.entityType,
+        entityId: auditEvent.entityId,
+        metadata: auditEvent.metadata,
+        createdAt: auditEvent.createdAt.toISOString(),
+      }],
+    })
+
+    const viewerFixture = createRepositories('operator', 'viewer')
+    const viewerApp = await buildApp({ logger: false, auth: authenticatedAuth, repositories: viewerFixture.repositories as never })
+    apps.push(viewerApp)
+    const viewerResponse = await viewerApp.inject({
+      method: 'GET',
+      url: `/api/v1/organisations/${organisation._id}/audit-events`,
+    })
+    expect(viewerResponse.statusCode).toBe(403)
   })
 
   it('allows an owner to change a non-owner role', async () => {

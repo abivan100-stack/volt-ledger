@@ -11,6 +11,7 @@ import { getMongoDb } from './db/mongo.js'
 import {
   createVoltRepositories,
   createLedgerSeal,
+  type AuditRepository,
   type InvitationRepository,
   type LedgerRepository,
   type MembershipRepository,
@@ -19,6 +20,7 @@ import {
   type SimulationRepository,
 } from './db/repositories.js'
 import type {
+  AuditEventDocument,
   InvitationRole,
   JsonObject,
   MembershipDocument,
@@ -110,6 +112,7 @@ export interface OrganisationRouteRepositories {
     'createRun' | 'getDailyQuota' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
   ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
+  audit: Pick<AuditRepository, 'listForOrganisation'>
 }
 
 export interface InvitationEmailSender {
@@ -236,6 +239,18 @@ function serializeLedgerEvent(event: LedgerEventDocument) {
     adjustmentTargetEventId: event.adjustmentTargetEventId,
     adjustmentReason: event.adjustmentReason,
     idempotencyKey: event.idempotencyKey,
+    createdAt: event.createdAt.toISOString(),
+  }
+}
+
+function serializeAuditEvent(event: AuditEventDocument) {
+  return {
+    id: event._id,
+    actorUserId: event.actorUserId,
+    action: event.action,
+    entityType: event.entityType,
+    entityId: event.entityId,
+    metadata: event.metadata,
     createdAt: event.createdAt.toISOString(),
   }
 }
@@ -861,6 +876,40 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
     const members = await repositorySet.memberships.listForOrganisation(parsedParams.data.organisationId)
     return { members: members.map(serializeMembership) }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/audit-events', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
+    }
+    const parsedQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+      .safeParse(request.query)
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ error: 'Invalid audit event list options', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const events = await repositorySet.audit.listForOrganisation(
+      parsedParams.data.organisationId,
+      parsedQuery.data.limit,
+    )
+    return { events: events.map(serializeAuditEvent) }
   })
 
   app.post('/api/v1/organisations/:organisationId/ownership/transfer', async (request, reply) => {

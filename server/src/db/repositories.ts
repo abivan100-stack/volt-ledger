@@ -215,6 +215,7 @@ export interface LedgerRepository {
 
 export interface AuditRepository {
   append(input: CreateAuditEventInput): Promise<AuditEventDocument>
+  listForOrganisation(organisationId: string, limit?: number): Promise<AuditEventDocument[]>
 }
 
 export interface InvitationRepository {
@@ -1238,6 +1239,13 @@ function createAuditRepository(collections: VoltCollections): AuditRepository {
       }
       await collections.auditEvents.insertOne(document)
       return document
+    },
+    listForOrganisation(organisationId, limit = 100) {
+      return collections.auditEvents
+        .find({ organisationId })
+        .sort({ createdAt: -1 })
+        .limit(Math.min(Math.max(limit, 1), 500))
+        .toArray()
     },
   }
 }
