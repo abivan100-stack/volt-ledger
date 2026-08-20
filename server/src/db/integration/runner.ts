@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest'
 import { MongoClient, type Db } from 'mongodb'
+import { getVoltCollections, type VoltCollections } from '../collections.js'
 import { createVoltRepositories, type VoltRepositories } from '../repositories.js'
 import {
   clearVoltCollections,
@@ -24,6 +25,8 @@ const REQUIRE_INTEGRATION = 'VOLT_REQUIRE_INTEGRATION'
 export interface IntegrationSuite {
   db: () => Db
   client: () => MongoClient
+  /** Typed collections; `db().collection()` would assume ObjectId ids. */
+  collections: () => VoltCollections
   repositories: () => VoltRepositories
   /** False on a standalone server; suites needing transactions should skip. */
   supportsTransactions: () => boolean
@@ -82,6 +85,7 @@ export function describeIntegration(name: string, define: (suite: IntegrationSui
     define({
       db: () => required(context, 'The test database').db,
       client: () => required(context, 'The Mongo client').client,
+      collections: () => getVoltCollections(required(context, 'The test database').db),
       repositories: () => required(repositories, 'The repositories'),
       supportsTransactions: () => required(context, 'The test database').supportsTransactions,
     })
