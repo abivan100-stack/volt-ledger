@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import Header from '../components/sections/Header'
 import AccountPanel from '../components/account/AccountPanel'
+import OrganisationPanel from '../components/account/OrganisationPanel'
 import './AccountPage.css'
 
 function AccountPage() {
@@ -20,6 +21,7 @@ function AccountPage() {
             ledger. The public demo needs no account and is unaffected by anything on this page.
           </p>
           <AccountPanel />
+          <OrganisationPanel />
         </div>
       </main>
     </>

@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (415 tests)
+npm test               # run the client test suite once (449 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,10 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+Once signed in, the page lists the organisations you belong to, shows the role you hold in the selected one, and
+creates new ones. The identifier is derived from the name by `src/lib/slug.ts` and stops tracking it the moment you
+edit it by hand; it is validated against the same rules the API applies before the request is sent.
 
 Email sign-in and sign-up go through Better Auth (`src/api/auth.ts`). Because the API sets `requireEmailVerification`, sign-up does **not** start a session — it sends a verification email — and signing in before verifying is refused with `403` while a fresh verification email goes out; the UI must say so rather than assume success. `useSessionStore.signIn()` reads the session back from `/api/v1/me` after the cookie is set instead of inventing state from the submitted credentials.
 
@@ -169,6 +173,7 @@ src/
     dossier.ts            #   Household dossier data
     householdStatus.ts    #   Household status helpers
     permissions.ts        #   Membership-role predicates mirroring the API's rules
+    slug.ts               #   Organisation slug derivation and validation
     easing.ts             #   Shared easing functions for animation
   store/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)

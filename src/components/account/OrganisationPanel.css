@@ -1,0 +1,58 @@
+.organisation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 420px;
+  margin-top: 44px;
+  padding-top: 34px;
+  border-top: 1px solid var(--rule);
+}
+
+.organisation-panel-heading {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.organisation-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.organisation-select {
+  width: 100%;
+  cursor: pointer;
+}
+
+.organisation-role {
+  align-self: flex-start;
+  padding: 4px 9px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--settle);
+  background: color-mix(in srgb, var(--settle) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--settle) 34%, transparent);
+  border-radius: 3px;
+}
+
+.organisation-new {
+  align-self: flex-start;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 11px 17px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.organisation-new:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
