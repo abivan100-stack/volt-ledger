@@ -11,7 +11,8 @@ import type { AssignableRole, MembershipRole } from '../lib/permissions'
 export interface Membership {
   id: string
   userId: string
-  email: string
+  /** Null when no address was recorded for the membership. */
+  email: string | null
   role: MembershipRole
   createdAt: string
   updatedAt: string

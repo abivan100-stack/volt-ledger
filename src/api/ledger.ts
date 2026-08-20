@@ -20,7 +20,8 @@ export interface LedgerEvent {
   /** Monotonic within the organisation, starting at 1. */
   sequence: number
   eventType: LedgerEventType
-  outcome: SimulationOutcome | null
+  /** The accepted Monte Carlo outcome; present on adjustments too. */
+  outcome: SimulationOutcome
   actorUserId: string
   householdId: string
   /** `YYYY-MM-DD`. */

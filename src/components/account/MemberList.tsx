@@ -112,6 +112,10 @@ function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
   const [busy, setBusy] = useState(false)
   const [confirmingTransfer, setConfirmingTransfer] = useState(false)
 
+  // A membership may carry no email. Name the row by something readable rather
+  // than rendering "null" or labelling a control "Role for null".
+  const label = member.email ?? `No email recorded (${member.userId})`
+
   // A member cannot edit or remove their own membership through this list.
   const editable = canManageMembership(actorRole, member.role) && !isSelf
   const promotable = canTransferOwnership(actorRole) && member.role !== 'owner' && !isSelf
@@ -153,7 +157,7 @@ function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
   return (
     <li className="member-row">
       <div className="member-row-identity">
-        <span className="member-row-email">{member.email}</span>
+        <span className="member-row-email">{label}</span>
         {isSelf && <span className="mono member-row-self">YOU</span>}
       </div>
 
@@ -161,7 +165,7 @@ function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
         {editable ? (
           <select
             className="account-input member-row-role"
-            aria-label={`Role for ${member.email}`}
+            aria-label={`Role for ${label}`}
             value={member.role}
             disabled={busy}
             onChange={(event) => handleRoleChange(event.target.value as AssignableRole)}
@@ -189,7 +193,7 @@ function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
                 disabled={busy}
                 onClick={handleTransfer}
               >
-                {`CONFIRM: HAND OVER TO ${member.email}`}
+                {`CONFIRM: HAND OVER TO ${label}`}
               </button>
               <button
                 className="mono member-row-action"

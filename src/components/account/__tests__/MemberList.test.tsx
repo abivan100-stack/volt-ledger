@@ -32,11 +32,15 @@ vi.mock('../../../api/organisations', () => ({
 
 const ORG_ID = 'org-a'
 
-function member(userId: string, role: MembershipRole): Membership {
+function member(
+  userId: string,
+  role: MembershipRole,
+  email: string | null = `${userId}@example.com`,
+): Membership {
   return {
     id: `membership-${userId}`,
     userId,
-    email: `${userId}@example.com`,
+    email,
     role,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -46,6 +50,12 @@ function member(userId: string, role: MembershipRole): Membership {
 const OWNER = member('user-owner', 'owner')
 const ADMIN = member('user-admin', 'admin')
 const OPERATOR = member('user-op', 'operator')
+
+/** Membership.email is nullable in the API; these fixtures always set one. */
+function emailOf(entry: Membership): string {
+  if (entry.email === null) throw new Error('fixture is missing an email')
+  return entry.email
+}
 
 function organisation(role: MembershipRole): Organisation {
   return {
@@ -105,7 +115,7 @@ describe('MemberList', () => {
   it('loads the members of the selected organisation', async () => {
     await renderAsOwner()
     expect(listMock).toHaveBeenCalledWith(ORG_ID)
-    expect(screen.getByText(OPERATOR.email)).toBeTruthy()
+    expect(screen.getByText(emailOf(OPERATOR))).toBeTruthy()
   })
 
   it('offers a retry when the list fails', async () => {
@@ -141,7 +151,7 @@ describe('MemberList permissions', () => {
     render(<MemberList />)
     await waitFor(() => expect(useMembershipStore.getState().status).toBe('ready'))
 
-    expect(screen.queryByRole('combobox', { name: new RegExp(OWNER.email) })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: new RegExp(emailOf(OWNER)) })).toBeNull()
   })
 
   it('stops an admin editing another admin', async () => {
@@ -150,8 +160,8 @@ describe('MemberList permissions', () => {
     render(<MemberList />)
     await waitFor(() => expect(useMembershipStore.getState().status).toBe('ready'))
 
-    expect(screen.queryByRole('combobox', { name: new RegExp(ADMIN.email) })).toBeNull()
-    expect(screen.getByRole('combobox', { name: new RegExp(OPERATOR.email) })).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: new RegExp(emailOf(ADMIN)) })).toBeNull()
+    expect(screen.getByRole('combobox', { name: new RegExp(emailOf(OPERATOR)) })).toBeTruthy()
   })
 
   it('does not offer an admin the option to mint another admin', async () => {
@@ -159,7 +169,7 @@ describe('MemberList permissions', () => {
     render(<MemberList />)
     await waitFor(() => expect(useMembershipStore.getState().status).toBe('ready'))
 
-    const select = screen.getByRole('combobox', { name: new RegExp(OPERATOR.email) })
+    const select = screen.getByRole('combobox', { name: new RegExp(emailOf(OPERATOR)) })
     const options = Array.from(select.querySelectorAll('option')).map((option) => option.value)
     expect(options).toEqual(['operator', 'viewer'])
   })
@@ -167,7 +177,7 @@ describe('MemberList permissions', () => {
   it('lets an owner promote a member to admin', async () => {
     await renderAsOwner()
 
-    const select = screen.getByRole('combobox', { name: new RegExp(OPERATOR.email) })
+    const select = screen.getByRole('combobox', { name: new RegExp(emailOf(OPERATOR)) })
     const options = Array.from(select.querySelectorAll('option')).map((option) => option.value)
     expect(options).toEqual(['admin', 'operator', 'viewer'])
   })
@@ -177,7 +187,7 @@ describe('MemberList permissions', () => {
     render(<MemberList />)
     await waitFor(() => expect(useMembershipStore.getState().status).toBe('ready'))
 
-    expect(screen.queryByRole('combobox', { name: new RegExp(ADMIN.email) })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: new RegExp(emailOf(ADMIN)) })).toBeNull()
   })
 })
 
@@ -186,7 +196,7 @@ describe('MemberList actions', () => {
     await renderAsOwner()
     updateRoleMock.mockResolvedValue({ ...OPERATOR, role: 'viewer' })
 
-    fireEvent.change(screen.getByRole('combobox', { name: new RegExp(OPERATOR.email) }), {
+    fireEvent.change(screen.getByRole('combobox', { name: new RegExp(emailOf(OPERATOR)) }), {
       target: { value: 'viewer' },
     })
 
@@ -214,7 +224,7 @@ describe('MemberList actions', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toMatch(/Membership changed before removal/i)
-    expect(screen.getByText(OPERATOR.email)).toBeTruthy()
+    expect(screen.getByText(emailOf(OPERATOR))).toBeTruthy()
   })
 })
 
@@ -249,5 +259,36 @@ describe('MemberList ownership transfer', () => {
     await waitFor(() => expect(useMembershipStore.getState().status).toBe('ready'))
 
     expect(screen.queryByRole('button', { name: /make owner/i })).toBeNull()
+  })
+})
+
+describe('MemberList with no recorded email', () => {
+  // The API's membership document allows a null email, so the row must not
+  // render "null" or label a control "Role for null".
+  const ANONYMOUS = member('user-anon', 'operator', null)
+
+  it('falls back to a readable label instead of rendering null', async () => {
+    listMock.mockResolvedValue([OWNER, ANONYMOUS])
+    await renderAsOwner()
+
+    expect(screen.queryByText('null')).toBeNull()
+    expect(screen.getByText(/no email recorded/i)).toBeTruthy()
+  })
+
+  it('still labels the role control unambiguously', async () => {
+    listMock.mockResolvedValue([OWNER, ANONYMOUS])
+    await renderAsOwner()
+
+    const select = screen.getByRole('combobox', { name: /role for/i })
+    expect(select.getAttribute('aria-label')).not.toMatch(/null/)
+  })
+
+  it('still allows the row to be managed', async () => {
+    listMock.mockResolvedValue([OWNER, ANONYMOUS])
+    await renderAsOwner()
+    removeMock.mockResolvedValue(undefined)
+
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }))
+    await waitFor(() => expect(removeMock).toHaveBeenCalledWith(ORG_ID, ANONYMOUS.userId))
   })
 })
