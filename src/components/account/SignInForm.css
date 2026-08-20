@@ -1,0 +1,78 @@
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 420px;
+}
+
+.account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.account-field-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+
+.account-field-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.account-input {
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  font-family: Archivo, sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  transition: border-color 0.15s;
+}
+
+.account-input:focus-visible {
+  outline: none;
+  border-color: var(--sun);
+}
+
+.account-error {
+  margin: 0;
+  padding: 11px 13px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--void);
+  background: color-mix(in srgb, var(--void) 8%, transparent);
+  border-left: 2px solid var(--void);
+  border-radius: 0 4px 4px 0;
+}
+
+.account-submit {
+  align-self: flex-start;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 12px 22px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.account-submit:hover:not(:disabled) {
+  background: var(--sun);
+  border-color: var(--sun);
+}
+
+.account-submit:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

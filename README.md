@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (387 tests)
+npm test               # run the client test suite once (415 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -112,6 +112,13 @@ VITE_API_BASE_URL=http://localhost:4000
 Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
 
 Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out; any route answering `401` triggers that centrally, so no caller has to remember to handle it.
+
+### Account page (`/account`)
+
+Sign in, create an account, and sign out. The route is always present, but the header only links to it once
+`VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
+page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
+checking, signed out, signed in, expired, and "could not tell" with a retry.
 
 Email sign-in and sign-up go through Better Auth (`src/api/auth.ts`). Because the API sets `requireEmailVerification`, sign-up does **not** start a session — it sends a verification email — and signing in before verifying is refused with `403` while a fresh verification email goes out; the UI must say so rather than assume success. `useSessionStore.signIn()` reads the session back from `/api/v1/me` after the cookie is set instead of inventing state from the submitted credentials.
 
@@ -172,11 +179,13 @@ src/
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)
     uiSlice.ts            # UI slice (dossier selection, block editing)
   components/
+    account/              # Account/session components with co-located CSS
     sections/             # Page-section components with co-located CSS
     ui/                   # Reusable UI primitives (ErrorBoundary, SectionHeading, ...)
   pages/
     VoltPage.tsx          # Landing page route composition
     LedgerPage.tsx        # Live ledger route composition
+    AccountPage.tsx       # Sign in / create account / sign out
   theme/
     tokens.ts             # Design tokens (colours, fonts, spacing, easing)
     theme.css             # Global stylesheet

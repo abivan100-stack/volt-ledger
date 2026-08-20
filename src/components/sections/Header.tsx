@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { isApiConfigured } from '../../api/config'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import ThemeToggle from '../ui/ThemeToggle'
@@ -14,6 +15,8 @@ function Header() {
   const location = useLocation()
   const isLedgerPage = location.pathname.startsWith('/ledger')
   const rate = useEnergyStore((state) => state.rate)
+  // The demo needs no account, so the link only appears where one can be used.
+  const accountAvailable = isApiConfigured()
 
   const logo = (
     <>
@@ -55,6 +58,9 @@ function Header() {
               <a href="#how" className="mono header-link" onClick={handleHowItWorksClick}>HOW IT WORKS</a>
               <Link to="/ledger" className="mono header-link">LIVE LEDGER →</Link>
             </>
+          )}
+          {accountAvailable && (
+            <Link to="/account" className="mono header-link">ACCOUNT</Link>
           )}
           <span className="mono header-rate">
             <span className="header-rate-dot" />

@@ -5,12 +5,21 @@ import { MemoryRouter } from 'react-router-dom'
 import Header from '../Header'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 
+const { isApiConfiguredMock } = vi.hoisted(() => ({ isApiConfiguredMock: vi.fn() }))
+
+vi.mock('../../../api/config', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../api/config')>()),
+  isApiConfigured: isApiConfiguredMock,
+}))
+
 const pristine = useEnergyStore.getState()
 
 beforeEach(() => {
   useEnergyStore.setState(pristine, true)
   useEnergyStore.getState().start()
   useEnergyStore.getState().stop()
+  isApiConfiguredMock.mockReset()
+  isApiConfiguredMock.mockReturnValue(false)
 })
 
 afterEach(() => {
@@ -44,5 +53,27 @@ describe('Header', () => {
     const logo = screen.getByRole('link', { name: 'Volt — back to home' })
     expect(logo.getAttribute('href')).toBe('/')
     expect(logo.textContent).toContain('VOLT')
+  })
+})
+
+describe('Header account link', () => {
+  it('is absent in the browser-only demo, leaving the existing chrome untouched', () => {
+    isApiConfiguredMock.mockReturnValue(false)
+    renderHeader('/')
+    expect(screen.queryByRole('link', { name: /account/i })).toBeNull()
+  })
+
+  it('appears once an API is configured', () => {
+    isApiConfiguredMock.mockReturnValue(true)
+    renderHeader('/')
+
+    const link = screen.getByRole('link', { name: /account/i })
+    expect(link.getAttribute('href')).toBe('/account')
+  })
+
+  it('is also reachable from the ledger pages', () => {
+    isApiConfiguredMock.mockReturnValue(true)
+    renderHeader('/ledger')
+    expect(screen.getByRole('link', { name: /account/i }).getAttribute('href')).toBe('/account')
   })
 })

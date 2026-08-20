@@ -33,6 +33,12 @@ export interface SessionState {
   error: string | null
   /** True when a previously authenticated session was lost, not deliberately ended. */
   expired: boolean
+  /**
+   * The in-flight restore, held on the store rather than in a module variable so
+   * that resetting the store also drops it. A stale handle would otherwise make
+   * every later caller await a request that will never settle.
+   */
+  pendingRestore: Promise<void> | null
   restore: () => Promise<void>
   /** Signs in with email and password, then loads the resulting session. */
   signIn: (input: EmailSignInInput) => Promise<void>
@@ -42,19 +48,16 @@ export interface SessionState {
   dismissExpiryNotice: () => void
 }
 
-const SIGNED_OUT = {
+const SIGNED_OUT: Pick<SessionState, 'status' | 'user' | 'expiresAt'> = {
   status: 'anonymous',
   user: null,
   expiresAt: null,
-} as const
+}
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message
   return 'The session could not be restored'
 }
-
-/** Shared across concurrent callers so a burst of mounts issues one request. */
-let inFlightRestore: Promise<void> | null = null
 
 export const useSessionStore = create<SessionState>()((set, get) => ({
   status: 'unknown',
@@ -62,12 +65,15 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   expiresAt: null,
   error: null,
   expired: false,
+  pendingRestore: null,
 
   restore: () => {
-    if (inFlightRestore) return inFlightRestore
+    // Shared across concurrent callers so a burst of mounts issues one request.
+    const pending = get().pendingRestore
+    if (pending) return pending
 
     set({ status: 'restoring', error: null })
-    inFlightRestore = fetchSession()
+    const restoring = fetchSession()
       .then((session) => {
         if (session) {
           set({
@@ -87,10 +93,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         set({ status: 'error', user: null, expiresAt: null, error: messageFor(error) })
       })
       .finally(() => {
-        inFlightRestore = null
+        set({ pendingRestore: null })
       })
 
-    return inFlightRestore
+    set({ pendingRestore: restoring })
+    return restoring
   },
 
   signIn: async (input) => {
@@ -98,8 +105,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     // next to the sign-in form, not in the store's global error slot.
     await signInWithEmail(input)
     // The cookie is set but its user is not, so read the session back rather
-    // than inventing state from the credentials that were submitted.
-    inFlightRestore = null
+    // than inventing state from the credentials that were submitted. Any restore
+    // already in flight predates this sign-in, so it cannot answer for it.
+    set({ pendingRestore: null })
     await get().restore()
   },
 

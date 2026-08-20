@@ -13,9 +13,10 @@
 - `src/api/` — Typed REST client for the Volt API (fetch, cookies, ApiError); the only layer that talks to the backend
 - `src/lib/` — Pure logic (no React, no DOM, no store imports)
 - `src/store/` — Zustand stores (`useEnergyStore` simulation, `useSessionStore` authentication, `useOrganisationStore` organisation selection)
+- `src/components/account/` — Account/session components with co-located CSS
 - `src/components/sections/` — Page-section components with co-located CSS
 - `src/components/ui/` — Reusable UI primitives (ErrorBoundary, etc.)
-- `src/pages/` — VoltPage.tsx (landing), LedgerPage.tsx (live ledger)
+- `src/pages/` — VoltPage.tsx (landing), LedgerPage.tsx (live ledger), AccountPage.tsx (sign in/up)
 - `src/theme/` — Design tokens + global stylesheet
 - `src/utils/` — Framework-free helpers (animateProgress, etc.)
 
@@ -45,9 +46,10 @@
 
 ## Testing
 - Lib tests are in `src/lib/__tests__/`; API-client tests in `src/api/__tests__/`; store-action tests in `src/store/__tests__/`; hook tests in `src/hooks/__tests__/`; component tests in `src/components/sections/__tests__/` (happy-dom, `@testing-library/react`)
-- Each lib module has a corresponding test file (15 lib + 8 api + 8 store/hook + 9 component/page/theme test files, 387 tests)
+- Each lib module has a corresponding test file (15 lib + 7 api + 8 store/hook + 12 component/page/theme test files, 415 tests)
 - API-client tests run in the default node environment and inject a fake `fetch`; they never hit a real server
-- Store tests reset the singleton store to its pristine state before each case
+- Store tests reset the singleton store to its pristine state before each case; in-flight request handles live in store state (not module variables) so that reset actually clears them
+- No jest-dom: assert with `.textContent`, `.getAttribute()`, `toBeTruthy()`/`toBeNull()` rather than `toBeInTheDocument()`
 
 ## Agent skills
 

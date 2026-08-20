@@ -24,6 +24,11 @@ export interface OrganisationState {
   organisations: Organisation[]
   selectedId: string | null
   error: string | null
+  /**
+   * The in-flight load, held on the store rather than in a module variable so
+   * that resetting the store also drops it.
+   */
+  pendingLoad: Promise<void> | null
   load: () => Promise<void>
   select: (organisationId: string | null) => void
   /** The selected organisation, or `null`. */
@@ -33,11 +38,15 @@ export interface OrganisationState {
   reset: () => void
 }
 
-const EMPTY: Pick<OrganisationState, 'status' | 'organisations' | 'selectedId' | 'error'> = {
+const EMPTY: Pick<
+  OrganisationState,
+  'status' | 'organisations' | 'selectedId' | 'error' | 'pendingLoad'
+> = {
   status: 'unknown',
   organisations: [],
   selectedId: null,
   error: null,
+  pendingLoad: null,
 }
 
 function messageFor(error: unknown): string {
@@ -54,16 +63,15 @@ function resolveSelection(organisations: Organisation[], current: string | null)
   return organisations[0]?.id ?? null
 }
 
-let inFlightLoad: Promise<void> | null = null
-
 export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
   ...EMPTY,
 
   load: () => {
-    if (inFlightLoad) return inFlightLoad
+    const pending = get().pendingLoad
+    if (pending) return pending
 
     set({ status: 'loading', error: null })
-    inFlightLoad = listOrganisations()
+    const loading = listOrganisations()
       .then((organisations) => {
         set({
           status: 'ready',
@@ -76,10 +84,11 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
         set({ status: 'error', error: messageFor(error) })
       })
       .finally(() => {
-        inFlightLoad = null
+        set({ pendingLoad: null })
       })
 
-    return inFlightLoad
+    set({ pendingLoad: loading })
+    return loading
   },
 
   select: (organisationId) => {
