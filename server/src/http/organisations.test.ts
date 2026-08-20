@@ -90,6 +90,10 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
         listIntervals: async () => [],
         listSummaries: async () => [],
       },
+      ledger: {
+        settleCompletedRun: async () => { throw new Error('Ledger repository is not used by this test') },
+        list: async () => [],
+      },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
   }

@@ -97,7 +97,7 @@ npm run dev:api       # REST API on API_HOST/API_PORT
 npm run dev:worker    # claims queued runs and persists completed outcomes
 ```
 
-The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
+The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. An owner or admin can accept one completed outcome through `/simulations/:runId/settlement`; the server then appends one immutable, hash-linked event per household. Members can inspect those events through `/ledger`. Settlement energy is the accepted outcome's synthetic `exportedKwh`, and retries are idempotent. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
 
 ## Deployment
 

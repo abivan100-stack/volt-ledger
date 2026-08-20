@@ -20,14 +20,14 @@ type SimulationWorkerRepositories = {
   >
 }
 
-function safeErrorCode(error: unknown): string {
+function isPermanentSimulationError(error: unknown): error is Error {
   if (
     error instanceof Error &&
     ['INVALID_SIMULATION_INPUT', 'SIMULATION_INPUT_DIGEST_MISMATCH', 'UNSUPPORTED_MODEL_VERSION'].includes(error.message)
   ) {
-    return error.message
+    return true
   }
-  return 'SIMULATION_EXECUTION_FAILED'
+  return false
 }
 
 function buildCompletionInput(run: SimulationRunDocument): CompleteSimulationRunInput {
@@ -74,11 +74,22 @@ export async function executeClaimedSimulationRun(
 ): Promise<SimulationRunDocument> {
   if (run.status !== 'running') throw new Error('SIMULATION_RUN_NOT_RUNNING')
 
+  let completionInput: CompleteSimulationRunInput
   try {
-    return await repositories.simulations.completeRun(buildCompletionInput(run))
+    completionInput = buildCompletionInput(run)
   } catch (error) {
-    const errorCode = safeErrorCode(error)
-    return repositories.simulations.transitionRun(run._id, 'failed', { errorCode })
+    if (!isPermanentSimulationError(error)) throw error
+    return repositories.simulations.transitionRun(run._id, 'failed', { errorCode: error.message })
+  }
+
+  try {
+    return await repositories.simulations.completeRun(completionInput)
+  } catch (error) {
+    if (isPermanentSimulationError(error)) {
+      return repositories.simulations.transitionRun(run._id, 'failed', { errorCode: error.message })
+    }
+    // A Mongo/network failure must leave the lease running so a later worker poll can retry it.
+    throw error
   }
 }
 

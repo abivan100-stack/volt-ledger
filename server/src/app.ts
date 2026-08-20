@@ -10,7 +10,9 @@ import { env } from './config/env.js'
 import { getMongoDb } from './db/mongo.js'
 import {
   createVoltRepositories,
+  createLedgerSeal,
   type InvitationRepository,
+  type LedgerRepository,
   type MembershipRepository,
   type OrganisationRepository,
   type SimulationRepository,
@@ -22,6 +24,7 @@ import type {
   MembershipRole,
   OrganisationDocument,
   OrganisationInvitationDocument,
+  LedgerEventDocument,
   SimulationIntervalDocument,
   SimulationRunDocument,
   SimulationSummaryDocument,
@@ -72,6 +75,10 @@ const createSimulationSchema = z
   })
   .strict()
 
+const settleSimulationSchema = z.object({
+  outcome: z.enum(['p10', 'p50', 'p90', 'selected']).default('selected'),
+}).strict()
+
 export interface OrganisationRouteRepositories {
   organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser'>
   memberships: Pick<MembershipRepository, 'find' | 'listForOrganisation' | 'updateRole' | 'remove'>
@@ -83,6 +90,7 @@ export interface OrganisationRouteRepositories {
     SimulationRepository,
     'createRun' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
   >
+  ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'list'>
 }
 
 export interface InvitationEmailSender {
@@ -178,6 +186,59 @@ function serializeSimulationSummary(summary: SimulationSummaryDocument) {
     exportedKwh: summary.exportedKwh,
     estimatedCreditInr: summary.estimatedCreditInr,
     createdAt: summary.createdAt.toISOString(),
+  }
+}
+
+function serializeLedgerEvent(event: LedgerEventDocument) {
+  return {
+    id: event._id,
+    sequence: event.sequence,
+    eventType: event.eventType,
+    outcome: event.outcome,
+    householdId: event.householdId,
+    settlementDate: event.settlementDate,
+    sourceRunId: event.sourceRunId,
+    simulationResultDigest: event.simulationResultDigest,
+    energyKwh: event.energyKwh,
+    estimatedCreditInr: event.estimatedCreditInr,
+    previousSeal: event.previousSeal,
+    canonicalSeal: event.canonicalSeal,
+    createdAt: event.createdAt.toISOString(),
+  }
+}
+
+function inspectLedgerIntegrity(events: LedgerEventDocument[]) {
+  const ordered = [...events].sort((left, right) => left.sequence - right.sequence)
+  let valid = true
+  for (let index = 0; index < ordered.length; index += 1) {
+    const event = ordered[index]
+    const payload = {
+      organisationId: event.organisationId,
+      sequence: event.sequence,
+      eventType: event.eventType,
+      outcome: event.outcome,
+      householdId: event.householdId,
+      settlementDate: event.settlementDate,
+      sourceRunId: event.sourceRunId,
+      simulationResultDigest: event.simulationResultDigest,
+      energyKwh: event.energyKwh,
+      estimatedCreditInr: event.estimatedCreditInr,
+      previousSeal: event.previousSeal,
+    } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
+    if (createLedgerSeal(payload) !== event.canonicalSeal) valid = false
+    if (index === 0) {
+      if (event.sequence === 1 ? event.previousSeal !== null : event.previousSeal === null) valid = false
+    } else {
+      const previous = ordered[index - 1]
+      if (event.sequence !== previous.sequence + 1 || event.previousSeal !== previous.canonicalSeal) valid = false
+    }
+  }
+  return {
+    valid,
+    complete: ordered.length === 0 || ordered[0].sequence === 1,
+    checkedEvents: ordered.length,
+    firstSequence: ordered[0]?.sequence ?? null,
+    lastSequence: ordered.at(-1)?.sequence ?? null,
   }
 }
 
@@ -532,6 +593,103 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       intervals: intervals.map(serializeSimulationInterval),
       summaries: summaries.map(serializeSimulationSummary),
     }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/simulations/:runId/settlement', async (request, reply) => {
+    const parsedParams = z
+      .object({ organisationId: z.string().uuid(), runId: z.string().min(1).max(200) })
+      .safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid simulation identifier', code: 'INVALID_SIMULATION_ID' })
+    }
+    const parsedBody = settleSimulationSchema.safeParse(request.body ?? {})
+    if (!parsedBody.success) {
+      return reply.code(400).send({ error: 'Invalid settlement input', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const run = await repositorySet.simulations.findRunById(parsedParams.data.runId)
+    if (!run || run.organisationId !== parsedParams.data.organisationId) {
+      return reply.code(404).send({ error: 'Simulation run not found', code: 'SIMULATION_NOT_FOUND' })
+    }
+    if (run.status !== 'completed') {
+      return reply.code(409).send({ error: 'Completed simulation run is required', code: 'SIMULATION_NOT_COMPLETE' })
+    }
+
+    try {
+      const settled = await repositorySet.ledger.settleCompletedRun({
+        organisationId: parsedParams.data.organisationId,
+        runId: parsedParams.data.runId,
+        outcome: parsedBody.data.outcome,
+        actorUserId: access.session.user.id,
+      })
+      return reply.code(settled.alreadySettled ? 200 : 201).send({
+        settlement: {
+          runId: settled.run._id,
+          resultDigest: settled.run.resultDigest,
+          outcome: parsedBody.data.outcome,
+          alreadySettled: settled.alreadySettled,
+          events: settled.events.map(serializeLedgerEvent),
+        },
+      })
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'LEDGER_SETTLEMENT_FAILED'
+      if (code === 'SIMULATION_NOT_COMPLETE') {
+        return reply.code(409).send({ error: 'Completed simulation run is required', code })
+      }
+      if (code === 'SIMULATION_ALREADY_SETTLED_DIFFERENT_OUTCOME' || code === 'SIMULATION_SUMMARIES_INCOMPLETE') {
+        return reply.code(409).send({ error: 'Simulation run cannot be settled with this request', code })
+      }
+      if (code === 'SIMULATION_RESULT_DIGEST_MISSING' || code === 'SIMULATION_DATE_MISSING' || code === 'SIMULATION_HOUSEHOLDS_MISSING') {
+        return reply.code(422).send({ error: 'Simulation run is not settlement-ready', code })
+      }
+      app.log.error({ err: error }, 'Simulation settlement failed')
+      return reply.code(500).send({ error: 'Simulation run could not be settled', code: 'LEDGER_SETTLEMENT_FAILED' })
+    }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/ledger', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
+    }
+    const parsedQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+      .safeParse(request.query)
+    if (!parsedQuery.success) {
+      return reply.code(400).send({ error: 'Invalid ledger list options', code: 'INVALID_REQUEST' })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    const events = await repositorySet.ledger.list(parsedParams.data.organisationId, parsedQuery.data.limit)
+    return { events: events.map(serializeLedgerEvent), integrity: inspectLedgerIntegrity(events) }
   })
 
   app.get('/api/v1/organisations/:organisationId/memberships', async (request, reply) => {

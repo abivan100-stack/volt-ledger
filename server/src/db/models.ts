@@ -110,6 +110,7 @@ export interface LedgerEventDocument {
   organisationId: string
   sequence: number
   eventType: LedgerEventType
+  outcome: SimulationOutcome
   householdId: string
   settlementDate: string
   sourceRunId: string

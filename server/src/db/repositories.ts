@@ -101,12 +101,26 @@ export interface CreateSimulationSummaryInput {
 export interface AppendLedgerEventInput {
   organisationId: string
   eventType: LedgerEventType
+  outcome: SimulationOutcome
   householdId: string
   settlementDate: string
   sourceRunId: string
   simulationResultDigest: string
   energyKwh: number
   estimatedCreditInr: number
+}
+
+export interface SettleCompletedRunInput {
+  organisationId: string
+  runId: string
+  outcome: SimulationOutcome
+  actorUserId: string
+}
+
+export interface SettleCompletedRunResult {
+  run: SimulationRunDocument
+  events: LedgerEventDocument[]
+  alreadySettled: boolean
 }
 
 export interface CreateAuditEventInput {
@@ -158,6 +172,7 @@ export interface CompleteSimulationRunInput {
 
 export interface LedgerRepository {
   append(input: AppendLedgerEventInput): Promise<LedgerEventDocument>
+  settleCompletedRun(input: SettleCompletedRunInput): Promise<SettleCompletedRunResult>
   list(organisationId: string, limit?: number): Promise<LedgerEventDocument[]>
 }
 
@@ -238,6 +253,15 @@ function stableSerialize(value: unknown): string {
     return `{${entries.join(',')}}`
   }
   return JSON.stringify(value)
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000
+}
+
+function isValidIsoDate(value: string): boolean {
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
 export function createLedgerSeal(payload: Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>): string {
@@ -666,6 +690,7 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
             organisationId: input.organisationId,
             sequence: counter.nextSequence,
             eventType: input.eventType,
+            outcome: input.outcome,
             householdId: input.householdId,
             settlementDate: input.settlementDate,
             sourceRunId: input.sourceRunId,
@@ -686,6 +711,150 @@ function createLedgerRepository(collections: VoltCollections, client: MongoClien
 
         if (!event) throw new Error('Ledger event was not created')
         return event
+      } finally {
+        await session.endSession()
+      }
+    },
+    async settleCompletedRun(input) {
+      const session = client.startSession()
+      try {
+        let result: SettleCompletedRunResult | undefined
+        try {
+          await session.withTransaction(async () => {
+          const run = await collections.simulationRuns.findOne(
+            { _id: input.runId, organisationId: input.organisationId, status: 'completed', deletedAt: null },
+            { session },
+          )
+          if (!run) throw new Error('SIMULATION_NOT_COMPLETE')
+          if (!run.resultDigest) throw new Error('SIMULATION_RESULT_DIGEST_MISSING')
+
+          const existing = await collections.ledgerEvents
+            .find({ organisationId: input.organisationId, sourceRunId: input.runId, eventType: 'settlement' }, { session })
+            .sort({ sequence: 1 })
+            .toArray()
+          if (existing.length > 0) {
+            if (existing.some((event) => event.simulationResultDigest !== run.resultDigest || event.outcome !== input.outcome)) {
+              throw new Error('SIMULATION_ALREADY_SETTLED_DIFFERENT_OUTCOME')
+            }
+            result = { run, events: existing, alreadySettled: true }
+            return
+          }
+
+          const snapshot = run.inputSnapshot
+          const settlementDate = typeof snapshot.simulationDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(snapshot.simulationDate) && isValidIsoDate(snapshot.simulationDate)
+            ? snapshot.simulationDate
+            : null
+          if (!settlementDate) throw new Error('SIMULATION_DATE_MISSING')
+          const households = Array.isArray(snapshot.households)
+            ? snapshot.households
+                .map((household) => (household && typeof household === 'object' && 'id' in household ? household.id : null))
+                .filter((id): id is string => typeof id === 'string')
+            : []
+          const expectedHouseholds = new Set(households)
+          if (expectedHouseholds.size === 0) throw new Error('SIMULATION_HOUSEHOLDS_MISSING')
+
+          const summaries = await collections.simulationSummaries
+            .find({
+              organisationId: input.organisationId,
+              runId: input.runId,
+              outcome: input.outcome,
+              deletedAt: null,
+            }, { session })
+            .sort({ householdId: 1 })
+            .toArray()
+          if (
+            summaries.length !== expectedHouseholds.size ||
+            summaries.some((summary) => !expectedHouseholds.has(summary.householdId)) ||
+            new Set(summaries.map((summary) => summary.householdId)).size !== summaries.length
+          ) {
+            throw new Error('SIMULATION_SUMMARIES_INCOMPLETE')
+          }
+
+          await ensureLedgerCounter(collections, input.organisationId, session)
+          const events: LedgerEventDocument[] = []
+          for (const summary of summaries) {
+            const counter = await collections.counters.findOneAndUpdate(
+              { _id: `ledger:${input.organisationId}` },
+              { $inc: { nextSequence: 1 }, $set: { updatedAt: new Date() } },
+              { returnDocument: 'after', session },
+            )
+            if (!counter) throw new Error('LEDGER_SEQUENCE_UNAVAILABLE')
+            const previous = counter.nextSequence === 1
+              ? null
+              : await collections.ledgerEvents.findOne(
+                  { organisationId: input.organisationId, sequence: counter.nextSequence - 1 },
+                  { session },
+                )
+            if (counter.nextSequence > 1 && !previous) throw new Error('LEDGER_CHAIN_GAP')
+
+            const payload = {
+              organisationId: input.organisationId,
+              sequence: counter.nextSequence,
+              eventType: 'settlement' as const,
+              outcome: input.outcome,
+              householdId: summary.householdId,
+              settlementDate,
+              sourceRunId: input.runId,
+              simulationResultDigest: run.resultDigest,
+              energyKwh: summary.exportedKwh,
+              estimatedCreditInr: summary.estimatedCreditInr,
+              previousSeal: previous?.canonicalSeal ?? null,
+            } satisfies Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'>
+            events.push({
+              ...payload,
+              _id: randomUUID(),
+              canonicalSeal: createLedgerSeal(payload),
+              createdAt: new Date(),
+            })
+            await collections.ledgerEvents.insertOne(events.at(-1)!, { session })
+          }
+
+          const audit: AuditEventDocument = {
+            _id: randomUUID(),
+            organisationId: input.organisationId,
+            actorUserId: input.actorUserId,
+            action: 'settlement.accepted',
+            entityType: 'simulation_run',
+            entityId: input.runId,
+            metadata: {
+              outcome: input.outcome,
+              resultDigest: run.resultDigest,
+              settlementDate,
+              eventCount: events.length,
+            },
+            createdAt: new Date(),
+          }
+          await collections.auditEvents.insertOne(audit, { session })
+          result = { run, events, alreadySettled: false }
+          })
+        } catch (error) {
+          // A concurrent retry can lose the unique settlement race after the winning
+          // transaction commits. Return that committed batch instead of duplicating it.
+          if (!isDuplicateKeyError(error)) throw error
+          const committedRun = await collections.simulationRuns.findOne({
+            _id: input.runId,
+            organisationId: input.organisationId,
+            status: 'completed',
+            deletedAt: null,
+          })
+          const committedEvents = await collections.ledgerEvents
+            .find({ organisationId: input.organisationId, sourceRunId: input.runId, eventType: 'settlement' })
+            .sort({ sequence: 1 })
+            .toArray()
+          if (
+            committedRun?.resultDigest &&
+            committedEvents.length > 0 &&
+            committedEvents.every((event) =>
+              event.simulationResultDigest === committedRun.resultDigest && event.outcome === input.outcome,
+            )
+          ) {
+            result = { run: committedRun, events: committedEvents, alreadySettled: true }
+          } else {
+            throw error
+          }
+        }
+        if (!result) throw new Error('LEDGER_SETTLEMENT_FAILED')
+        return result
       } finally {
         await session.endSession()
       }

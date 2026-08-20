@@ -149,6 +149,12 @@ const collectionSpecs: CollectionSpec[] = [
         unique: true,
       },
       {
+        key: { organisationId: 1, sourceRunId: 1, householdId: 1, eventType: 1 },
+        name: 'ledger_events_settlement_run_household_unique',
+        unique: true,
+        partialFilterExpression: { eventType: 'settlement' },
+      },
+      {
         key: { organisationId: 1, settlementDate: 1, householdId: 1 },
         name: 'ledger_events_organisation_date_household',
       },

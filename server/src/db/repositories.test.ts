@@ -35,10 +35,20 @@ function createMemoryCollection() {
     async findOne(filter: Document) {
       return documents.find((document) => matches(document, filter)) ?? null
     },
-    async findOneAndUpdate(filter: Document, update: Document) {
-      const document = documents.find((candidate) => matches(candidate, filter))
+    async findOneAndUpdate(filter: Document, update: Document, options?: Document) {
+      let document = documents.find((candidate) => matches(candidate, filter))
+      if (!document && options?.upsert) {
+        document = { _id: String(filter._id ?? `generated_${documents.length}`) }
+        documents.push(document)
+        if ('$setOnInsert' in update) Object.assign(document, update.$setOnInsert)
+      }
       if (!document) return null
       if ('$set' in update) Object.assign(document, update.$set)
+      if ('$inc' in update) {
+        for (const [key, amount] of Object.entries(update.$inc as Record<string, number>)) {
+          document[key] = Number(document[key] ?? 0) + amount
+        }
+      }
       return document
     },
     find(filter: Document) {
@@ -63,10 +73,20 @@ function createMemoryCollection() {
         },
       }
     },
-    async updateOne(filter: Document, update: Document) {
-      const document = documents.find((candidate) => matches(candidate, filter))
+    async updateOne(filter: Document, update: Document, options?: Document) {
+      let document = documents.find((candidate) => matches(candidate, filter))
+      if (!document && options?.upsert) {
+        document = { _id: String(filter._id ?? `generated_${documents.length}`) }
+        documents.push(document)
+        if ('$setOnInsert' in update) Object.assign(document, update.$setOnInsert)
+      }
       if (!document) return { acknowledged: true, matchedCount: 0, modifiedCount: 0 }
       if ('$set' in update) Object.assign(document, update.$set)
+      if ('$inc' in update) {
+        for (const [key, amount] of Object.entries(update.$inc as Record<string, number>)) {
+          document[key] = Number(document[key] ?? 0) + amount
+        }
+      }
       return { acknowledged: true, matchedCount: 1, modifiedCount: 1 }
     },
   }
@@ -347,11 +367,99 @@ describe('Volt Mongo repositories', () => {
     expect(endedSessionCount).toBe(1)
   })
 
+  it('settles one completed run idempotently into a hash-linked ledger batch', async () => {
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => operation(),
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(createMemoryDb(), client)
+    const run = await repositories.simulations.createRun({
+      organisationId: 'org_123',
+      requestedByUserId: 'user_123',
+      seed: 'settlement-seed',
+      modelVersion: 'monte-carlo-v1',
+      inputSnapshot: {
+        simulationDate: '2030-01-01',
+        households: [
+          { id: 'household_1', pvKw: 4, baseLoadKw: 0.6 },
+          { id: 'household_2', pvKw: 2, baseLoadKw: 0.8 },
+        ],
+      },
+      inputDigest: 'input-digest',
+    })
+    await repositories.simulations.transitionRun(run._id, 'running')
+    await repositories.simulations.completeRun({
+      runId: run._id,
+      resultDigest: 'result-digest',
+      intervals: [],
+      summaries: [{
+        organisationId: 'org_123',
+        runId: run._id,
+        householdId: 'household_1',
+        outcome: 'selected',
+        intervalCount: 1,
+        generatedKwh: 1,
+        consumedKwh: 0.4,
+        importedKwh: 0,
+        exportedKwh: 0.6,
+        estimatedCreditInr: 3.3,
+      }, {
+        organisationId: 'org_123',
+        runId: run._id,
+        householdId: 'household_2',
+        outcome: 'selected',
+        intervalCount: 1,
+        generatedKwh: 0.8,
+        consumedKwh: 0.5,
+        importedKwh: 0,
+        exportedKwh: 0.3,
+        estimatedCreditInr: 1.65,
+      }],
+    })
+
+    const first = await repositories.ledger.settleCompletedRun({
+      organisationId: 'org_123',
+      runId: run._id,
+      outcome: 'selected',
+      actorUserId: 'admin_123',
+    })
+    expect(first.alreadySettled).toBe(false)
+    expect(first.events).toHaveLength(2)
+    expect(first.events[0]).toMatchObject({
+      sequence: 1,
+      previousSeal: null,
+      energyKwh: 0.6,
+      estimatedCreditInr: 3.3,
+      simulationResultDigest: 'result-digest',
+      outcome: 'selected',
+    })
+    expect(first.events[1]).toMatchObject({ sequence: 2, previousSeal: first.events[0].canonicalSeal, householdId: 'household_2' })
+
+    const retry = await repositories.ledger.settleCompletedRun({
+      organisationId: 'org_123',
+      runId: run._id,
+      outcome: 'selected',
+      actorUserId: 'admin_123',
+    })
+    expect(retry.alreadySettled).toBe(true)
+    expect(retry.events).toEqual(first.events)
+    expect(await repositories.ledger.list('org_123')).toHaveLength(2)
+    await expect(repositories.ledger.settleCompletedRun({
+      organisationId: 'org_123',
+      runId: run._id,
+      outcome: 'p50',
+      actorUserId: 'admin_123',
+    })).rejects.toThrow('SIMULATION_ALREADY_SETTLED_DIFFERENT_OUTCOME')
+  })
+
   it('creates a stable seal from the complete ledger link payload', () => {
     const payload: Omit<LedgerEventDocument, '_id' | 'canonicalSeal' | 'createdAt'> = {
       organisationId: 'org_123',
       sequence: 1,
       eventType: 'settlement',
+      outcome: 'selected',
       householdId: 'household_1',
       settlementDate: '2026-01-01',
       sourceRunId: 'run_123',

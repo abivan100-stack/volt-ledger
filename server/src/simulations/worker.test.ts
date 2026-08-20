@@ -98,4 +98,14 @@ describe('simulation worker', () => {
     expect(failed).toMatchObject({ status: 'failed', errorCode: 'SIMULATION_INPUT_DIGEST_MISMATCH' })
     expect(fixture.getFailedRun()).toEqual({ id: run._id, errorCode: 'SIMULATION_INPUT_DIGEST_MISMATCH' })
   })
+
+  it('leaves persistence failures retryable instead of permanently failing the run', async () => {
+    const fixture = repositories()
+    fixture.simulations.completeRun = async () => {
+      throw new Error('Mongo network timeout')
+    }
+
+    await expect(executeClaimedSimulationRun(fixture, run)).rejects.toThrow('Mongo network timeout')
+    expect(fixture.getFailedRun()).toBeUndefined()
+  })
 })

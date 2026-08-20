@@ -3,11 +3,13 @@ import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../auth/auth.js'
 import type {
   MembershipDocument,
+  LedgerEventDocument,
   OrganisationDocument,
   SimulationIntervalDocument,
   SimulationRunDocument,
   SimulationSummaryDocument,
 } from '../db/models.js'
+import { createLedgerSeal } from '../db/repositories.js'
 import { buildApp } from '../app.js'
 
 const apps: FastifyInstance[] = []
@@ -83,6 +85,35 @@ const summary: SimulationSummaryDocument = {
   deletedAt: null,
 }
 
+const ledgerEvent: LedgerEventDocument = {
+  _id: 'ledger_123',
+  organisationId: organisation._id,
+  sequence: 1,
+  eventType: 'settlement',
+  outcome: 'selected',
+  householdId: 'household_1',
+  settlementDate: '2030-01-01',
+  sourceRunId: run._id,
+  simulationResultDigest: 'result-digest',
+  energyKwh: 0.4,
+  estimatedCreditInr: 2.2,
+  previousSeal: null,
+  canonicalSeal: createLedgerSeal({
+    organisationId: organisation._id,
+    sequence: 1,
+    eventType: 'settlement',
+    outcome: 'selected',
+    householdId: 'household_1',
+    settlementDate: '2030-01-01',
+    sourceRunId: run._id,
+    simulationResultDigest: 'result-digest',
+    energyKwh: 0.4,
+    estimatedCreditInr: 2.2,
+    previousSeal: null,
+  }),
+  createdAt: new Date('2030-01-01T00:04:00.000Z'),
+}
+
 function authFor(_role: MembershipDocument['role']): AuthService {
   return {
     handle: async () => new Response(null, { status: 204 }),
@@ -138,6 +169,10 @@ function createRepositories(role: MembershipDocument['role'] = 'operator', initi
         listForOrganisation: async () => [initialRun],
         listIntervals: async () => [interval],
         listSummaries: async () => [summary],
+      },
+      ledger: {
+        settleCompletedRun: async () => ({ run: initialRun, events: [ledgerEvent], alreadySettled: false }),
+        list: async () => [ledgerEvent],
       },
     },
     getReceivedInput: () => receivedInput,
@@ -263,6 +298,45 @@ describe('simulation REST API', () => {
     expect(pendingResponse.json()).toEqual({
       error: 'Simulation results are not available yet',
       code: 'SIMULATION_NOT_COMPLETE',
+    })
+  })
+
+  it('restricts settlement acceptance to admins and exposes immutable ledger events to members', async () => {
+    const operatorFixture = createRepositories('operator', { ...run, status: 'completed', resultDigest: 'result-digest' })
+    const operatorApp = await buildApp({ logger: false, auth: authFor('operator'), repositories: operatorFixture.repositories as never })
+    apps.push(operatorApp)
+    const forbidden = await operatorApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/simulations/${run._id}/settlement`,
+      payload: { outcome: 'selected' },
+    })
+    expect(forbidden.statusCode).toBe(403)
+
+    const adminFixture = createRepositories('admin', { ...run, status: 'completed', resultDigest: 'result-digest' })
+    const adminApp = await buildApp({ logger: false, auth: authFor('admin'), repositories: adminFixture.repositories as never })
+    apps.push(adminApp)
+    const accepted = await adminApp.inject({
+      method: 'POST',
+      url: `/api/v1/organisations/${organisation._id}/simulations/${run._id}/settlement`,
+      payload: { outcome: 'selected' },
+    })
+    expect(accepted.statusCode).toBe(201)
+    expect(accepted.json()).toMatchObject({
+      settlement: {
+        runId: run._id,
+        outcome: 'selected',
+        events: [{ sequence: 1, sourceRunId: run._id, canonicalSeal: ledgerEvent.canonicalSeal }],
+      },
+    })
+
+    const memberFixture = createRepositories('viewer', { ...run, status: 'completed', resultDigest: 'result-digest' })
+    const memberApp = await buildApp({ logger: false, auth: authFor('viewer'), repositories: memberFixture.repositories as never })
+    apps.push(memberApp)
+    const ledger = await memberApp.inject({ method: 'GET', url: `/api/v1/organisations/${organisation._id}/ledger?limit=10` })
+    expect(ledger.statusCode).toBe(200)
+    expect(ledger.json()).toMatchObject({
+      events: [{ sequence: 1, outcome: 'selected', energyKwh: 0.4 }],
+      integrity: { valid: true, complete: true, checkedEvents: 1, firstSequence: 1, lastSequence: 1 },
     })
   })
 })

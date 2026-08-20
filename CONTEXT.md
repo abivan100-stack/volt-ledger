@@ -88,4 +88,7 @@ _Avoid_: Client hash, browser seal
 
 **Settlement**:
 The daily, per-household energy total accepted from a completed simulation run and recorded as a ledger event.
+
+Settlement acceptance is an owner/admin action. It records the chosen Monte Carlo outcome and uses that outcome's
+`exportedKwh` and `estimatedCreditInr`; these are synthetic estimates, not meter readings or payments.
 _Avoid_: Interval trade, live payment
