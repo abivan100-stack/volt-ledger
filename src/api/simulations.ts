@@ -113,6 +113,39 @@ interface QuotaResponse {
 }
 
 /**
+ * How much of this organisation is waiting, and whether anything is draining it.
+ *
+ * The two readings only mean something together: a backlog with a `live` worker
+ * is a busy system, and the same backlog with a `stale` worker is an outage.
+ */
+export interface SimulationQueueDepth {
+  queued: number
+  running: number
+  /** ISO-8601 of the longest-waiting queued run, or null when nothing waits. */
+  oldestQueuedAt: string | null
+  oldestQueuedWaitSeconds: number | null
+}
+
+export const WORKER_LIVENESS = ['live', 'stale', 'stopped', 'unknown'] as const
+
+/**
+ * `live` reported recently, `stale` went quiet, `stopped` shut down cleanly, and
+ * `unknown` never reported at all. Deliberately coarse: the API exposes no worker
+ * identity, failure counts, or error codes to members.
+ */
+export type WorkerLiveness = (typeof WORKER_LIVENESS)[number]
+
+export interface SimulationQueueWorker {
+  liveness: WorkerLiveness
+  lastSeenAt: string | null
+}
+
+export interface SimulationQueue {
+  queue: SimulationQueueDepth
+  worker: SimulationQueueWorker
+}
+
+/**
  * Queues a run. Answers `202` — the run is `queued`, not finished. Exhausting the
  * organisation's daily quota rejects with `429` and a `Retry-After`.
  */
@@ -178,4 +211,15 @@ export async function getSimulationQuota(
     `/api/v1/organisations/${organisationId}/simulations/quota`,
   )
   return response.quota
+}
+
+/** Queue depth and worker liveness together. Readable by any member. */
+export async function getSimulationQueue(
+  organisationId: string,
+  options: ResourceOptions = {},
+): Promise<SimulationQueue> {
+  return send<SimulationQueue>(
+    options,
+    `/api/v1/organisations/${organisationId}/simulations/queue`,
+  )
 }

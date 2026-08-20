@@ -485,6 +485,23 @@ const ROUTES: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/api/v1/organisations/:organisationId/simulations/queue',
+    operationId: 'getSimulationQueue',
+    summary: 'Queue depth and worker liveness',
+    description:
+      'Readable by any member. Reports how many runs in this organisation are waiting or in flight, how long the ' +
+      'longest-waiting one has been queued, and whether a worker is draining the queue. The two readings only mean ' +
+      'something together: a backlog with a `live` worker is a busy system, the same backlog with a `stale` worker is ' +
+      'an outage. Worker detail is deliberately coarse — no identity, failure counts, or error codes — because every ' +
+      'member can read it.',
+    tags: ['Simulations'],
+    authenticated: true,
+    roles: ['owner', 'admin', 'operator', 'viewer'],
+    success: [{ status: 200, description: 'The current depth and worker reading.', schema: 'SimulationQueueResponse' }],
+    errors: [...MEMBERSHIP_ERRORS, INVALID_ORGANISATION_ID, ORGANISATION_NOT_FOUND],
+  },
+  {
+    method: 'get',
     path: '/api/v1/organisations/:organisationId/simulations/:runId',
     operationId: 'getSimulationRun',
     summary: 'Simulation run status',

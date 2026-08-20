@@ -173,6 +173,35 @@ export const simulationQuotaSchema = z.object({
 
 export const simulationQuotaResponseSchema = z.object({ quota: simulationQuotaSchema }).strict()
 
+export const simulationQueueSchema = z.object({
+  queued: z.number().int().min(0),
+  running: z.number().int().min(0),
+  oldestQueuedAt: isoDateTime.nullable().describe('When the longest-waiting queued run was created'),
+  oldestQueuedWaitSeconds: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .describe('How long that run has waited; null when nothing is queued'),
+}).strict()
+
+/**
+ * Deliberately coarse. Any member can read this, so it answers whether the queue
+ * is being drained and nothing about the infrastructure doing the draining: no
+ * worker identity, failure counts, or error codes.
+ */
+export const workerLivenessSchema = z.object({
+  liveness: z
+    .enum(['live', 'stale', 'stopped', 'unknown'])
+    .describe('live: reporting recently. stale: gone quiet. stopped: shut down cleanly. unknown: never reported.'),
+  lastSeenAt: isoDateTime.nullable(),
+}).strict()
+
+export const simulationQueueResponseSchema = z.object({
+  queue: simulationQueueSchema,
+  worker: workerLivenessSchema,
+}).strict()
+
 export const simulationIntervalSchema = z.object({
   id: z.string(),
   householdId: z.string(),

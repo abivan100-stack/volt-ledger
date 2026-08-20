@@ -209,9 +209,17 @@ export interface MembershipRepository {
   softDelete(organisationId: string, userId: string): Promise<boolean>
 }
 
+/** What is waiting, and how long the front of the queue has been there. */
+export interface SimulationQueueDepth {
+  queued: number
+  running: number
+  oldestQueuedAt: Date | null
+}
+
 export interface SimulationRepository {
   createRun(input: CreateSimulationRunInput): Promise<SimulationRunDocument>
   getDailyQuota(organisationId: string): Promise<SimulationQuotaSnapshot>
+  getQueueDepth(organisationId: string): Promise<SimulationQueueDepth>
   findRunById(id: string): Promise<SimulationRunDocument | null>
   listForOrganisation(organisationId: string, limit?: number): Promise<SimulationRunDocument[]>
   claimNextQueuedRun(): Promise<SimulationRunDocument | null>
@@ -274,6 +282,8 @@ export interface RecordWorkerHeartbeatInput {
 export interface WorkerRepository {
   recordHeartbeat(input: RecordWorkerHeartbeatInput): Promise<WorkerHeartbeatDocument>
   findHeartbeat(workerId: string): Promise<WorkerHeartbeatDocument | null>
+  /** The worker heard from most recently, whichever one that is. */
+  findMostRecentHeartbeat(): Promise<WorkerHeartbeatDocument | null>
   listHeartbeats(): Promise<WorkerHeartbeatDocument[]>
 }
 
@@ -850,6 +860,20 @@ function createSimulationRepository(collections: VoltCollections, client: MongoC
         usageDate,
       })
       return createSimulationQuotaSnapshot(usage, now)
+    },
+    async getQueueDepth(organisationId) {
+      // Counted rather than listed: a backlog is exactly the case where loading
+      // the runs to measure them is the wrong thing to do.
+      const [queued, running, oldest] = await Promise.all([
+        collections.simulationRuns.countDocuments({ organisationId, status: 'queued', deletedAt: null }),
+        collections.simulationRuns.countDocuments({ organisationId, status: 'running', deletedAt: null }),
+        collections.simulationRuns.findOne(
+          { organisationId, status: 'queued', deletedAt: null },
+          { sort: { createdAt: 1 }, projection: { createdAt: 1 } },
+        ),
+      ])
+
+      return { queued, running, oldestQueuedAt: oldest?.createdAt ?? null }
     },
     findRunById(id) {
       return collections.simulationRuns.findOne({ _id: id, deletedAt: null })
@@ -1610,6 +1634,12 @@ function createWorkerRepository(collections: VoltCollections): WorkerRepository 
 
     async findHeartbeat(workerId) {
       return collections.workerHeartbeats.findOne({ _id: workerId })
+    },
+
+    async findMostRecentHeartbeat() {
+      // With several workers the freshest beat is the one that answers "is
+      // anything draining the queue"; an older sibling being down does not.
+      return collections.workerHeartbeats.findOne({}, { sort: { updatedAt: -1 } })
     },
 
     async listHeartbeats() {

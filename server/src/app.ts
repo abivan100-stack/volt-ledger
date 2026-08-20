@@ -16,7 +16,9 @@ import {
   type MembershipRepository,
   type OrganisationRepository,
   type SimulationQuotaSnapshot,
+  type SimulationQueueDepth,
   type SimulationRepository,
+  type WorkerRepository,
   type AuditEventCursor,
   type AuditEventPageOptions,
 } from './db/repositories.js'
@@ -32,12 +34,14 @@ import type {
   SimulationIntervalDocument,
   SimulationRunDocument,
   SimulationSummaryDocument,
+  WorkerHeartbeatDocument,
 } from './db/models.js'
 import {
   sendOrganisationInvitationEmail,
   type OrganisationInvitationEmailInput,
 } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
+import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
 import {
   acceptInvitationBodySchema,
@@ -75,10 +79,17 @@ export interface OrganisationRouteRepositories {
   >
   simulations: Pick<
     SimulationRepository,
-    'createRun' | 'getDailyQuota' | 'findRunById' | 'listForOrganisation' | 'listIntervals' | 'listSummaries'
+    | 'createRun'
+    | 'getDailyQuota'
+    | 'getQueueDepth'
+    | 'findRunById'
+    | 'listForOrganisation'
+    | 'listIntervals'
+    | 'listSummaries'
   >
   ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
   audit: Pick<AuditRepository, 'listForOrganisation' | 'listPageForOrganisation'>
+  workers: Pick<WorkerRepository, 'findMostRecentHeartbeat'>
 }
 
 export interface InvitationEmailSender {
@@ -153,6 +164,37 @@ function serializeSimulationQuota(quota: SimulationQuotaSnapshot) {
     limit: quota.limit,
     remaining: quota.remaining,
     resetsAt: quota.resetsAt.toISOString(),
+  }
+}
+
+/**
+ * The queue as a member sees it: how much is waiting, and how long the front of
+ * it has been there. The wait is computed here rather than stored, and floored
+ * at zero so a clock skew between the API and the database never reads as a run
+ * queued in the future.
+ */
+function serializeSimulationQueue(depth: SimulationQueueDepth, now: Date) {
+  const waitMs = depth.oldestQueuedAt ? now.getTime() - depth.oldestQueuedAt.getTime() : null
+
+  return {
+    queued: depth.queued,
+    running: depth.running,
+    oldestQueuedAt: depth.oldestQueuedAt?.toISOString() ?? null,
+    oldestQueuedWaitSeconds: waitMs === null ? null : Math.max(0, Math.floor(waitMs / 1000)),
+  }
+}
+
+/**
+ * Deliberately narrow. Any member can read this, so it says whether something is
+ * draining the queue and nothing about the infrastructure doing it: no worker
+ * identity, failure counts, or error codes leave the process.
+ */
+function serializeWorkerLiveness(heartbeat: WorkerHeartbeatDocument | null, now: Date) {
+  if (!heartbeat) return { liveness: 'unknown' as const, lastSeenAt: null }
+
+  return {
+    liveness: deriveWorkerLiveness(heartbeat, { now }),
+    lastSeenAt: heartbeat.updatedAt.toISOString(),
   }
 }
 
@@ -620,6 +662,44 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     }
 
     return { quota: serializeSimulationQuota(await repositorySet.simulations.getDailyQuota(parsedParams.data.organisationId)) }
+  })
+
+  app.get('/api/v1/organisations/:organisationId/simulations/queue', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({
+        error: 'Invalid organisation identifier',
+        code: 'INVALID_ORGANISATION_ID',
+      })
+    }
+
+    const repositorySet = repositories()
+    const access = await getOrganisationAccess(
+      fromNodeHeaders(request.headers),
+      auth(),
+      repositorySet.memberships,
+      parsedParams.data.organisationId,
+      ['owner', 'admin', 'operator', 'viewer'],
+    )
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const organisation = await repositorySet.organisations.findById(parsedParams.data.organisationId)
+    if (!organisation) {
+      return reply.code(404).send({ error: 'Organisation not found', code: 'ORGANISATION_NOT_FOUND' })
+    }
+
+    // Read together and stamped against one clock: a depth from one moment and a
+    // liveness from another would describe a system that never existed.
+    const now = new Date()
+    const [depth, heartbeat] = await Promise.all([
+      repositorySet.simulations.getQueueDepth(parsedParams.data.organisationId),
+      repositorySet.workers.findMostRecentHeartbeat(),
+    ])
+
+    return {
+      queue: serializeSimulationQueue(depth, now),
+      worker: serializeWorkerLiveness(heartbeat, now),
+    }
   })
 
   app.get('/api/v1/organisations/:organisationId/simulations', async (request, reply) => {

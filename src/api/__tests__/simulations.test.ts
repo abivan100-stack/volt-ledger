@@ -3,6 +3,7 @@ import {
   SIMULATION_DAY_TYPES,
   createSimulationRun,
   getSimulationQuota,
+  getSimulationQueue,
   getSimulationResults,
   getSimulationRun,
   listSimulationRuns,
@@ -135,6 +136,29 @@ describe('getSimulationQuota', () => {
     expect(await getSimulationQuota(ORGANISATION_ID, { client })).toEqual(quota)
     expect(request).toHaveBeenCalledWith(
       `/api/v1/organisations/${ORGANISATION_ID}/simulations/quota`,
+      { signal: undefined },
+    )
+  })
+})
+
+describe('getSimulationQueue', () => {
+  it('returns the depth and the worker reading together', async () => {
+    const payload = {
+      queue: {
+        queued: 4,
+        running: 1,
+        oldestQueuedAt: '2026-08-01T00:00:00.000Z',
+        oldestQueuedWaitSeconds: 90,
+      },
+      worker: { liveness: 'live' as const, lastSeenAt: '2026-08-01T00:01:00.000Z' },
+    }
+    const { client, request } = stubClient(payload)
+
+    // Returned whole rather than unwrapped: a depth without its worker reading
+    // cannot be told apart from an outage.
+    expect(await getSimulationQueue(ORGANISATION_ID, { client })).toEqual(payload)
+    expect(request).toHaveBeenCalledWith(
+      `/api/v1/organisations/${ORGANISATION_ID}/simulations/queue`,
       { signal: undefined },
     )
   })

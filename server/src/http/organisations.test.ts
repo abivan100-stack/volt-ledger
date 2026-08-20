@@ -104,6 +104,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
           remaining: simulationDailyRunLimit,
           resetsAt: new Date('2030-01-02T00:00:00.000Z'),
         }),
+        getQueueDepth: async () => ({ queued: 0, running: 0, oldestQueuedAt: null }),
       },
       ledger: {
         settleCompletedRun: async () => { throw new Error('Ledger repository is not used by this test') },
@@ -116,6 +117,9 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
           auditPageOptions.push(options)
           return { events: [] as AuditEventDocument[], nextCursor: nextAuditCursor }
         },
+      },
+      workers: {
+        findMostRecentHeartbeat: async () => null,
       },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,

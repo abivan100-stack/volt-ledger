@@ -914,6 +914,100 @@
         ],
         "additionalProperties": false
       },
+      "SimulationQueue": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "running": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "oldestQueuedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "ISO-8601 timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the longest-waiting queued run was created"
+          },
+          "oldestQueuedWaitSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How long that run has waited; null when nothing is queued"
+          }
+        },
+        "required": [
+          "queued",
+          "running",
+          "oldestQueuedAt",
+          "oldestQueuedWaitSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "WorkerLiveness": {
+        "type": "object",
+        "properties": {
+          "liveness": {
+            "type": "string",
+            "enum": [
+              "live",
+              "stale",
+              "stopped",
+              "unknown"
+            ],
+            "description": "live: reporting recently. stale: gone quiet. stopped: shut down cleanly. unknown: never reported."
+          },
+          "lastSeenAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "ISO-8601 timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "liveness",
+          "lastSeenAt"
+        ],
+        "additionalProperties": false
+      },
+      "SimulationQueueResponse": {
+        "type": "object",
+        "properties": {
+          "queue": {
+            "$ref": "#/components/schemas/SimulationQueue"
+          },
+          "worker": {
+            "$ref": "#/components/schemas/WorkerLiveness"
+          }
+        },
+        "required": [
+          "queue",
+          "worker"
+        ],
+        "additionalProperties": false
+      },
       "SimulationInterval": {
         "type": "object",
         "properties": {
@@ -2842,6 +2936,85 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SimulationQuotaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `ORGANISATION_ACCESS_DENIED` — The user has no active membership in this organisation.\n- `ORGANISATION_ROLE_FORBIDDEN` — The user's role does not permit this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/simulations/queue": {
+      "get": {
+        "operationId": "getSimulationQueue",
+        "summary": "Queue depth and worker liveness",
+        "description": "Readable by any member. Reports how many runs in this organisation are waiting or in flight, how long the longest-waiting one has been queued, and whether a worker is draining the queue. The two readings only mean something together: a backlog with a `live` worker is a busy system, the same backlog with a `stale` worker is an outage. Worker detail is deliberately coarse — no identity, failure counts, or error codes — because every member can read it.\n\n**Roles.** `owner`, `admin`, `operator`, `viewer`.",
+        "tags": [
+          "Simulations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current depth and worker reading.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationQueueResponse"
                 }
               }
             }
