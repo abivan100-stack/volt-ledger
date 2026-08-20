@@ -1,0 +1,32 @@
+.accept-invitation {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 460px;
+}
+
+.accept-invitation-identity {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.accept-invitation-identity strong {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.accept-invitation-link {
+  align-self: flex-start;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule-2);
+  transition: border-color 0.15s;
+}
+
+.accept-invitation-link:hover {
+  border-bottom-color: var(--ink);
+}

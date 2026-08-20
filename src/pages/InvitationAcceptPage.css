@@ -1,0 +1,31 @@
+.invite-page {
+  min-height: calc(100vh - var(--header-height));
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.invite-page-inner {
+  padding-top: 72px;
+  padding-bottom: 96px;
+}
+
+.invite-page-kicker {
+  margin: 0 0 26px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+}
+
+.invite-page-heading {
+  max-width: 14ch;
+  margin: 0 0 30px;
+  font-size: clamp(34px, 4.4vw, 58px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 760px) {
+  .invite-page-inner {
+    padding-top: 56px;
+    padding-bottom: 72px;
+  }
+}

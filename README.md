@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (525 tests)
+npm test               # run the client test suite once (536 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -119,6 +119,13 @@ Sign in, create an account, and sign out. The route is always present, but the h
 `VITE_API_BASE_URL` is set — a demo build has no backend to sign in to, so the existing chrome is left untouched and the
 page itself says so rather than offering a form that cannot work. The panel covers each state the session can be in:
 checking, signed out, signed in, expired, and "could not tell" with a retry.
+
+### Accepting an invitation (`/invite/accept`)
+
+Invitation emails link to `${WEB_ORIGIN}/invite/accept?token=…`. The page establishes who is signed in, shows which
+address the invitation will be matched against, and accepts only on an explicit click — following a link should never
+silently join somebody to an organisation. It reports each refusal the server distinguishes: a mismatched address, an
+expired or unknown invitation, an unverified email, and an existing membership.
 
 Owners and admins can also issue and revoke invitations. The role choices exclude owner entirely — ownership moves
 only through a transfer — and an admin is offered neither the ability to invite another admin nor to revoke an admin
@@ -208,6 +215,7 @@ src/
     VoltPage.tsx          # Landing page route composition
     LedgerPage.tsx        # Live ledger route composition
     AccountPage.tsx       # Sign in / create account / sign out
+    InvitationAcceptPage.tsx # Accepts an invitation from its emailed link
   theme/
     tokens.ts             # Design tokens (colours, fonts, spacing, easing)
     theme.css             # Global stylesheet
