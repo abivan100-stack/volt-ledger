@@ -1,5 +1,5 @@
-import { apiRequest, type ApiClient } from './client'
 import { ApiError } from './errors'
+import { send, type ResourceOptions } from './resource'
 
 /**
  * Session restore and sign-out.
@@ -27,20 +27,12 @@ export interface Session {
   session: SessionInfo
 }
 
-export interface SessionRequestOptions {
-  /** Overrides the shared client; used by tests and by alternate origins. */
-  client?: ApiClient
-  signal?: AbortSignal
-}
-
-function request<T>(options: SessionRequestOptions, path: string, init: Parameters<ApiClient['request']>[1]): Promise<T> {
-  return options.client ? options.client.request<T>(path, init) : apiRequest<T>(path, init)
-}
+export type SessionRequestOptions = ResourceOptions
 
 /** The signed-in user, or `null` when there is no usable session. */
 export async function fetchSession(options: SessionRequestOptions = {}): Promise<Session | null> {
   try {
-    return await request<Session>(options, '/api/v1/me', { signal: options.signal })
+    return await send<Session>(options, '/api/v1/me')
   } catch (error) {
     if (error instanceof ApiError && (error.status === 401 || error.code === 'API_NOT_CONFIGURED')) {
       return null
@@ -52,7 +44,7 @@ export async function fetchSession(options: SessionRequestOptions = {}): Promise
 /** Clears the session cookie. An already-expired session is treated as success. */
 export async function signOut(options: SessionRequestOptions = {}): Promise<void> {
   try {
-    await request<unknown>(options, '/api/auth/sign-out', { method: 'POST' })
+    await send<unknown>(options, '/api/auth/sign-out', { method: 'POST' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return
     throw error

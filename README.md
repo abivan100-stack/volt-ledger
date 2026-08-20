@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (339 tests)
+npm test               # run the client test suite once (375 tests)
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -113,6 +113,8 @@ Anything prefixed with `VITE_` is compiled into the bundle and is public — Mon
 
 Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out; any route answering `401` triggers that centrally, so no caller has to remember to handle it.
 
+Organisations are loaded through `useOrganisationStore`, which keeps the current selection pointing at a real organisation across refreshes and clears itself when a session ends. List failures stay on the store so the selector can retry; `create` and `archive` reject to their caller so a form or confirmation dialog can show the error next to the control that caused it. `src/lib/permissions.ts` mirrors the API's role rules to decide what the UI offers — the server re-checks every one of them and remains the only authority.
+
 The API runs on its own origin, so `src/api/client.ts` issues absolute requests with `credentials: 'include'` for the session cookie. Browsers attach `Origin` automatically, satisfying the API's CSRF check on state-changing routes. `VITE_API_BASE_URL` must point at the origin whose `WEB_ORIGIN` matches where the client is served, or CORS and the CSRF check will both reject the request. Every failure — validation, authorization, quota, transport — surfaces as one `ApiError` carrying `status`, the server's `code`, any field `issues`, and parsed `Retry-After` seconds.
 
 ## Deployment
@@ -141,6 +143,8 @@ src/
     client.ts             #   fetch wrapper (absolute URLs, cookie credentials, error envelope)
     session.ts            #   Session restore (/api/v1/me) and sign-out
     unauthenticated.ts    #   One-slot 401 registry the session store subscribes to
+    resource.ts           #   Shared client/signal plumbing for resource modules
+    organisations.ts      #   Organisation list, create, read, archive
   lib/                    # Pure logic — no React, no DOM, no store imports
     hashChain.ts          #   SHA-256 hash chain (append, validate, tamper detection)
     simulation.ts         #   24-hour generation/demand curves, day types, household ticks
@@ -154,10 +158,12 @@ src/
     chainPdf.ts           #   Chain-to-PDF report rendering (jsPDF + autoTable)
     dossier.ts            #   Household dossier data
     householdStatus.ts    #   Household status helpers
+    permissions.ts        #   Membership-role predicates mirroring the API's rules
     easing.ts             #   Shared easing functions for animation
   store/
     useEnergyStore.ts     # Zustand shared state (simulation, chain, households)
     useSessionStore.ts    # Zustand authenticated-session state (restore, sign-out, expiry)
+    useOrganisationStore.ts # Zustand organisation list and current selection
     types.ts              # Shared state/types for the three store slices
     simSlice.ts           # Simulation slice (config, households, ticking, trading)
     ledgerSlice.ts        # Ledger slice (hash chain, tamper, restore)
