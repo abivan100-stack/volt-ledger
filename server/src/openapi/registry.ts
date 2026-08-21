@@ -29,6 +29,7 @@ export const RESPONSE_SCHEMAS = {
   HealthResponse: responses.healthResponseSchema,
   HealthDegradedResponse: responses.healthDegradedResponseSchema,
   SessionResponse: responses.sessionResponseSchema,
+  AccountClosureResponse: responses.accountClosureResponseSchema,
   Organisation: responses.organisationSchema,
   OrganisationListResponse: responses.organisationListResponseSchema,
   OrganisationResponse: responses.organisationResponseSchema,

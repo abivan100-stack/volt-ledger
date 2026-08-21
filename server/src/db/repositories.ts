@@ -4,6 +4,11 @@ import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
 import {
+  ANONYMISED_NAME,
+  anonymisedEmail,
+  ownedOrganisationIds,
+} from '../accounts/closure.js'
+import {
   membershipRoles,
   type AuditEventDocument,
   type EmailDeliveryDocument,
@@ -205,6 +210,8 @@ export interface OrganisationRepository {
 export interface MembershipRepository {
   create(input: CreateMembershipInput): Promise<MembershipDocument>
   find(organisationId: string, userId: string): Promise<MembershipDocument | null>
+  /** Active memberships across every organisation the user belongs to. */
+  listForUser(userId: string): Promise<MembershipDocument[]>
   listForOrganisation(organisationId: string): Promise<MembershipDocument[]>
   updateRole(organisationId: string, userId: string, role: MembershipRole, actorUserId: string): Promise<MembershipDocument | null>
   remove(organisationId: string, userId: string, actorUserId: string): Promise<MembershipDocument | null>
@@ -300,6 +307,18 @@ export interface WorkerRepository {
   listHeartbeats(): Promise<WorkerHeartbeatDocument[]>
 }
 
+export interface CloseAccountResult {
+  closed: boolean
+  /** Organisations the account still owns, which is why it was refused. */
+  blockedBy: string[]
+  /** Memberships given up by the closure. */
+  releasedMemberships: number
+}
+
+export interface AccountRepository {
+  close(userId: string): Promise<CloseAccountResult>
+}
+
 export interface VoltRepositories {
   organisations: OrganisationRepository
   memberships: MembershipRepository
@@ -309,6 +328,7 @@ export interface VoltRepositories {
   invitations: InvitationRepository
   emailDeliveries: EmailDeliveryRepository
   workers: WorkerRepository
+  accounts: AccountRepository
 }
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
@@ -666,6 +686,9 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
     },
     find(organisationId, userId) {
       return collections.memberships.findOne({ organisationId, userId, deletedAt: null })
+    },
+    listForUser(userId) {
+      return collections.memberships.find({ userId, deletedAt: null }).sort({ createdAt: 1 }).toArray()
     },
     listForOrganisation(organisationId) {
       return collections.memberships.find({ organisationId, deletedAt: null }).sort({ createdAt: 1 }).toArray()
@@ -1751,6 +1774,93 @@ function createWorkerRepository(collections: VoltCollections): WorkerRepository 
   }
 }
 
+/**
+ * Closing an account.
+ *
+ * Reaches into Better Auth's own `user`, `session` and `account` collections,
+ * which is deliberate and confined to this one function: Better Auth owns
+ * identity, and it offers only a hard delete, which would erase the row that
+ * ledger events still reference by id. Anonymising in place keeps the reference
+ * resolvable while removing the person behind it.
+ *
+ * Everything happens in one transaction, so an account is never left half
+ * closed — memberships released but the address still signable-in with.
+ */
+function createAccountRepository(
+  collections: VoltCollections,
+  db: Db,
+  client: MongoClient,
+): AccountRepository {
+  return {
+    async close(userId) {
+      const session = client.startSession()
+      try {
+        let result: CloseAccountResult = { closed: false, blockedBy: [], releasedMemberships: 0 }
+
+        await session.withTransaction(async () => {
+          const memberships = await collections.memberships
+            .find({ userId, deletedAt: null }, { session })
+            .toArray()
+
+          // Re-checked inside the transaction: ownership could have been
+          // transferred to this account between the read and the write.
+          const owned = ownedOrganisationIds(memberships)
+          if (owned.length > 0) {
+            result = { closed: false, blockedBy: owned, releasedMemberships: 0 }
+            return
+          }
+
+          const now = new Date()
+
+          for (const membership of memberships) {
+            await collections.memberships.updateOne(
+              { _id: membership._id, deletedAt: null },
+              { $set: { deletedAt: now, updatedAt: now } },
+              { session },
+            )
+            await collections.auditEvents.insertOne(
+              {
+                _id: randomUUID(),
+                organisationId: membership.organisationId,
+                actorUserId: userId,
+                action: 'account.closed',
+                entityType: 'membership',
+                entityId: membership._id,
+                metadata: { previousRole: membership.role },
+                createdAt: now,
+              },
+              { session },
+            )
+          }
+
+          // Sessions and credentials go, so the address cannot be signed in
+          // with; the user row stays so ledger references still resolve.
+          await db.collection('session').deleteMany({ userId }, { session })
+          await db.collection('account').deleteMany({ userId }, { session })
+          await db.collection('user').updateOne(
+            { _id: userId as never },
+            {
+              $set: {
+                name: ANONYMISED_NAME,
+                email: anonymisedEmail(userId),
+                emailVerified: false,
+                updatedAt: now,
+              },
+            },
+            { session },
+          )
+
+          result = { closed: true, blockedBy: [], releasedMemberships: memberships.length }
+        })
+
+        return result
+      } finally {
+        await session.endSession()
+      }
+    },
+  }
+}
+
 export function createVoltRepositories(db: Db, client: MongoClient = getMongoClient()): VoltRepositories {
   const collections = getVoltCollections(db)
   return {
@@ -1762,5 +1872,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     invitations: createInvitationRepository(collections, client),
     emailDeliveries: createEmailDeliveryRepository(collections),
     workers: createWorkerRepository(collections),
+    accounts: createAccountRepository(collections, db, client),
   }
 }

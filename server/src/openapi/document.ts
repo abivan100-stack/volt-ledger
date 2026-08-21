@@ -199,6 +199,30 @@ const ROUTES: RouteDoc[] = [
     errors: AUTH_ERRORS,
   },
   {
+    method: 'delete',
+    path: '/api/v1/me',
+    operationId: 'closeAccount',
+    summary: 'Close your own account',
+    description:
+      'Anonymises the account and releases its memberships. There is no administrator who can do ' +
+      'this for someone else. Refused with `409` while the account still owns an organisation, ' +
+      'because an owner membership cannot be removed and an organisation with no owner is one ' +
+      'nobody can administer while it still holds settlement records; transfer ownership or ' +
+      'archive first. Ledger events are left exactly as they are — they carry `actorUserId` and ' +
+      'are hash-linked, so what survives is an opaque identifier and not a way to reach a person.',
+    tags: ['Session'],
+    authenticated: true,
+    success: [{ status: 200, description: 'The account was closed.', schema: 'AccountClosureResponse' }],
+    errors: [
+      ...AUTH_ERRORS,
+      {
+        status: 409,
+        code: 'ACCOUNT_OWNS_ORGANISATIONS',
+        description: 'The account still owns at least one organisation.',
+      },
+    ],
+  },
+  {
     method: 'post',
     path: '/api/v1/organisations',
     operationId: 'createOrganisation',

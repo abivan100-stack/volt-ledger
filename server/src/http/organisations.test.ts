@@ -121,6 +121,9 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
       workers: {
         findMostRecentHeartbeat: async () => null,
       },
+      accounts: {
+        close: async () => ({ closed: true, blockedBy: [], releasedMemberships: 0 }),
+      },
     } satisfies OrganisationRouteRepositories,
     getCreateInput: () => receivedCreateInput,
     getDeletedByUserId: () => deletedByUserId,

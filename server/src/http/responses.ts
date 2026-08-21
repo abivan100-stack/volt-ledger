@@ -173,6 +173,17 @@ export const simulationQuotaSchema = z.object({
 
 export const simulationQuotaResponseSchema = z.object({ quota: simulationQuotaSchema }).strict()
 
+/**
+ * The outcome of closing an account.
+ *
+ * Reports what was released rather than echoing anything about the account, so
+ * the response of a closure carries no identity.
+ */
+export const accountClosureResponseSchema = z.object({
+  closed: z.literal(true),
+  releasedMemberships: z.number().int().min(0),
+}).strict()
+
 export const simulationQueueSchema = z.object({
   queued: z.number().int().min(0),
   running: z.number().int().min(0),

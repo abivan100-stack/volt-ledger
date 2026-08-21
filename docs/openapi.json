@@ -470,6 +470,25 @@
         ],
         "additionalProperties": false
       },
+      "AccountClosureResponse": {
+        "type": "object",
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "const": true
+          },
+          "releasedMemberships": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "closed",
+          "releasedMemberships"
+        ],
+        "additionalProperties": false
+      },
       "Organisation": {
         "type": "object",
         "properties": {
@@ -1577,6 +1596,51 @@
           },
           "401": {
             "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "closeAccount",
+        "summary": "Close your own account",
+        "description": "Anonymises the account and releases its memberships. There is no administrator who can do this for someone else. Refused with `409` while the account still owns an organisation, because an owner membership cannot be removed and an organisation with no owner is one nobody can administer while it still holds settlement records; transfer ownership or archive first. Ledger events are left exactly as they are — they carry `actorUserId` and are hash-linked, so what survives is an opaque identifier and not a way to reach a person.",
+        "tags": [
+          "Session"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account was closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountClosureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `ACCOUNT_OWNS_ORGANISATIONS` — The account still owns at least one organisation.",
             "content": {
               "application/json": {
                 "schema": {

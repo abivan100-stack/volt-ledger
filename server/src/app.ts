@@ -20,6 +20,7 @@ import {
   type SimulationQueueDepth,
   type SimulationRepository,
   type WorkerRepository,
+  type AccountRepository,
   type AuditEventCursor,
   type AuditEventPageOptions,
 } from './db/repositories.js'
@@ -40,6 +41,7 @@ import type {
 import { encryptDeliveryUrl } from './email/outbox.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
+import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
 import {
@@ -89,6 +91,7 @@ export interface OrganisationRouteRepositories {
   ledger: Pick<LedgerRepository, 'settleCompletedRun' | 'appendAdjustment' | 'list'>
   audit: Pick<AuditRepository, 'listForOrganisation' | 'listPageForOrganisation'>
   workers: Pick<WorkerRepository, 'findMostRecentHeartbeat'>
+  accounts: Pick<AccountRepository, 'close'>
 }
 
 export interface AppOptions {
@@ -454,6 +457,26 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         expiresAt: access.session.session.expiresAt.toISOString(),
       },
     }
+  })
+
+  app.delete('/api/v1/me', async (request, reply) => {
+    const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    const closure = await repositories().accounts.close(access.session.user.id)
+
+    if (!closure.closed) {
+      // Owning an organisation blocks closure: an owner membership cannot be
+      // removed, and an organisation with no owner is one nobody can administer
+      // while it still holds settlement records.
+      return reply.code(409).send({
+        error:
+          'Transfer ownership or archive the organisations you own before closing your account.',
+        code: ACCOUNT_OWNS_ORGANISATIONS,
+      })
+    }
+
+    return { closed: true as const, releasedMemberships: closure.releasedMemberships }
   })
 
   app.post('/api/v1/organisations', async (request, reply) => {
