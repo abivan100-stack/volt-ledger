@@ -68,6 +68,27 @@ describe('SignUpForm', () => {
     expect(screen.queryByLabelText('PASSWORD')).toBeNull()
   })
 
+  it('lets the visitor return to the form after delivery confirmation', async () => {
+    signUpMock.mockResolvedValue(undefined)
+    render(<SignUpForm />)
+
+    fillForm()
+    fireEvent.click(submitButton())
+    await screen.findByRole('status')
+
+    fireEvent.click(screen.getByRole('button', { name: /different address/i }))
+
+    expect(screen.getByLabelText('PASSWORD')).toBeTruthy()
+  })
+
+  it('marks account fields as required for browser and assistive technology', () => {
+    render(<SignUpForm />)
+
+    expect(screen.getByLabelText(/name/i).getAttribute('required')).not.toBeNull()
+    expect(screen.getByLabelText(/email/i).getAttribute('required')).not.toBeNull()
+    expect(screen.getByLabelText('PASSWORD').getAttribute('required')).not.toBeNull()
+  })
+
   it('rejects a password the server would refuse before sending it', () => {
     render(<SignUpForm />)
 

@@ -51,6 +51,8 @@ function SignInForm() {
           type="email"
           name="email"
           autoComplete="email"
+          required
+          maxLength={254}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />

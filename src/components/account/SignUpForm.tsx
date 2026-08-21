@@ -45,10 +45,23 @@ function SignUpForm() {
 
   if (registeredEmail !== null) {
     return (
-      <p className="account-confirmation" role="status">
-        Check <strong>{registeredEmail}</strong> for a verification link. You can sign in once the
-        address is verified.
-      </p>
+      <div className="account-confirmation" role="status">
+        <p>
+          Check <strong>{registeredEmail}</strong> for a verification link. You can sign in once the
+          address is verified.
+        </p>
+        <p className="account-confirmation-help">
+          If it does not arrive, check your spam folder. Returning to sign in and submitting your
+          credentials again sends a fresh link.
+        </p>
+        <button
+          className="mono account-secondary-action"
+          type="button"
+          onClick={() => setRegisteredEmail(null)}
+        >
+          USE A DIFFERENT ADDRESS
+        </button>
+      </div>
     )
   }
 
@@ -61,6 +74,8 @@ function SignUpForm() {
           type="text"
           name="name"
           autoComplete="name"
+          required
+          maxLength={100}
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
@@ -73,6 +88,8 @@ function SignUpForm() {
           type="email"
           name="email"
           autoComplete="email"
+          required
+          maxLength={254}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />

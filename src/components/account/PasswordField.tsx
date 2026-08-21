@@ -42,6 +42,7 @@ function PasswordField({ id, label, name, autoComplete, value, onChange, hint }:
           type={revealed ? 'text' : 'password'}
           name={name}
           autoComplete={autoComplete}
+          required
           value={value}
           onChange={(event) => onChange(event.target.value)}
           {...(hintId ? { 'aria-describedby': hintId } : {})}
