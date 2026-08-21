@@ -256,7 +256,9 @@ test environments.
 The Blueprint prompts for the Atlas and auth values on both the API and worker
 because the current server environment contract is process-wide; the worker
 does not expose an HTTP or authentication surface, but it must still satisfy
-that shared startup schema.
+that shared startup schema. The worker also receives `RESEND_API_KEY` and
+`EMAIL_FROM`, because it is the process that drains the durable invitation
+email outbox.
 
 The API binds to Render's injected `PORT` on `0.0.0.0` and reports readiness at
 `/health`. The worker has no public endpoint and should be monitored through its

@@ -2,6 +2,7 @@ import { env } from './config/env.js'
 import { connectToMongo, disconnectFromMongo, getMongoDb } from './db/mongo.js'
 import { initializeVoltDatabase } from './db/collections.js'
 import { createVoltRepositories, simulationMaxAttempts } from './db/repositories.js'
+import { getEmailDeliveryConfigurationError } from './email/config.js'
 import { createLogger, type LogLevel } from './observability/logger.js'
 import { runSimulationWorker } from './simulations/worker.js'
 
@@ -11,6 +12,15 @@ const logger = createLogger({
 })
 
 async function startWorker(): Promise<void> {
+  const emailConfigurationError = getEmailDeliveryConfigurationError({
+    nodeEnv: env.NODE_ENV,
+    resendApiKey: env.RESEND_API_KEY,
+    emailFrom: env.EMAIL_FROM,
+  })
+  if (emailConfigurationError) {
+    throw new Error(`EMAIL_DELIVERY_CONFIGURATION_INVALID: ${emailConfigurationError}`)
+  }
+
   await connectToMongo()
   await initializeVoltDatabase(getMongoDb())
 

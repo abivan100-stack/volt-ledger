@@ -43,6 +43,10 @@ services:
         sync: false
       - key: BETTER_AUTH_URL
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: WORKER_ID
         value: volt-worker-production
 

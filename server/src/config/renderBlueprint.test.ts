@@ -17,4 +17,13 @@ describe('Render Blueprint build commands', () => {
       'buildCommand: npm ci --include=dev && npm run build',
     ])
   })
+
+  it('passes email delivery settings to the worker that drains the outbox', () => {
+    const workerStart = blueprint.indexOf('  - type: worker')
+    const staticStart = blueprint.indexOf('  - type: web', workerStart + 1)
+    const worker = blueprint.slice(workerStart, staticStart)
+
+    expect(worker).toContain('key: RESEND_API_KEY')
+    expect(worker).toContain('key: EMAIL_FROM')
+  })
 })

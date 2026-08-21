@@ -12,8 +12,9 @@ describe('email delivery payload encryption', () => {
 
   it('rejects tampered payloads', () => {
     const encrypted = encryptDeliveryUrl('https://volt.example/invite/accept?token=secret-token')
-    const last = encrypted.at(-1)
-    const tampered = `${encrypted.slice(0, -1)}${last === 'A' ? 'B' : 'A'}`
+    const [iv, tag, ciphertext] = encrypted.split('.')
+    const first = ciphertext?.[0]
+    const tampered = `${iv}.${tag}.${first === 'A' ? 'B' : 'A'}${ciphertext?.slice(1) ?? ''}`
 
     expect(() => decryptDeliveryUrl(tampered)).toThrow('EMAIL_DELIVERY_PAYLOAD_INVALID')
   })
