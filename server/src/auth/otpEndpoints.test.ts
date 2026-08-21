@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { ALLOWED_OTP_PATH, BLOCKED_OTP_PATHS, isBlockedAuthPath } from './otpEndpoints.js'
+import {
+  ALLOWED_OTP_PATH,
+  ALLOWED_OTP_PATHS,
+  BLOCKED_OTP_PATHS,
+  isBlockedAuthPath,
+} from './otpEndpoints.js'
 
 /**
  * Adding the email-OTP plugin published nine endpoints at once. These tests pin
@@ -31,8 +36,15 @@ describe('isBlockedAuthPath', () => {
     expect(isBlockedAuthPath('/api/auth/email-otp/check-verification-otp')).toBe(true)
   })
 
-  it('forwards the one path the app actually uses', () => {
+  it('forwards the redemption path the app actually uses', () => {
     expect(isBlockedAuthPath(ALLOWED_OTP_PATH)).toBe(false)
+  })
+
+  it('forwards both halves of the email change', () => {
+    // Each requires a session, and the first also requires a code delivered to
+    // the current mailbox, so neither is reachable by a stranger.
+    expect(isBlockedAuthPath('/api/auth/email-otp/request-email-change')).toBe(false)
+    expect(isBlockedAuthPath('/api/auth/email-otp/change-email')).toBe(false)
   })
 
   it('leaves the rest of the Better Auth surface alone', () => {
@@ -52,8 +64,10 @@ describe('isBlockedAuthPath', () => {
     expect(isBlockedAuthPath('/api/auth/sign-in/email-otp/')).toBe(true)
   })
 
-  it('blocks every plugin path except the one that is allowed', () => {
-    expect(BLOCKED_OTP_PATHS).not.toContain(ALLOWED_OTP_PATH)
+  it('blocks every plugin path that is not allowed', () => {
+    for (const allowed of ALLOWED_OTP_PATHS) {
+      expect(BLOCKED_OTP_PATHS, allowed).not.toContain(allowed)
+    }
     for (const path of BLOCKED_OTP_PATHS) {
       expect(isBlockedAuthPath(path), path).toBe(true)
     }

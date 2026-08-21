@@ -44,6 +44,7 @@ const invitation: OrganisationInvitationDocument = {
 function authFor(email = 'asha@example.com', id = 'user_123'): AuthService {
   return {
     handle: async () => new Response(null, { status: 204 }),
+    createVerificationCode: async () => '123456',
     getSession: async () => ({
       user: { id, name: 'Volt User', email, emailVerified: true },
       session: { id: 'session_123', expiresAt: new Date('2030-01-01T00:00:00.000Z') },

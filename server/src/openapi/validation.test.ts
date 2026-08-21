@@ -74,7 +74,11 @@ describe('the served document', () => {
   it('is available without a session, because clients need it before they have one', async () => {
     const app = await buildApp({
       logger: false,
-      auth: { handle: async () => new Response(null, { status: 204 }), getSession: async () => null },
+      auth: {
+        handle: async () => new Response(null, { status: 204 }),
+        createVerificationCode: async () => '123456',
+        getSession: async () => null,
+      },
       databasePing: async () => undefined,
     })
     apps.push(app)

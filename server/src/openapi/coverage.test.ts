@@ -15,6 +15,7 @@ const apps: FastifyInstance[] = []
 
 const anonymous: AuthService = {
   handle: async () => new Response(null, { status: 204 }),
+  createVerificationCode: async () => '123456',
   getSession: async () => null,
 }
 

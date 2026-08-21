@@ -23,11 +23,23 @@
  *
  * `/email-otp/send-verification-otp` is blocked too: the app resends through
  * Better Auth's own `send-verification-email`, which the plugin overrides, so
- * the OTP-specific sender is redundant — and it accepts `type: "sign-in"`,
- * which mails a code to an arbitrary unregistered address.
+ * the OTP-specific sender is redundant — and it takes any address from an
+ * unauthenticated caller, so it would mail a registered stranger on request.
+ * Proving the current mailbox during an email change goes through Volt's own
+ * authenticated `/api/v1/me/email/challenge` instead, which can only ever mint a
+ * code for the caller's own address.
  */
 
-/** The only email-OTP path the app forwards. */
+/** The email-OTP paths the app forwards. */
+export const ALLOWED_OTP_PATHS: readonly string[] = [
+  '/api/auth/email-otp/verify-email',
+  // Changing an address: both halves require a session, and the first also
+  // requires a code delivered to the current mailbox.
+  '/api/auth/email-otp/request-email-change',
+  '/api/auth/email-otp/change-email',
+]
+
+/** Kept for the tests that name the redemption path directly. */
 export const ALLOWED_OTP_PATH = '/api/auth/email-otp/verify-email'
 
 /** Plugin paths refused at the proxy. */
@@ -38,8 +50,6 @@ export const BLOCKED_OTP_PATHS: readonly string[] = [
   '/api/auth/email-otp/request-password-reset',
   '/api/auth/email-otp/reset-password',
   '/api/auth/forget-password/email-otp',
-  '/api/auth/email-otp/request-email-change',
-  '/api/auth/email-otp/change-email',
 ]
 
 /**

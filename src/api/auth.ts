@@ -97,3 +97,51 @@ export async function verifyEmailOtp(
     body: { email: input.email, otp: input.otp },
   })
 }
+
+export interface EmailChangeRequestInput {
+  newEmail: string
+  /** The code proving the current address, from `requestEmailChallenge`. */
+  otp: string
+}
+
+export interface EmailChangeInput {
+  newEmail: string
+  /** The code sent to the new address. */
+  otp: string
+}
+
+/**
+ * Changing the address on an account, in three steps.
+ *
+ * Both mailboxes are proved: the current one, so a stolen session cannot move an
+ * account somewhere its holder cannot reach, and the new one, so it is real. The
+ * server only checks that a session exists, never that it is fresh, which is why
+ * the current-mailbox proof carries the weight.
+ *
+ *   1. `requestEmailChallenge()`  — a code to the current address
+ *   2. `requestEmailChange()`     — spends that code, sends one to the new address
+ *   3. `changeEmail()`            — spends the second code, the address changes
+ */
+export async function requestEmailChallenge(options: ResourceOptions = {}): Promise<void> {
+  await send<unknown>(options, '/api/v1/me/email/challenge', { method: 'POST' })
+}
+
+export async function requestEmailChange(
+  input: EmailChangeRequestInput,
+  options: ResourceOptions = {},
+): Promise<void> {
+  await send<unknown>(options, '/api/auth/email-otp/request-email-change', {
+    method: 'POST',
+    body: { newEmail: input.newEmail, otp: input.otp },
+  })
+}
+
+export async function changeEmail(
+  input: EmailChangeInput,
+  options: ResourceOptions = {},
+): Promise<void> {
+  await send<unknown>(options, '/api/auth/email-otp/change-email', {
+    method: 'POST',
+    body: { newEmail: input.newEmail, otp: input.otp },
+  })
+}

@@ -199,6 +199,22 @@ const ROUTES: RouteDoc[] = [
     errors: AUTH_ERRORS,
   },
   {
+    method: 'post',
+    path: '/api/v1/me/email/challenge',
+    operationId: 'requestEmailChallenge',
+    summary: 'Email yourself a code proving your current address',
+    description:
+      'Sends a verification code to the address on the session, and only ever to that address. ' +
+      'Changing an email requires proof of the current mailbox as well as the new one, so a ' +
+      'stolen session cannot move an account somewhere its holder cannot reach. The code is then ' +
+      'passed to Better Auth `POST /api/auth/email-otp/request-email-change`, which sends a second ' +
+      'code to the new address, and `POST /api/auth/email-otp/change-email` completes the change.',
+    tags: ['Session'],
+    authenticated: true,
+    success: [{ status: 200, description: 'A code was sent.', schema: 'EmailChallengeResponse' }],
+    errors: AUTH_ERRORS,
+  },
+  {
     method: 'delete',
     path: '/api/v1/me',
     operationId: 'closeAccount',

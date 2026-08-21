@@ -31,6 +31,15 @@ export interface AuthenticatedSession {
 export interface AuthService {
   handle: (request: Request) => Promise<Response>
   getSession: (headers: Headers) => Promise<AuthenticatedSession | null>
+  /**
+   * Mints a verification code for an address the caller has already been proven
+   * to own, and returns it for Volt to deliver.
+   *
+   * Exists so changing an email can require proof of the *current* mailbox
+   * without exposing the plugin's own sender, which takes any address from an
+   * unauthenticated caller and would happily mail a registered stranger.
+   */
+  createVerificationCode: (email: string) => Promise<string>
 }
 
 let authService: AuthService | undefined
@@ -95,6 +104,14 @@ export function getAuthService(): AuthService {
              * password — and mails codes to addresses that never registered.
              */
             disableSignUp: true,
+            /**
+             * Changing an address proves both mailboxes: the current one, so a
+             * stolen session cannot move the account somewhere the holder
+             * cannot reach, and the new one, so it is real. The middleware on
+             * these routes only checks that a session exists, never that it is
+             * fresh, which is why the current-mailbox proof carries the weight.
+             */
+            changeEmail: { enabled: true, verifyCurrentEmail: true },
             overrideDefaultEmailVerification: true,
             sendVerificationOTP: async ({ email, otp }: { email: string; otp: string }) => {
               await sendVerificationCodeEmail({
@@ -110,6 +127,13 @@ export function getAuthService(): AuthService {
 
   authService = {
     handle: auth.handler,
+    createVerificationCode: async (email) => {
+      // Server-only endpoint: it writes the verification row and hands back the
+      // raw code, never reachable over HTTP.
+      return auth.api.createVerificationOTP({
+        body: { email, type: 'email-verification' },
+      }) as unknown as Promise<string>
+    },
     getSession: async (headers) => {
       const result = await auth.api.getSession({ headers })
       if (!result) return null

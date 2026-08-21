@@ -4,7 +4,11 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import { fromNodeHeaders } from 'better-auth/node'
-import { getAuthService, type AuthService } from './auth/auth.js'
+import {
+  getAuthService,
+  VERIFICATION_CODE_TTL_SECONDS,
+  type AuthService,
+} from './auth/auth.js'
 import { env } from './config/env.js'
 import { getMongoDb } from './db/mongo.js'
 import {
@@ -39,6 +43,7 @@ import type {
   WorkerHeartbeatDocument,
 } from './db/models.js'
 import { encryptDeliveryUrl } from './email/outbox.js'
+import { sendVerificationCodeEmail } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
@@ -457,6 +462,24 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         expiresAt: access.session.session.expiresAt.toISOString(),
       },
     }
+  })
+
+  app.post('/api/v1/me/email/challenge', async (request, reply) => {
+    const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    // Only ever the caller's own address. Changing an email needs proof of the
+    // current mailbox, and the plugin's own sender would take any address from
+    // anyone, so the code is minted here instead where the session fixes it.
+    const email = access.session.user.email
+    const code = await auth().createVerificationCode(email)
+    await sendVerificationCodeEmail({
+      to: email,
+      code,
+      expiresInMinutes: Math.round(VERIFICATION_CODE_TTL_SECONDS / 60),
+    })
+
+    return { sent: true as const }
   })
 
   app.delete('/api/v1/me', async (request, reply) => {

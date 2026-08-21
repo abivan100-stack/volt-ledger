@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { isApiConfigured } from '../../api/config'
 import { useRestoreSession } from '../../hooks/useRestoreSession'
 import { useSessionStore } from '../../store/useSessionStore'
+import ChangeEmailForm from './ChangeEmailForm'
+import CloseAccount from './CloseAccount'
 import SignInForm from './SignInForm'
 import SignUpForm from './SignUpForm'
 import './AccountPanel.css'
@@ -108,6 +110,8 @@ function SessionAwarePanel() {
 function SignedIn() {
   const user = useSessionStore((state) => state.user)
   const signOut = useSessionStore((state) => state.signOut)
+  const refresh = useSessionStore((state) => state.restore)
+  const expire = useSessionStore((state) => state.expire)
   const [signingOut, setSigningOut] = useState(false)
 
   if (!user) return null
@@ -142,6 +146,12 @@ function SignedIn() {
       >
         {signingOut ? 'SIGN OUT…' : 'SIGN OUT'}
       </button>
+
+      <ChangeEmailForm currentEmail={user.email} onChanged={() => void refresh()} />
+
+      {/* Closing ends the session, so the store is told rather than left holding
+          a user who no longer exists. */}
+      <CloseAccount onClosed={() => expire()} />
     </div>
   )
 }

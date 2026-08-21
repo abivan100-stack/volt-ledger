@@ -1,0 +1,9 @@
+.change-email {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 420px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule-2);
+}

@@ -489,6 +489,19 @@
         ],
         "additionalProperties": false
       },
+      "EmailChallengeResponse": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "sent"
+        ],
+        "additionalProperties": false
+      },
       "Organisation": {
         "type": "object",
         "properties": {
@@ -1641,6 +1654,43 @@
           },
           "409": {
             "description": "- `ACCOUNT_OWNS_ORGANISATIONS` — The account still owns at least one organisation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/email/challenge": {
+      "post": {
+        "operationId": "requestEmailChallenge",
+        "summary": "Email yourself a code proving your current address",
+        "description": "Sends a verification code to the address on the session, and only ever to that address. Changing an email requires proof of the current mailbox as well as the new one, so a stolen session cannot move an account somewhere its holder cannot reach. The code is then passed to Better Auth `POST /api/auth/email-otp/request-email-change`, which sends a second code to the new address, and `POST /api/auth/email-otp/change-email` completes the change.",
+        "tags": [
+          "Session"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A code was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailChallengeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
             "content": {
               "application/json": {
                 "schema": {

@@ -36,6 +36,7 @@ function createMembership(role: MembershipDocument['role'] = 'owner'): Membershi
 
 const authenticatedAuth: AuthService = {
   handle: async () => new Response(null, { status: 204 }),
+  createVerificationCode: async () => '123456',
   getSession: async () => ({
     user: {
       id: 'user_123',

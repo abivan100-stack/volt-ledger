@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
+  changeEmail,
+  requestEmailChallenge,
+  requestEmailChange,
   resendVerificationEmail,
   signInWithEmail,
   signUpWithEmail,
@@ -104,5 +107,44 @@ describe('verifyEmailOtp', () => {
 
     const [, init] = request.mock.calls[0] as RequestCall
     expect(init.body).not.toHaveProperty('callbackURL')
+  })
+})
+
+describe('changing an email address', () => {
+  it('asks for a code proving the current address', async () => {
+    const { client, request } = stubClient({ sent: true })
+
+    await requestEmailChallenge({ client })
+
+    // No address in the body: the server takes it from the session, so this can
+    // never be pointed at somebody else.
+    expect(request).toHaveBeenCalledWith('/api/v1/me/email/challenge', {
+      method: 'POST',
+      signal: undefined,
+    })
+  })
+
+  it('spends the current-address code to reach the new one', async () => {
+    const { client, request } = stubClient({ success: true })
+
+    await requestEmailChange({ newEmail: 'new@example.com', otp: '111111' }, { client })
+
+    expect(request).toHaveBeenCalledWith('/api/auth/email-otp/request-email-change', {
+      method: 'POST',
+      body: { newEmail: 'new@example.com', otp: '111111' },
+      signal: undefined,
+    })
+  })
+
+  it('completes the change with the code sent to the new address', async () => {
+    const { client, request } = stubClient({ success: true })
+
+    await changeEmail({ newEmail: 'new@example.com', otp: '222222' }, { client })
+
+    expect(request).toHaveBeenCalledWith('/api/auth/email-otp/change-email', {
+      method: 'POST',
+      body: { newEmail: 'new@example.com', otp: '222222' },
+      signal: undefined,
+    })
   })
 })

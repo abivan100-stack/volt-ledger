@@ -184,6 +184,11 @@ export const accountClosureResponseSchema = z.object({
   releasedMemberships: z.number().int().min(0),
 }).strict()
 
+/** Acknowledges that a code was sent; never echoes the address or the code. */
+export const emailChallengeResponseSchema = z.object({
+  sent: z.literal(true),
+}).strict()
+
 export const simulationQueueSchema = z.object({
   queued: z.number().int().min(0),
   running: z.number().int().min(0),

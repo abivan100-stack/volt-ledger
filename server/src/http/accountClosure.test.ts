@@ -20,6 +20,7 @@ afterEach(async () => {
 
 const authenticated: AuthService = {
   handle: async () => new Response(null, { status: 204 }),
+  createVerificationCode: async () => '123456',
   getSession: async () => ({
     user: { id: 'user_123', name: 'Asha', email: 'asha@example.com', emailVerified: true },
     session: { id: 'session_123', expiresAt: new Date('2030-01-02T00:00:00.000Z') },

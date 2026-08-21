@@ -50,3 +50,15 @@ export async function signOut(options: SessionRequestOptions = {}): Promise<void
     throw error
   }
 }
+
+/**
+ * Closes the signed-in account. There is no administrator who can do this for
+ * anyone else, and it cannot be undone.
+ *
+ * Rejects with 409 `ACCOUNT_OWNS_ORGANISATIONS` while the account still owns an
+ * organisation: an owner membership cannot be released, so the holder has to
+ * transfer ownership or archive first.
+ */
+export async function closeAccount(options: SessionRequestOptions = {}): Promise<void> {
+  await send<unknown>(options, '/api/v1/me', { method: 'DELETE' })
+}

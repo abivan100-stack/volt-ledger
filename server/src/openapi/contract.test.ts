@@ -54,6 +54,7 @@ afterEach(async () => {
 
 const authenticated: AuthService = {
   handle: async () => new Response(null, { status: 204 }),
+  createVerificationCode: async () => '123456',
   getSession: async () => ({
     user: { id: USER_ID, name: 'Asha Raman', email: 'asha@example.com', emailVerified: true },
     session: { id: 'session_123', expiresAt: WHEN },
@@ -569,7 +570,11 @@ describe('the error envelope', () => {
   it('is used for an unauthenticated request', async () => {
     const app = await buildApp({
       logger: false,
-      auth: { handle: async () => new Response(null, { status: 204 }), getSession: async () => null },
+      auth: {
+        handle: async () => new Response(null, { status: 204 }),
+        createVerificationCode: async () => '123456',
+        getSession: async () => null,
+      },
       repositories: createRepositories(),
       databasePing: async () => undefined,
     })

@@ -1,0 +1,56 @@
+.close-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule-2);
+}
+
+.close-account-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.close-account-warning {
+  margin: 0;
+  padding: 11px 13px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--void) 7%, transparent);
+  border-left: 2px solid var(--void);
+  border-radius: 0 4px 4px 0;
+}
+
+.close-account-action {
+  align-self: flex-start;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 10px 18px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--void);
+  background: transparent;
+  border: 1px solid var(--void);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.close-account-action:hover:not(:disabled) {
+  color: var(--paper);
+  background: var(--void);
+}
+
+.close-account-confirmed {
+  color: var(--paper);
+  background: var(--void);
+}
+
+.close-account-action:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

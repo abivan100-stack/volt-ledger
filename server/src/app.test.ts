@@ -47,6 +47,7 @@ describe('Volt API', () => {
   it('rejects unauthenticated API requests', async () => {
     const auth: AuthService = {
       handle: async () => new Response(null, { status: 204 }),
+      createVerificationCode: async () => '123456',
       getSession: async () => null,
     }
     const app = await buildApp({ logger: false, auth })
@@ -66,6 +67,7 @@ describe('Volt API', () => {
     let receivedMethod = ''
     let receivedBody = ''
     const auth: AuthService = {
+      createVerificationCode: async () => '123456',
       handle: async (request) => {
         receivedUrl = request.url
         receivedMethod = request.method
@@ -103,6 +105,7 @@ describe('Volt API', () => {
   it('returns the authenticated user without exposing a session token', async () => {
     const auth: AuthService = {
       handle: async () => new Response(null, { status: 204 }),
+      createVerificationCode: async () => '123456',
       getSession: async () => ({
         user: {
           id: 'user_123',
