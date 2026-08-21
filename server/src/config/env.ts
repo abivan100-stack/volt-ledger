@@ -23,6 +23,7 @@ const envSchema = z.object({
 
   MONGODB_URI: z.string().min(1),
   MONGODB_DB_NAME: z.string().min(1),
+  VOLT_DNS_SERVERS: optionalString,
 
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),

@@ -1,11 +1,14 @@
 import { MongoClient, type Db } from 'mongodb'
 import { env } from '../config/env.js'
+import { applyDnsServers } from './setupDns.js'
 
 let client: MongoClient | undefined
 let database: Db | undefined
 let connecting: Promise<Db> | undefined
 
 async function openMongo(): Promise<Db> {
+  applyDnsServers(env.VOLT_DNS_SERVERS)
+
   const nextClient = new MongoClient(env.MONGODB_URI, {
     appName: 'volt-ledger-api',
     connectTimeoutMS: 10_000,

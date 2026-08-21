@@ -1,4 +1,4 @@
-import dns from 'node:dns'
+import { applyDnsServers } from '../setupDns.js'
 
 /**
  * Optional DNS override for the integration suite.
@@ -15,16 +15,5 @@ import dns from 'node:dns'
 export function applyTestDnsServers(
   environment: NodeJS.ProcessEnv = process.env,
 ): string[] | null {
-  const configured = environment.VOLT_TEST_DNS_SERVERS
-  if (!configured) return null
-
-  const servers = configured
-    .split(',')
-    .map((server) => server.trim())
-    .filter((server) => server.length > 0)
-
-  if (servers.length === 0) return null
-
-  dns.setServers(servers)
-  return servers
+  return applyDnsServers(environment.VOLT_TEST_DNS_SERVERS)
 }
