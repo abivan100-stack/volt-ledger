@@ -256,7 +256,7 @@ The API binds to Render's injected `PORT` on `0.0.0.0` and reports readiness at
 `/health`. The worker has no public endpoint and should be monitored through its
 persisted heartbeat. After applying the Blueprint, verify the API health check,
 recent error logs, and a queued simulation before treating the deployment as
-ready. See [ADR 0011](docs/adr/0011-render-api-worker-blueprint.md).
+ready. See [ADR 0012](docs/adr/0012-render-api-worker-blueprint.md).
 
 The API uses a 300-request general budget per client per minute, with separate
 60-request health and 20-request authentication budgets. Render sets

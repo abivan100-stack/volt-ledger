@@ -3,7 +3,7 @@ services:
     name: volt-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build:api
+    buildCommand: npm ci --include=dev && npm run build:api
     startCommand: node server/dist/api.js
     healthCheckPath: /health
     envVars:
@@ -29,7 +29,7 @@ services:
     name: volt-worker
     runtime: node
     plan: starter
-    buildCommand: npm ci && npm run build:api
+    buildCommand: npm ci --include=dev && npm run build:api
     startCommand: node server/dist/worker.js
     envVars:
       - fromGroup: volt-production-runtime
@@ -50,7 +50,7 @@ services:
     name: volt-web
     runtime: static
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     staticPublishPath: ./dist
     routes:
       - type: rewrite
