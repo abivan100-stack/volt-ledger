@@ -10,6 +10,7 @@ import { getMongoDb } from './db/mongo.js'
 import {
   createVoltRepositories,
   createLedgerSeal,
+  createInvitationToken,
   type AuditRepository,
   type InvitationRepository,
   type LedgerRepository,
@@ -36,10 +37,7 @@ import type {
   SimulationSummaryDocument,
   WorkerHeartbeatDocument,
 } from './db/models.js'
-import {
-  sendOrganisationInvitationEmail,
-  type OrganisationInvitationEmailInput,
-} from './email/resend.js'
+import { encryptDeliveryUrl } from './email/outbox.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
@@ -92,17 +90,12 @@ export interface OrganisationRouteRepositories {
   workers: Pick<WorkerRepository, 'findMostRecentHeartbeat'>
 }
 
-export interface InvitationEmailSender {
-  sendOrganisationInvitationEmail(input: OrganisationInvitationEmailInput): Promise<void>
-}
-
 export interface AppOptions {
   logger?: boolean
   trustProxy?: boolean
   databasePing?: () => Promise<void>
   auth?: AuthService
   repositories?: OrganisationRouteRepositories
-  invitationEmail?: InvitationEmailSender
 }
 
 function serializeOrganisation(organisation: OrganisationDocument, role: MembershipRole) {
@@ -393,10 +386,6 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   })
   const auth = (): AuthService => options.auth ?? getAuthService()
   const repositories = (): OrganisationRouteRepositories => options.repositories ?? createVoltRepositories(getMongoDb())
-  const invitationEmail = (): InvitationEmailSender => options.invitationEmail ?? {
-    sendOrganisationInvitationEmail,
-  }
-
   // The published contract. Unauthenticated by design: it describes the shape of
   // the API, never its data, and clients need it before they have a session.
   app.get('/openapi.json', async () => buildOpenApiDocument({ serverUrl: env.BETTER_AUTH_URL }))
@@ -1232,6 +1221,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
 
+    const token = createInvitationToken()
+    const invitationUrl = new URL('/invite/accept', env.WEB_ORIGIN)
+    invitationUrl.searchParams.set('token', token)
+
     let created: Awaited<ReturnType<InvitationRepository['create']>>
     try {
       created = await repositorySet.invitations.create({
@@ -1239,6 +1232,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         email: parsedBody.data.email,
         role,
         invitedByUserId: access.session.user.id,
+        token,
+        emailDelivery: {
+          encryptedUrl: encryptDeliveryUrl(invitationUrl.toString()),
+          organisationName: organisation.name,
+        },
       })
     } catch (error) {
       if (isDuplicateKeyError(error)) {
@@ -1254,30 +1252,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
 
-    const invitationUrl = new URL('/invite/accept', env.WEB_ORIGIN)
-    invitationUrl.searchParams.set('token', created.token)
-    try {
-      await invitationEmail().sendOrganisationInvitationEmail({
-        to: created.invitation.email,
-        organisationName: organisation.name,
-        role,
-        url: invitationUrl.toString(),
-      })
-    } catch (error) {
-      await repositorySet.invitations.revoke(
-        parsedParams.data.organisationId,
-        created.invitation._id,
-      ).catch((revokeError) => {
-        app.log.error({ err: revokeError, invitationId: created.invitation._id }, 'Failed to revoke undelivered invitation')
-      })
-      app.log.error({ err: error, invitationId: created.invitation._id }, 'Organisation invitation email delivery failed')
-      return reply.code(503).send({
-        error: 'Invitation email could not be sent',
-        code: 'INVITATION_DELIVERY_FAILED',
-      })
-    }
-
-    return reply.code(201).send({ invitation: serializeInvitation(created.invitation) })
+    return reply.code(202).send({ invitation: serializeInvitation(created.invitation) })
   })
 
   app.get('/api/v1/organisations/:organisationId/invitations', async (request, reply) => {

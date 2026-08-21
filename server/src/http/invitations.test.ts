@@ -66,6 +66,7 @@ function membership(role: MembershipDocument['role'], userId = 'user_123'): Memb
 
 function createRepositories(actorRole: MembershipDocument['role'] = 'owner') {
   let revokedInvitationId: string | undefined
+  let invitationInput: unknown
   let acceptedArgs: { token: string; userId: string; email: string } | undefined
   return {
     repositories: {
@@ -82,7 +83,10 @@ function createRepositories(actorRole: MembershipDocument['role'] = 'owner') {
         remove: async () => null,
       },
       invitations: {
-        create: async () => ({ invitation, token: 'raw-invitation-token' }),
+        create: async (input: unknown) => {
+          invitationInput = input
+          return { invitation, token: 'raw-invitation-token' }
+        },
         findPendingByEmail: async () => null,
         findPendingByToken: async () => invitation,
         findById: async () => invitation,
@@ -98,6 +102,7 @@ function createRepositories(actorRole: MembershipDocument['role'] = 'owner') {
       },
     },
     getRevokedInvitationId: () => revokedInvitationId,
+    getInvitationInput: () => invitationInput,
     getAcceptedArgs: () => acceptedArgs,
   }
 }
@@ -105,16 +110,10 @@ function createRepositories(actorRole: MembershipDocument['role'] = 'owner') {
 describe('organisation invitation REST API', () => {
   it('creates an invitation and never returns its raw token', async () => {
     const fixture = createRepositories()
-    let emailInput: unknown
     const app = await buildApp({
       logger: false,
       auth: authFor(),
       repositories: fixture.repositories as never,
-      invitationEmail: {
-        sendOrganisationInvitationEmail: async (input: unknown) => {
-          emailInput = input
-        },
-      },
     })
     apps.push(app)
 
@@ -124,7 +123,7 @@ describe('organisation invitation REST API', () => {
       payload: { email: 'friend@example.com', role: 'operator' },
     })
 
-    expect(response.statusCode).toBe(201)
+    expect(response.statusCode).toBe(202)
     expect(response.json()).toEqual({
       invitation: {
         id: invitation._id,
@@ -135,11 +134,14 @@ describe('organisation invitation REST API', () => {
       },
     })
     expect(response.body).not.toContain('raw-invitation-token')
-    expect(emailInput).toMatchObject({
-      to: 'friend@example.com',
-      organisationName: 'Solar Commons',
+    expect(fixture.getInvitationInput()).toMatchObject({
+      organisationId: organisation._id,
+      email: 'friend@example.com',
       role: 'operator',
+      emailDelivery: { organisationName: 'Solar Commons' },
     })
+    expect((fixture.getInvitationInput() as { emailDelivery: { encryptedUrl: string } }).emailDelivery.encryptedUrl)
+      .toMatch(/^[^.]+\.[^.]+\.[^.]+$/)
   })
 
   it('prevents an admin from inviting another admin', async () => {
@@ -148,7 +150,6 @@ describe('organisation invitation REST API', () => {
       logger: false,
       auth: authFor(),
       repositories: fixture.repositories as never,
-      invitationEmail: { sendOrganisationInvitationEmail: async () => undefined },
     })
     apps.push(app)
 
@@ -163,34 +164,6 @@ describe('organisation invitation REST API', () => {
       error: 'You cannot grant or change that membership role',
       code: 'INVITATION_ROLE_FORBIDDEN',
     })
-  })
-
-  it('revokes a pending invitation when delivery fails', async () => {
-    const fixture = createRepositories()
-    const app = await buildApp({
-      logger: false,
-      auth: authFor(),
-      repositories: fixture.repositories as never,
-      invitationEmail: {
-        sendOrganisationInvitationEmail: async () => {
-          throw new Error('provider unavailable')
-        },
-      },
-    })
-    apps.push(app)
-
-    const response = await app.inject({
-      method: 'POST',
-      url: `/api/v1/organisations/${organisation._id}/invitations`,
-      payload: { email: 'friend@example.com', role: 'operator' },
-    })
-
-    expect(response.statusCode).toBe(503)
-    expect(response.json()).toEqual({
-      error: 'Invitation email could not be sent',
-      code: 'INVITATION_DELIVERY_FAILED',
-    })
-    expect(fixture.getRevokedInvitationId()).toBe(invitation._id)
   })
 
   it('lists and revokes pending invitations for organisation managers', async () => {

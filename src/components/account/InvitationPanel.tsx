@@ -155,7 +155,7 @@ function InviteForm({ actorRole }: { actorRole: MembershipRole }) {
 
       {sentTo !== null && (
         <p className="account-confirmation" role="status">
-          Invitation sent to <strong>{sentTo}</strong>. It becomes a membership once they accept it
+          Invitation queued for <strong>{sentTo}</strong>. It becomes a membership once they accept it
           while signed in with that verified address.
         </p>
       )}

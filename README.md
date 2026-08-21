@@ -158,8 +158,10 @@ expired or unknown invitation, an unverified email, and an existing membership.
 
 Owners and admins can also issue and revoke invitations. The role choices exclude owner entirely — ownership moves
 only through a transfer — and an admin is offered neither the ability to invite another admin nor to revoke an admin
-invitation, matching the API. A resolved send means the email was actually delivered: the server revokes the
-invitation and answers `503` if delivery fails, so the panel never claims an invitation is waiting when it is not.
+invitation, matching the API. Creating an invitation returns `202` after the invitation and an encrypted delivery
+record are committed atomically; the worker sends the message with a stable Resend idempotency key and retries
+transient provider failures with bounded leases and backoff. The panel reports that the invitation is queued while it
+remains pending until accepted or revoked.
 Revoking marks the record revoked rather than deleting it, because invitation history is retained.
 
 The member list shows every active member of the selected organisation and only the controls the caller's role

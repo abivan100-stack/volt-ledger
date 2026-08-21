@@ -278,7 +278,6 @@ async function startApp(options: StubOptions = {}): Promise<FastifyInstance> {
     logger: false,
     auth: authenticated,
     repositories: createRepositories(options),
-    invitationEmail: { sendOrganisationInvitationEmail: async () => undefined },
     databasePing: async () => undefined,
   })
   apps.push(app)
@@ -352,7 +351,7 @@ describe('memberships and invitations', () => {
     expect(parsed.members.length).toBe(2)
   })
 
-  it('POST invitations matches InvitationResponse with 201', async () => {
+  it('POST invitations matches InvitationResponse with 202', async () => {
     const app = await startApp()
     const response = await app.inject({
       method: 'POST',
@@ -361,7 +360,7 @@ describe('memberships and invitations', () => {
       payload: { email: 'new@example.com', role: 'operator' },
     })
 
-    expect(response.statusCode).toBe(201)
+    expect(response.statusCode).toBe(202)
     const parsed = invitationResponseSchema.parse(response.json())
     // The single-use token is emailed, never returned.
     expect(JSON.stringify(parsed)).not.toContain('plain-token')

@@ -1,4 +1,5 @@
 import type {
+  EmailDeliveryDocument,
   SimulationRunDocument,
   SimulationStatus,
 } from '../db/models.js'
@@ -12,6 +13,8 @@ import {
   type WorkerHealthSnapshot,
 } from '../observability/workerHealth.js'
 import { computeBackoffMs } from './backoff.js'
+import { decryptDeliveryUrl } from '../email/outbox.js'
+import { EmailDeliveryError, sendOrganisationInvitationEmail } from '../email/resend.js'
 import {
   MONTE_CARLO_MODEL_VERSION,
   digestSimulationInput,
@@ -30,12 +33,84 @@ type InvitationWorkerRepositories = {
   invitations: Pick<VoltRepositories['invitations'], 'expirePending'>
 }
 
+type EmailWorkerRepositories = {
+  emailDeliveries: Pick<VoltRepositories['emailDeliveries'], 'claimNext' | 'markSent' | 'markFailed'>
+}
+
 /** Error code recorded on a run that exhausted its attempt budget. */
 export const SIMULATION_MAX_ATTEMPTS_ERROR = 'SIMULATION_MAX_ATTEMPTS_EXCEEDED'
 
 export interface SimulationExecutionOptions {
   /** Claims allowed before the run is quarantined. Omit to disable the check. */
   maxAttempts?: number
+}
+
+export interface EmailDeliveryExecutionOptions {
+  maxAttempts?: number
+  retryBaseMs?: number
+  retryMaxMs?: number
+  leaseMs?: number
+  random?: () => number
+  sender?: (input: Parameters<typeof sendOrganisationInvitationEmail>[0]) => Promise<void>
+}
+
+function emailErrorDetails(error: unknown): { code: string; retryable: boolean } {
+  if (error instanceof EmailDeliveryError) return { code: error.code, retryable: error.retryable }
+  if (error instanceof Error && error.message === 'EMAIL_DELIVERY_PAYLOAD_INVALID') {
+    return { code: error.message, retryable: false }
+  }
+  return { code: 'EMAIL_DELIVERY_RETRYABLE_FAILURE', retryable: true }
+}
+
+export async function processNextEmailDelivery(
+  repositories: EmailWorkerRepositories,
+  logger: Logger = createSilentLogger(),
+  options: EmailDeliveryExecutionOptions = {},
+): Promise<EmailDeliveryDocument | null> {
+  const claimed = await repositories.emailDeliveries.claimNext(new Date(), options.leaseMs)
+  if (!claimed) return null
+
+  const scoped = logger.child({ deliveryId: claimed._id, idempotencyKey: claimed.idempotencyKey })
+  const now = new Date()
+  try {
+    const url = decryptDeliveryUrl(claimed.encryptedUrl)
+    const sender = options.sender ?? sendOrganisationInvitationEmail
+    await sender({
+      to: claimed.to,
+      organisationName: claimed.organisationName,
+      role: claimed.role,
+      url,
+      idempotencyKey: claimed.idempotencyKey,
+    })
+    await repositories.emailDeliveries.markSent(claimed._id, now)
+    scoped.info('email_delivery.sent', { attemptCount: claimed.attemptCount })
+    return { ...claimed, status: 'sent', lockedUntil: null, sentAt: now, updatedAt: now }
+  } catch (error) {
+    const details = emailErrorDetails(error)
+    const maxAttempts = options.maxAttempts ?? 5
+    const terminal = !details.retryable || claimed.attemptCount >= maxAttempts
+    const retryDelay = computeBackoffMs(claimed.attemptCount, {
+      baseMs: options.retryBaseMs ?? 1_000,
+      maxMs: options.retryMaxMs ?? 600_000,
+      randomSample: (options.random ?? Math.random)(),
+    })
+    const nextAttemptAt = terminal ? now : new Date(now.getTime() + retryDelay)
+    await repositories.emailDeliveries.markFailed(claimed._id, nextAttemptAt, details.code, terminal)
+    scoped[terminal ? 'error' : 'warn']('email_delivery.failed', {
+      attemptCount: claimed.attemptCount,
+      errorCode: details.code,
+      terminal,
+      nextAttemptAt: nextAttemptAt.toISOString(),
+    })
+    return {
+      ...claimed,
+      status: terminal ? 'failed' : 'pending',
+      lockedUntil: null,
+      lastErrorCode: details.code,
+      nextAttemptAt,
+      updatedAt: now,
+    }
+  }
 }
 
 /**
@@ -200,6 +275,12 @@ export interface SimulationWorkerOptions {
   sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>
   /** Jitter source. Operational only; nothing in the simulation model uses it. */
   random?: () => number
+  /** Maximum attempts for a single queued email before quarantine. */
+  emailMaxAttempts?: number
+  emailRetryBaseMs?: number
+  emailRetryMaxMs?: number
+  emailLeaseMs?: number
+  emailSender?: (input: Parameters<typeof sendOrganisationInvitationEmail>[0]) => Promise<void>
 }
 
 function waitForPoll(milliseconds: number, signal?: AbortSignal): Promise<void> {
@@ -219,7 +300,7 @@ function waitForPoll(milliseconds: number, signal?: AbortSignal): Promise<void> 
 }
 
 export async function runSimulationWorker(
-  repositories: SimulationWorkerRepositories & InvitationWorkerRepositories,
+  repositories: SimulationWorkerRepositories & InvitationWorkerRepositories & Partial<EmailWorkerRepositories>,
   options: SimulationWorkerOptions = {},
 ): Promise<void> {
   const pollIntervalMs = Math.min(Math.max(options.pollIntervalMs ?? 1_000, 100), 60_000)
@@ -288,13 +369,23 @@ export async function runSimulationWorker(
     }
 
     try {
+      const processedEmail = repositories.emailDeliveries
+        ? await processNextEmailDelivery({ emailDeliveries: repositories.emailDeliveries }, logger, {
+            maxAttempts: options.emailMaxAttempts,
+            retryBaseMs: options.emailRetryBaseMs,
+            retryMaxMs: options.emailRetryMaxMs,
+            leaseMs: options.emailLeaseMs,
+            random,
+            sender: options.emailSender,
+          })
+        : null
       const processed = await processNextSimulationRun(repositories, logger, {
         ...(options.maxAttempts === undefined ? {} : { maxAttempts: options.maxAttempts }),
       })
       consecutiveFailures = 0
-      health.pollSucceeded({ processed: processed !== null })
+      health.pollSucceeded({ processed: processed !== null || processedEmail !== null })
       await publishHeartbeat()
-      if (!processed) await sleep(pollIntervalMs, options.signal)
+      if (!processed && !processedEmail) await sleep(pollIntervalMs, options.signal)
     } catch (error) {
       // The claim or the run failed in a way that may succeed later. Staying
       // alive is the whole point: the lease is left running, and this loop is

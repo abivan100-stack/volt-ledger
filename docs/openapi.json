@@ -2282,7 +2282,7 @@
       "post": {
         "operationId": "createInvitation",
         "summary": "Invite somebody by email",
-        "description": "Owner or admin; an admin may not invite an admin. Delivery is part of the operation: if the email cannot be sent the server revokes the invitation and answers 503, so a 201 means the recipient has been written to. Only a hash of the single-use token is stored.\n\n**Roles.** `owner`, `admin`.",
+        "description": "Owner or admin; an admin may not invite an admin. The invitation and its encrypted email delivery record are written atomically, and the worker delivers the message with idempotent retries. A 202 means the invitation is queued; delivery can be observed through the recipient email and worker operations. Only a hash of the single-use token is stored.\n\n**Roles.** `owner`, `admin`.",
         "tags": [
           "Invitations"
         ],
@@ -2318,8 +2318,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "The pending invitation.",
+          "202": {
+            "description": "The pending invitation queued for email delivery.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2380,16 +2380,6 @@
           },
           "500": {
             "description": "- `INVITATION_CREATE_FAILED` — The invitation could not be created.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "- `INVITATION_DELIVERY_FAILED` — The email could not be sent; the invitation was revoked.",
             "content": {
               "application/json": {
                 "schema": {

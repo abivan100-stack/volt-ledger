@@ -18,6 +18,27 @@ export type InvitationRole = Exclude<MembershipRole, 'owner'>
 export const workerHealthStatuses = ['starting', 'healthy', 'degraded', 'stopped'] as const
 export type WorkerHealthStatus = (typeof workerHealthStatuses)[number]
 
+export const emailDeliveryStatuses = ['pending', 'processing', 'sent', 'failed'] as const
+export type EmailDeliveryStatus = (typeof emailDeliveryStatuses)[number]
+
+export interface EmailDeliveryDocument {
+  _id: string
+  idempotencyKey: string
+  kind: 'organisation_invitation'
+  to: string
+  organisationName: string
+  role: InvitationRole
+  encryptedUrl: string
+  status: EmailDeliveryStatus
+  attemptCount: number
+  nextAttemptAt: Date
+  lockedUntil: Date | null
+  lastErrorCode: string | null
+  createdAt: Date
+  updatedAt: Date
+  sentAt: Date | null
+}
+
 export type JsonObject = Record<string, unknown>
 
 export interface OrganisationDocument {

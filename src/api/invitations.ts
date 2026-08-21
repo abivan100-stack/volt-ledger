@@ -57,9 +57,9 @@ export async function listInvitations(
 }
 
 /**
- * Issues an invitation and sends its email. Delivery is part of the operation:
- * if the email cannot be sent the server revokes the invitation and answers
- * `503`, so a resolved call means the recipient has been written to.
+ * Issues an invitation and queues its email for durable worker delivery. The
+ * server writes the invitation and encrypted delivery payload atomically; the
+ * worker retries transient provider failures with an idempotency key.
  */
 export async function createInvitation(
   organisationId: string,

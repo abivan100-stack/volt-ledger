@@ -347,7 +347,7 @@ const ROUTES: RouteDoc[] = [
     operationId: 'createInvitation',
     summary: 'Invite somebody by email',
     description:
-      'Owner or admin; an admin may not invite an admin. Delivery is part of the operation: if the email cannot be sent the server revokes the invitation and answers 503, so a 201 means the recipient has been written to. Only a hash of the single-use token is stored.',
+      'Owner or admin; an admin may not invite an admin. The invitation and its encrypted email delivery record are written atomically, and the worker delivers the message with idempotent retries. A 202 means the invitation is queued; delivery can be observed through the recipient email and worker operations. Only a hash of the single-use token is stored.',
     tags: ['Invitations'],
     authenticated: true,
     roles: ['owner', 'admin'],
@@ -356,7 +356,7 @@ const ROUTES: RouteDoc[] = [
       required: true,
       example: { email: 'asha@example.com', role: 'operator' },
     },
-    success: [{ status: 201, description: 'The pending invitation.', schema: 'InvitationResponse' }],
+    success: [{ status: 202, description: 'The pending invitation queued for email delivery.', schema: 'InvitationResponse' }],
     errors: [
       ...MEMBERSHIP_ERRORS,
       INVALID_ORGANISATION_ID,
@@ -365,7 +365,6 @@ const ROUTES: RouteDoc[] = [
       ORGANISATION_NOT_FOUND,
       { status: 409, code: 'INVITATION_ALREADY_PENDING', description: 'An invitation is already pending for this email.' },
       { status: 500, code: 'INVITATION_CREATE_FAILED', description: 'The invitation could not be created.' },
-      { status: 503, code: 'INVITATION_DELIVERY_FAILED', description: 'The email could not be sent; the invitation was revoked.' },
     ],
   },
   {

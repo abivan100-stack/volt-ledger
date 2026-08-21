@@ -6,7 +6,8 @@ import {
   hashInvitationToken,
   simulationDailyRunLimit,
 } from './repositories.js'
-import type { LedgerEventDocument } from './models.js'
+import { collectionNames } from './collections.js'
+import type { EmailDeliveryDocument, LedgerEventDocument } from './models.js'
 
 type MemoryDocument = Document & { _id: string }
 
@@ -149,6 +150,78 @@ describe('Volt Mongo repositories', () => {
       email: 'asha@example.com',
       role: 'operator',
     })
+  })
+
+  it('queues invitation email data in the same transaction as the invitation', async () => {
+    let transactionCount = 0
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => {
+          transactionCount += 1
+          await operation()
+        },
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const db = createMemoryDb()
+    const repositories = createVoltRepositories(db, client)
+
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      invitedByUserId: 'owner_123',
+      token: 'raw-token-for-transaction-test',
+      emailDelivery: {
+        encryptedUrl: 'encrypted-payload',
+        organisationName: 'Solar Commons',
+      },
+    })
+
+    const deliveries = await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>)
+      .find({}).toArray()
+    expect(transactionCount).toBe(1)
+    expect(created.token).toBe('raw-token-for-transaction-test')
+    expect(deliveries).toHaveLength(1)
+    expect(deliveries[0]).toMatchObject({
+      idempotencyKey: `organisation-invitation:${created.invitation._id}`,
+      to: 'friend@example.com',
+      status: 'pending',
+      encryptedUrl: 'encrypted-payload',
+    })
+  })
+
+  it('claims, retries, and completes outbox records without double-claiming sent mail', async () => {
+    const db = createMemoryDb()
+    const repositories = createVoltRepositories(db, {} as MongoClient)
+    const now = new Date('2030-01-01T00:00:00.000Z')
+    const document: EmailDeliveryDocument = {
+      _id: 'delivery_1',
+      idempotencyKey: 'organisation-invitation:invitation_1',
+      kind: 'organisation_invitation',
+      to: 'friend@example.com',
+      organisationName: 'Solar Commons',
+      role: 'operator',
+      encryptedUrl: 'encrypted-payload',
+      status: 'pending',
+      attemptCount: 0,
+      nextAttemptAt: now,
+      lockedUntil: null,
+      lastErrorCode: null,
+      createdAt: now,
+      updatedAt: now,
+      sentAt: null,
+    }
+    await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>).insertOne(document)
+
+    const claimed = await repositories.emailDeliveries.claimNext(now, 60_000)
+    expect(claimed).toMatchObject({ _id: 'delivery_1', status: 'processing', attemptCount: 1 })
+    expect(await repositories.emailDeliveries.markFailed('delivery_1', new Date(now.getTime() + 1_000), 'TEMPORARY'))
+      .toBe(true)
+    const reclaimed = await repositories.emailDeliveries.claimNext(new Date(now.getTime() + 2_000), 60_000)
+    expect(reclaimed?.attemptCount).toBe(2)
+    expect(await repositories.emailDeliveries.markSent('delivery_1', now)).toBe(true)
+    expect(await repositories.emailDeliveries.claimNext(new Date(now.getTime() + 3_000))).toBeNull()
   })
 
   it('accepts an invitation and creates the membership in one transaction', async () => {

@@ -16,6 +16,19 @@ export interface OrganisationInvitationEmailInput {
   organisationName: string
   role: InvitationRole
   url: string
+  idempotencyKey?: string
+}
+
+export class EmailDeliveryError extends Error {
+  readonly retryable: boolean
+  readonly code: string
+
+  constructor(message: string, code: string, retryable: boolean) {
+    super(message)
+    this.name = 'EmailDeliveryError'
+    this.code = code
+    this.retryable = retryable
+  }
 }
 
 function getResendClient(): Resend {
@@ -86,8 +99,15 @@ export async function sendOrganisationInvitationEmail({
   organisationName,
   role,
   url,
+  idempotencyKey,
 }: OrganisationInvitationEmailInput): Promise<void> {
-  const emailFrom = requireEmailDeliveryConfiguration()
+  let emailFrom: string
+  try {
+    emailFrom = requireEmailDeliveryConfiguration()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Email delivery is not configured'
+    throw new EmailDeliveryError(message, 'EMAIL_DELIVERY_NOT_CONFIGURED', false)
+  }
 
   announceLink(`Invitation to ${organisationName}`, to, url)
 
@@ -102,9 +122,10 @@ export async function sendOrganisationInvitationEmail({
     subject: `You're invited to ${organisationName} on Volt`,
     text: `You have been invited to join ${organisationName} on Volt as a ${role}. Accept the invitation here:\n${url}`,
     html: `<p>You have been invited to join <strong>${safeOrganisationName}</strong> on Volt as a ${roleLabel}.</p><p><a href="${safeUrl}">Accept invitation</a></p>`,
-  })
+  }, idempotencyKey ? { idempotencyKey } : undefined)
 
   if (error) {
-    throw new Error(`Resend email failed: ${error.message}`)
+    const retryable = error.statusCode === null || error.statusCode >= 500 || error.statusCode === 429
+    throw new EmailDeliveryError(`Resend email failed: ${error.message}`, error.name, retryable)
   }
 }

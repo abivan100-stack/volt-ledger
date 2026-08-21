@@ -2,6 +2,7 @@ import type { Collection, Db, IndexDescription } from 'mongodb'
 import type {
   AuditEventDocument,
   CounterDocument,
+  EmailDeliveryDocument,
   LedgerEventDocument,
   MembershipDocument,
   OrganisationDocument,
@@ -25,6 +26,7 @@ export const collectionNames = {
   counters: 'counters',
   auditEvents: 'audit_events',
   workerHeartbeats: 'worker_heartbeats',
+  emailDeliveries: 'email_deliveries',
 } as const
 
 export interface VoltCollections {
@@ -39,6 +41,7 @@ export interface VoltCollections {
   counters: Collection<CounterDocument>
   auditEvents: Collection<AuditEventDocument>
   workerHeartbeats: Collection<WorkerHeartbeatDocument>
+  emailDeliveries: Collection<EmailDeliveryDocument>
 }
 
 interface CollectionSpec {
@@ -228,6 +231,21 @@ const collectionSpecs: CollectionSpec[] = [
       },
     ],
   },
+  {
+    key: 'emailDeliveries',
+    name: collectionNames.emailDeliveries,
+    indexes: [
+      {
+        key: { idempotencyKey: 1 },
+        name: 'email_deliveries_idempotency_unique',
+        unique: true,
+      },
+      {
+        key: { status: 1, nextAttemptAt: 1, createdAt: 1 },
+        name: 'email_deliveries_claim_queue',
+      },
+    ],
+  },
 ]
 
 export function getVoltCollections(db: Db): VoltCollections {
@@ -243,6 +261,7 @@ export function getVoltCollections(db: Db): VoltCollections {
     counters: db.collection<CounterDocument>(collectionNames.counters),
     auditEvents: db.collection<AuditEventDocument>(collectionNames.auditEvents),
     workerHeartbeats: db.collection<WorkerHeartbeatDocument>(collectionNames.workerHeartbeats),
+    emailDeliveries: db.collection<EmailDeliveryDocument>(collectionNames.emailDeliveries),
   }
 }
 
