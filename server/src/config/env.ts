@@ -20,34 +20,55 @@ const trustProxy = z.preprocess(
   z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 )
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_HOST: z.string().min(1).default('127.0.0.1'),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  PORT: optionalPort,
-  TRUST_PROXY: trustProxy,
-  WEB_ORIGIN: z.string().url(),
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    API_HOST: z.string().min(1).default('127.0.0.1'),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    PORT: optionalPort,
+    TRUST_PROXY: trustProxy,
+    WEB_ORIGIN: z.string().url(),
 
-  MONGODB_URI: z.string().min(1),
-  MONGODB_DB_NAME: z.string().min(1),
-  VOLT_DNS_SERVERS: optionalString,
+    MONGODB_URI: z.string().min(1),
+    MONGODB_DB_NAME: z.string().min(1),
+    VOLT_DNS_SERVERS: optionalString,
 
-  BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.string().url(),
-  SIMULATION_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
-  SIMULATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
-  WORKER_ID: z.string().min(1).default('volt-worker'),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    BETTER_AUTH_URL: z.string().url(),
+    SIMULATION_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
+    SIMULATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
+    WORKER_ID: z.string().min(1).default('volt-worker'),
 
-  GOOGLE_CLIENT_ID: optionalString,
-  GOOGLE_CLIENT_SECRET: optionalString,
+    GOOGLE_CLIENT_ID: optionalString,
+    GOOGLE_CLIENT_SECRET: optionalString,
 
-  RESEND_API_KEY: optionalString,
-  EMAIL_FROM: optionalString,
-  SMTP_HOST: optionalString,
-  SMTP_PORT: optionalPort,
-  SMTP_USER: optionalString,
-  SMTP_PASSWORD: optionalString,
-})
+    RESEND_API_KEY: optionalString,
+    EMAIL_FROM: optionalString,
+    SMTP_HOST: optionalString,
+    SMTP_PORT: optionalPort,
+    SMTP_USER: optionalString,
+    SMTP_PASSWORD: optionalString,
+  })
+  .superRefine((values, context) => {
+    if (values.NODE_ENV !== 'production') {
+      return
+    }
 
-export const env = envSchema.parse(process.env)
+    for (const field of ['WEB_ORIGIN', 'BETTER_AUTH_URL'] as const) {
+      if (new URL(values[field]).protocol !== 'https:') {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} must use HTTPS in production`,
+        })
+      }
+    }
+  })
+
 export type Env = z.infer<typeof envSchema>
+
+export function parseEnvironment(input: unknown): Env {
+  return envSchema.parse(input)
+}
+
+export const env = parseEnvironment(process.env)

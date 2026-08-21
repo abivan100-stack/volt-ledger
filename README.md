@@ -247,6 +247,10 @@ Fill these Dashboard values before deploying:
   that cannot deliver.
 - `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
 
+Production startup rejects HTTP values for `BETTER_AUTH_URL` and `WEB_ORIGIN`.
+Use the local HTTP defaults in `server/.env.example` only for development or
+test environments.
+
 The Blueprint prompts for the Atlas and auth values on both the API and worker
 because the current server environment contract is process-wide; the worker
 does not expose an HTTP or authentication surface, but it must still satisfy
