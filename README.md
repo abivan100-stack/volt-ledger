@@ -252,6 +252,11 @@ persisted heartbeat. After applying the Blueprint, verify the API health check,
 recent error logs, and a queued simulation before treating the deployment as
 ready. See [ADR 0011](docs/adr/0011-render-api-worker-blueprint.md).
 
+The API uses a 300-request general budget per client per minute, with separate
+60-request health and 20-request authentication budgets. Render sets
+`TRUST_PROXY=true` so those budgets key on the original client IP; local
+development keeps proxy trust disabled.
+
 Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
 
 ```text

@@ -98,6 +98,7 @@ export interface InvitationEmailSender {
 
 export interface AppOptions {
   logger?: boolean
+  trustProxy?: boolean
   databasePing?: () => Promise<void>
   auth?: AuthService
   repositories?: OrganisationRouteRepositories
@@ -364,6 +365,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   const app = Fastify({
     logger: options.logger ?? true,
     bodyLimit: 256 * 1024,
+    trustProxy: options.trustProxy ?? env.TRUST_PROXY,
   })
 
   await app.register(helmet)
@@ -374,7 +376,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await app.register(cookie)
   await app.register(rateLimit, {
     global: true,
-    max: 100,
+    max: 300,
     timeWindow: '1 minute',
   })
 
@@ -399,7 +401,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // the API, never its data, and clients need it before they have a session.
   app.get('/openapi.json', async () => buildOpenApiDocument({ serverUrl: env.BETTER_AUTH_URL }))
 
-  app.get('/health', async (_request, reply) => {
+  app.get('/health', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (_request, reply) => {
     try {
       await databasePing()
       return {
@@ -420,6 +422,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   app.route({
     method: ['GET', 'POST'],
     url: '/api/auth/*',
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     handler: async (request, reply) => {
       try {
         const requestUrl = new URL(request.raw.url ?? request.url, env.BETTER_AUTH_URL)

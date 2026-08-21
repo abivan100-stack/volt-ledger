@@ -15,11 +15,17 @@ const optionalPort = z.preprocess(
   z.coerce.number().int().min(1).max(65535).optional(),
 )
 
+const trustProxy = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+  z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+)
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().min(1).default('127.0.0.1'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   PORT: optionalPort,
+  TRUST_PROXY: trustProxy,
   WEB_ORIGIN: z.string().url(),
 
   MONGODB_URI: z.string().min(1),

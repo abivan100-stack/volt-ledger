@@ -12,6 +12,8 @@ services:
         sync: false
       - key: VOLT_DNS_SERVERS
         sync: false
+      - key: TRUST_PROXY
+        value: "true"
       - key: WEB_ORIGIN
         sync: false
       - key: BETTER_AUTH_SECRET
