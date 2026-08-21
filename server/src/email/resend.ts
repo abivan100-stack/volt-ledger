@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { env } from '../config/env.js'
+import { getEmailDeliveryConfigurationError } from './config.js'
 import { announceLink } from './devLinks.js'
 import type { InvitationRole } from '../db/models.js'
 
@@ -27,7 +28,24 @@ function getResendClient(): Resend {
 }
 
 export function isEmailDeliveryConfigured(): boolean {
-  return Boolean(env.RESEND_API_KEY && env.EMAIL_FROM)
+  return !getEmailDeliveryConfigurationError({
+    nodeEnv: env.NODE_ENV,
+    resendApiKey: env.RESEND_API_KEY,
+    emailFrom: env.EMAIL_FROM,
+  })
+}
+
+function requireEmailDeliveryConfiguration(): string {
+  const error = getEmailDeliveryConfigurationError({
+    nodeEnv: env.NODE_ENV,
+    resendApiKey: env.RESEND_API_KEY,
+    emailFrom: env.EMAIL_FROM,
+  })
+
+  if (error) throw new Error(error)
+  const emailFrom = env.EMAIL_FROM
+  if (!emailFrom) throw new Error('EMAIL_FROM is not configured')
+  return emailFrom
 }
 
 function escapeHtml(value: string): string {
@@ -41,9 +59,7 @@ function escapeHtml(value: string): string {
 }
 
 export async function sendVerificationEmail({ to, url }: VerificationEmailInput): Promise<void> {
-  if (!env.EMAIL_FROM) {
-    throw new Error('EMAIL_FROM is not configured')
-  }
+  const emailFrom = requireEmailDeliveryConfiguration()
 
   // Before the send, not after: a provider that files the message as spam still
   // leaves a link the developer can open.
@@ -53,7 +69,7 @@ export async function sendVerificationEmail({ to, url }: VerificationEmailInput)
   const safeUrl = escapeHtml(url)
 
   const { error } = await client.emails.send({
-    from: env.EMAIL_FROM,
+    from: emailFrom,
     to,
     subject: 'Verify your Volt account',
     text: `Verify your Volt account by opening this link:\n${url}`,
@@ -71,9 +87,7 @@ export async function sendOrganisationInvitationEmail({
   role,
   url,
 }: OrganisationInvitationEmailInput): Promise<void> {
-  if (!env.EMAIL_FROM) {
-    throw new Error('EMAIL_FROM is not configured')
-  }
+  const emailFrom = requireEmailDeliveryConfiguration()
 
   announceLink(`Invitation to ${organisationName}`, to, url)
 
@@ -83,7 +97,7 @@ export async function sendOrganisationInvitationEmail({
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
 
   const { error } = await client.emails.send({
-    from: env.EMAIL_FROM,
+    from: emailFrom,
     to,
     subject: `You're invited to ${organisationName} on Volt`,
     text: `You have been invited to join ${organisationName} on Volt as a ${role}. Accept the invitation here:\n${url}`,

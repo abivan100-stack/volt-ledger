@@ -239,6 +239,12 @@ Fill these Dashboard values before deploying:
 - `WEB_ORIGIN`: the deployed static-site HTTPS origin.
 - `VITE_API_BASE_URL`: the same deployed API HTTPS origin.
 - `RESEND_API_KEY` and `EMAIL_FROM`: verified production email delivery settings.
+  Resend's `onboarding@resend.dev` sender is development-only and can deliver
+  only to the Resend account owner. Add and verify a domain in Resend, then set
+  `EMAIL_FROM` to an address on that domain before deploying so verification
+  and organisation-invitation messages reach other recipients. Production
+  treats the `resend.dev` sender as unconfigured instead of enabling sign-up
+  that cannot deliver.
 - `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
 
 The Blueprint prompts for the Atlas and auth values on both the API and worker
