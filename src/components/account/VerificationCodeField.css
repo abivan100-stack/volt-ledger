@@ -1,0 +1,16 @@
+.verification-code-input {
+  /* Digits are the content, so they get the monospaced treatment and room to
+     breathe — a code is read back character by character. */
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 22px;
+  letter-spacing: 0.42em;
+  /* The tracking is applied after each glyph, including the last, which would
+     otherwise sit visibly left of centre. */
+  text-indent: 0.42em;
+  text-align: center;
+}
+
+.verification-code-input:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

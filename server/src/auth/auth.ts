@@ -1,11 +1,18 @@
 import { mongodbAdapter } from '@better-auth/mongo-adapter'
 import { betterAuth } from 'better-auth'
+import { emailOTP } from 'better-auth/plugins'
 import { env } from '../config/env.js'
 import { getMongoClient, getMongoDb } from '../db/mongo.js'
-import {
-  isEmailDeliveryConfigured,
-  sendVerificationEmail as sendResendVerificationEmail,
-} from '../email/resend.js'
+import { isEmailDeliveryConfigured, sendVerificationCodeEmail } from '../email/resend.js'
+
+/** Digits in a verification code. Six is the length people expect to retype. */
+export const VERIFICATION_CODE_LENGTH = 6
+
+/** How long a code stays valid. Long enough to switch apps, short enough to matter. */
+export const VERIFICATION_CODE_TTL_SECONDS = 600
+
+/** Wrong guesses before the code is burned, against a 10^6 keyspace. */
+export const VERIFICATION_CODE_ALLOWED_ATTEMPTS = 5
 
 export interface AuthenticatedSession {
   user: {
@@ -49,12 +56,39 @@ export function getAuthService(): AuthService {
           emailVerification: {
             sendOnSignUp: true,
             sendOnSignIn: true,
-            sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-              await sendResendVerificationEmail({ to: user.email, url })
-            },
           },
         }
       : {}),
+    plugins: emailDeliveryConfigured
+      ? [
+          /**
+           * Verification by one-time code rather than by link.
+           *
+           * `overrideDefaultEmailVerification` replaces Better Auth's link
+           * sender at init, so every existing trigger — sign-up, a sign-in by an
+           * unverified account, and the resend endpoint the UI already calls —
+           * sends a code instead. Nothing else had to be rewired.
+           *
+           * A link carries its own proof; a six-digit code does not, so the
+           * guessing budget is what protects it. Codes are stored hashed, so a
+           * database read cannot complete somebody else's verification.
+           */
+          emailOTP({
+            otpLength: VERIFICATION_CODE_LENGTH,
+            expiresIn: VERIFICATION_CODE_TTL_SECONDS,
+            allowedAttempts: VERIFICATION_CODE_ALLOWED_ATTEMPTS,
+            storeOTP: 'hashed',
+            overrideDefaultEmailVerification: true,
+            sendVerificationOTP: async ({ email, otp }: { email: string; otp: string }) => {
+              await sendVerificationCodeEmail({
+                to: email,
+                code: otp,
+                expiresInMinutes: Math.round(VERIFICATION_CODE_TTL_SECONDS / 60),
+              })
+            },
+          }),
+        ]
+      : [],
   })
 
   authService = {

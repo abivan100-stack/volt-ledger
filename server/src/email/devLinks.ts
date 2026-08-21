@@ -31,6 +31,31 @@ export function formatLinkAnnouncement(label: string, to: string, url: string): 
   return ['', `  ${label}`, `  to:   ${to}`, `  open: ${url}`, ''].join('\n')
 }
 
+export function formatCodeAnnouncement(label: string, to: string, code: string): string {
+  return ['', `  ${label}`, `  to:   ${to}`, `  code: ${code}`, ''].join('\n')
+}
+
+/**
+ * Echoes a one-time code, under exactly the same production ban as a link.
+ *
+ * A verification code is a bearer credential with a short life: anyone holding
+ * it can complete the verification it belongs to. Printing it is what makes the
+ * local sign-up loop usable when a mail provider files the message as spam, and
+ * what would turn a production log into a way past verification.
+ */
+export function announceCode(
+  label: string,
+  to: string,
+  code: string,
+  options: AnnounceLinkOptions = {},
+): void {
+  const nodeEnv = options.nodeEnv ?? env.NODE_ENV
+  if (!shouldAnnounceLinks(nodeEnv)) return
+
+  const sink = options.sink ?? ((message: string) => console.info(message))
+  sink(formatCodeAnnouncement(label, to, code))
+}
+
 export function announceLink(
   label: string,
   to: string,

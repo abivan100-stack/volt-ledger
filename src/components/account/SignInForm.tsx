@@ -13,7 +13,7 @@ import './SignInForm.css'
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 403) {
-      return 'This address has not been verified yet. Check your inbox for the verification link — we have sent a fresh one.'
+      return 'This address has not been verified yet. We have emailed you a fresh verification code — sign up again with this address to enter it.'
     }
     return error.message
   }

@@ -4,17 +4,23 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import SignUpForm from '../SignUpForm'
 import { ApiError } from '../../../api/errors'
 
-const { resendMock, signUpMock } = vi.hoisted(() => ({ resendMock: vi.fn(), signUpMock: vi.fn() }))
+const { resendMock, signUpMock, verifyMock } = vi.hoisted(() => ({
+  resendMock: vi.fn(),
+  signUpMock: vi.fn(),
+  verifyMock: vi.fn(),
+}))
 
 vi.mock('../../../api/auth', () => ({
   signUpWithEmail: signUpMock,
   resendVerificationEmail: resendMock,
+  verifyEmailOtp: verifyMock,
   signInWithEmail: vi.fn(),
 }))
 
 beforeEach(() => {
   signUpMock.mockReset()
   resendMock.mockReset()
+  verifyMock.mockReset()
 })
 
 afterEach(() => {
@@ -23,6 +29,23 @@ afterEach(() => {
 
 function submitButton(): HTMLButtonElement {
   return screen.getByRole('button', { name: /create account/i }) as HTMLButtonElement
+}
+
+function codeField(): HTMLInputElement {
+  return screen.getByLabelText('VERIFICATION CODE') as HTMLInputElement
+}
+
+function verifyButton(): HTMLButtonElement {
+  return screen.getByRole('button', { name: /^verify/i }) as HTMLButtonElement
+}
+
+/** Signs up and lands on the code step. */
+async function reachCodeStep(): Promise<void> {
+  signUpMock.mockResolvedValue(undefined)
+  render(<SignUpForm />)
+  fillForm()
+  fireEvent.click(submitButton())
+  await screen.findByRole('status')
 }
 
 function fillForm(password = 'a-sufficiently-long-password'): void {
@@ -55,7 +78,8 @@ describe('SignUpForm', () => {
     fireEvent.click(submitButton())
 
     const confirmation = await screen.findByRole('status')
-    expect(confirmation.textContent).toMatch(/verif/i)
+    // A code was sent, not a session created; the copy has to say which.
+    expect(confirmation.textContent).toMatch(/code/i)
     expect(confirmation.textContent).toMatch(/asha@example\.com/)
   })
 
@@ -91,10 +115,10 @@ describe('SignUpForm', () => {
     fillForm()
     fireEvent.click(submitButton())
     await screen.findByRole('status')
-    fireEvent.click(screen.getByRole('button', { name: /send again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /send a new code/i }))
 
     await waitFor(() => expect(resendMock).toHaveBeenCalledWith({ email: 'asha@example.com' }))
-    expect(screen.getByText(/fresh verification link/i)).toBeTruthy()
+    expect(screen.getByText(/new code has been sent/i)).toBeTruthy()
   })
 
   it('marks account fields as required for browser and assistive technology', () => {
@@ -146,5 +170,54 @@ describe('SignUpForm', () => {
     render(<SignUpForm />)
     fireEvent.click(submitButton())
     expect(signUpMock).not.toHaveBeenCalled()
+  })
+
+  it('redeems the code the visitor typed', async () => {
+    await reachCodeStep()
+    verifyMock.mockResolvedValue(undefined)
+
+    fireEvent.change(codeField(), { target: { value: '123456' } })
+    fireEvent.click(verifyButton())
+
+    await waitFor(() =>
+      expect(verifyMock).toHaveBeenCalledWith({ email: 'asha@example.com', otp: '123456' }),
+    )
+  })
+
+  it('will not submit a half-typed code', async () => {
+    await reachCodeStep()
+
+    fireEvent.change(codeField(), { target: { value: '123' } })
+
+    // Each submission spends one of a small number of allowed attempts, so a
+    // code that cannot possibly be right must not cost one.
+    expect(verifyButton().hasAttribute('disabled')).toBe(true)
+    fireEvent.click(verifyButton())
+    expect(verifyMock).not.toHaveBeenCalled()
+  })
+
+  it('reports a rejected code and clears the field for another try', async () => {
+    await reachCodeStep()
+    verifyMock.mockRejectedValue(
+      new ApiError({ message: 'Invalid OTP', status: 400, code: 'INVALID_OTP' }),
+    )
+
+    fireEvent.change(codeField(), { target: { value: '000000' } })
+    fireEvent.click(verifyButton())
+
+    await screen.findByRole('alert')
+    expect(screen.getByRole('alert').textContent).toMatch(/not right|expired/i)
+    expect(codeField().value).toBe('')
+  })
+
+  it('confirms the address once the code is accepted', async () => {
+    await reachCodeStep()
+    verifyMock.mockResolvedValue(undefined)
+
+    fireEvent.change(codeField(), { target: { value: '123456' } })
+    fireEvent.click(verifyButton())
+
+    await waitFor(() => expect(screen.queryByLabelText('VERIFICATION CODE')).toBeNull())
+    expect(screen.getByRole('status').textContent).toMatch(/verified/i)
   })
 })

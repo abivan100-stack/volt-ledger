@@ -1,11 +1,18 @@
 import { useState, type FormEvent } from 'react'
-import { resendVerificationEmail, signUpWithEmail } from '../../api/auth'
+import { resendVerificationEmail, signUpWithEmail, verifyEmailOtp } from '../../api/auth'
 import { ApiError } from '../../api/errors'
 import PasswordField from './PasswordField'
+import VerificationCodeField from './VerificationCodeField'
 import './SignUpForm.css'
 
 /** Matches the API's Better Auth configuration; checked here to save a round trip. */
 const MINIMUM_PASSWORD_LENGTH = 12
+
+/** Mirrors VERIFICATION_CODE_LENGTH on the API. */
+const VERIFICATION_CODE_LENGTH = 6
+
+/** Mirrors VERIFICATION_CODE_TTL_SECONDS on the API, in minutes. */
+const VERIFICATION_CODE_TTL_MINUTES = 10
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message
@@ -22,6 +29,34 @@ function SignUpForm() {
   const [resending, setResending] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
   const [resendError, setResendError] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [verified, setVerified] = useState(false)
+
+  const handleVerify = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault()
+    if (registeredEmail === null || verifying || code.length < VERIFICATION_CODE_LENGTH) return
+
+    setVerifying(true)
+    setVerifyError(null)
+    setResendMessage(null)
+    try {
+      await verifyEmailOtp({ email: registeredEmail, otp: code })
+      setVerified(true)
+    } catch (caught) {
+      // The server answers a wrong code and an expired one identically, so the
+      // message covers both rather than guessing which happened.
+      setVerifyError(
+        caught instanceof ApiError && caught.status === 400
+          ? 'That code is not right, or it has expired. Send a new one and try again.'
+          : 'The code could not be checked.',
+      )
+      setCode('')
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   const handleResend = async (): Promise<void> => {
     if (registeredEmail === null || resending) return
@@ -31,9 +66,11 @@ function SignUpForm() {
     setResendError(null)
     try {
       await resendVerificationEmail({ email: registeredEmail })
-      setResendMessage('A fresh verification link has been sent.')
+      setCode('')
+      setVerifyError(null)
+      setResendMessage('A new code has been sent.')
     } catch (caught) {
-      setResendError(caught instanceof ApiError ? caught.message : 'The verification email could not be sent.')
+      setResendError(caught instanceof ApiError ? caught.message : 'The code could not be sent.')
     } finally {
       setResending(false)
     }
@@ -62,23 +99,59 @@ function SignUpForm() {
     }
   }
 
-  if (registeredEmail !== null) {
+  if (verified) {
     return (
       <div className="account-confirmation" role="status">
         <p>
-          Check <strong>{registeredEmail}</strong> for a verification link. You can sign in once the
-          address is verified.
+          <strong>{registeredEmail}</strong> is verified. You can sign in now.
         </p>
-        <p className="account-confirmation-help">
-          If it does not arrive, check your spam folder. Returning to sign in and submitting your
-          credentials again sends a fresh link.
+      </div>
+    )
+  }
+
+  if (registeredEmail !== null) {
+    return (
+      <form className="account-form" onSubmit={handleVerify} noValidate>
+        <p className="account-confirmation-note" role="status">
+          We sent a {VERIFICATION_CODE_LENGTH}-digit code to <strong>{registeredEmail}</strong>.
         </p>
+
+        <VerificationCodeField
+          id="sign-up-code"
+          label="VERIFICATION CODE"
+          length={VERIFICATION_CODE_LENGTH}
+          value={code}
+          onChange={(next) => {
+            setCode(next)
+            setVerifyError(null)
+          }}
+          disabled={verifying}
+          hint={`It expires in ${VERIFICATION_CODE_TTL_MINUTES} minutes.`}
+        />
+
+        {verifyError !== null && (
+          <p className="account-error" role="alert">
+            {verifyError}
+          </p>
+        )}
         {resendMessage !== null && <p className="account-confirmation-note">{resendMessage}</p>}
         {resendError !== null && (
           <p className="account-error" role="alert">
             {resendError}
           </p>
         )}
+
+        {/* Kept disabled until the code is the right length: submitting a short
+            code can only spend one of a small number of allowed attempts. */}
+        <button
+          className="mono account-submit"
+          type="submit"
+          disabled={verifying || code.length < VERIFICATION_CODE_LENGTH}
+          aria-busy={verifying}
+        >
+          {verifying ? 'VERIFY…' : 'VERIFY'}
+        </button>
+
         <button
           className="mono account-secondary-action"
           type="button"
@@ -86,20 +159,22 @@ function SignUpForm() {
           disabled={resending}
           aria-busy={resending}
         >
-          {resending ? 'SENDING…' : 'SEND AGAIN'}
+          {resending ? 'SENDING…' : 'SEND A NEW CODE'}
         </button>
         <button
           className="mono account-secondary-action"
           type="button"
           onClick={() => {
             setRegisteredEmail(null)
+            setCode('')
+            setVerifyError(null)
             setResendMessage(null)
             setResendError(null)
           }}
         >
           USE A DIFFERENT ADDRESS
         </button>
-      </div>
+      </form>
     )
   }
 

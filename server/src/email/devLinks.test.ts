@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { announceLink, formatLinkAnnouncement, shouldAnnounceLinks } from './devLinks.js'
+import {
+  announceCode,
+  announceLink,
+  formatLinkAnnouncement,
+  shouldAnnounceLinks,
+} from './devLinks.js'
 
 /**
  * The one rule that matters here is the production one.
@@ -55,5 +60,32 @@ describe('formatLinkAnnouncement', () => {
     const urlLine = lines.find((line) => line.includes(URL))
 
     expect(urlLine?.trim()).toBe(`open: ${URL}`)
+  })
+})
+
+describe('announceCode', () => {
+  it('prints the recipient and the code', () => {
+    const sink = vi.fn()
+
+    announceCode('Volt verification code', 'asha@example.com', '123456', {
+      nodeEnv: 'development',
+      sink,
+    })
+
+    const printed = sink.mock.calls[0]?.[0] as string
+    expect(printed).toContain('asha@example.com')
+    expect(printed).toContain('123456')
+  })
+
+  it('stays silent in production', () => {
+    const sink = vi.fn()
+
+    // A code is a bearer credential: holding it completes the verification.
+    announceCode('Volt verification code', 'asha@example.com', '123456', {
+      nodeEnv: 'production',
+      sink,
+    })
+
+    expect(sink).not.toHaveBeenCalled()
   })
 })

@@ -103,7 +103,7 @@ function AcceptInvitation({ token }: AcceptInvitationProps) {
 
       {!session.user.emailVerified && (
         <p className="account-unverified">
-          Verify your email address first — check your inbox for the verification link.
+          Verify your email address first — check your inbox for the verification code.
         </p>
       )}
 

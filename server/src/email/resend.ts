@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import nodemailer, { type Transporter } from 'nodemailer'
 import { env } from '../config/env.js'
 import { getEmailDeliveryConfigurationError } from './config.js'
-import { announceLink } from './devLinks.js'
+import { announceCode, announceLink } from './devLinks.js'
 import type { InvitationRole } from '../db/models.js'
 
 let resendClient: Resend | undefined
@@ -179,6 +179,46 @@ export async function sendVerificationEmail({ to, url }: VerificationEmailInput)
     text: `Verify your Volt account by opening this link:\n${url}`,
     html: `<p>Verify your Volt account to continue.</p><p><a href="${safeUrl}">Verify email address</a></p>`,
   })
+
+  if (error) {
+    throw new Error(`Resend email failed: ${error.message}`)
+  }
+}
+
+export interface VerificationCodeEmailInput {
+  to: string
+  code: string
+  /** Minutes the code remains valid, stated in the message so it is actionable. */
+  expiresInMinutes: number
+}
+
+/**
+ * The verification code.
+ *
+ * The code is in the body and never in the subject line: subjects are shown in
+ * notifications and previews, which is the one place a shoulder-surfer or a
+ * synced smartwatch will read it without the recipient opening anything.
+ */
+export async function sendVerificationCodeEmail({
+  to,
+  code,
+  expiresInMinutes,
+}: VerificationCodeEmailInput): Promise<void> {
+  const emailFrom = requireEmailDeliveryConfiguration()
+
+  announceCode('Volt verification code', to, code)
+
+  const safeCode = escapeHtml(code)
+  const subject = 'Your Volt verification code'
+  const text = `Your Volt verification code is ${code}.\nIt expires in ${expiresInMinutes} minutes. If you did not ask to verify this address, ignore this email.`
+  const html = `<p>Your Volt verification code is:</p><p style="font-size:28px;letter-spacing:6px;font-weight:700;margin:16px 0">${safeCode}</p><p>It expires in ${expiresInMinutes} minutes. If you did not ask to verify this address, ignore this email.</p>`
+
+  if (isSmtpConfigured()) {
+    await sendSmtpEmail({ from: emailFrom, to, subject, text, html })
+    return
+  }
+
+  const { error } = await getResendClient().emails.send({ from: emailFrom, to, subject, text, html })
 
   if (error) {
     throw new Error(`Resend email failed: ${error.message}`)

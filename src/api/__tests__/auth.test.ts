@@ -3,7 +3,7 @@ import {
   resendVerificationEmail,
   signInWithEmail,
   signUpWithEmail,
-  verificationCallbackUrl,
+  verifyEmailOtp,
 } from '../auth'
 import type { ApiClient, ApiRequestOptions } from '../client'
 
@@ -67,24 +67,6 @@ describe('signUpWithEmail', () => {
     })
   })
 
-  it('asks for the verification link to return to the app', async () => {
-    const { client, request } = stubClient({ user: { id: 'user-1' } })
-
-    await signUpWithEmail(
-      {
-        name: 'Asha',
-        email: 'asha@example.com',
-        password: 'a-long-password',
-        callbackURL: 'http://localhost:5173/account',
-      },
-      { client },
-    )
-
-    // Without this the server defaults to "/", which resolves against the API
-    // origin and drops a freshly verified visitor on the API root.
-    const [, init] = request.mock.calls[0] as RequestCall
-    expect((init.body as { callbackURL?: string }).callbackURL).toBe('http://localhost:5173/account')
-  })
 })
 
 describe('resendVerificationEmail', () => {
@@ -100,31 +82,27 @@ describe('resendVerificationEmail', () => {
     })
   })
 
-  it('carries the same return destination as sign-up', async () => {
-    const { client, request } = stubClient({ status: true })
-
-    await resendVerificationEmail(
-      { email: 'asha@example.com', callbackURL: 'http://localhost:5173/account' },
-      { client },
-    )
-
-    const [, init] = request.mock.calls[0] as RequestCall
-    expect((init.body as { callbackURL?: string }).callbackURL).toBe('http://localhost:5173/account')
-  })
 })
 
-describe('verificationCallbackUrl', () => {
-  it('points at the account page on the origin serving the app', () => {
-    expect(verificationCallbackUrl('http://localhost:5173')).toBe('http://localhost:5173/account')
+describe('verifyEmailOtp', () => {
+  it('posts the address and the code to the OTP verify endpoint', async () => {
+    const { client, request } = stubClient({ status: true, token: null })
+
+    await verifyEmailOtp({ email: 'asha@example.com', otp: '123456' }, { client })
+
+    expect(request).toHaveBeenCalledWith('/api/auth/email-otp/verify-email', {
+      method: 'POST',
+      body: { email: 'asha@example.com', otp: '123456' },
+      signal: undefined,
+    })
   })
 
-  it('trims a trailing slash rather than producing a doubled path', () => {
-    expect(verificationCallbackUrl('http://localhost:5173/')).toBe('http://localhost:5173/account')
-  })
+  it('sends no callbackURL, because a code redemption does not redirect', async () => {
+    const { client, request } = stubClient({ status: true, token: null })
 
-  it('is undefined off a browser, so no unusable destination is sent', () => {
-    // Better Auth checks the callback against its trusted origins; a guessed one
-    // would be rejected outright.
-    expect(verificationCallbackUrl(undefined)).toBeUndefined()
+    await verifyEmailOtp({ email: 'asha@example.com', otp: '123456' }, { client })
+
+    const [, init] = request.mock.calls[0] as RequestCall
+    expect(init.body).not.toHaveProperty('callbackURL')
   })
 })
