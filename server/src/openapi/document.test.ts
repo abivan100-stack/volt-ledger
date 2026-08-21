@@ -157,8 +157,28 @@ describe('authentication and roles', () => {
     }
   })
 
+  /**
+   * Routes under `{organisationId}` that do not authorise through
+   * `getOrganisationAccess`, and so document no roles and neither 403.
+   *
+   * `restoreOrganisation` is the only one: while an organisation is archived its
+   * memberships are soft-deleted, so the usual membership lookup finds nothing.
+   * The repository proves instead that the caller held owner at the instant of
+   * the archive. Listing it here keeps the exception deliberate — a new route
+   * that simply forgot its roles still fails.
+   */
+  const MEMBERSHIP_EXEMPT_OPERATIONS = new Set(['restoreOrganisation'])
+
+  function membershipScoped() {
+    return operations().filter(
+      ([path, , operation]) =>
+        path.includes('{organisationId}') &&
+        !MEMBERSHIP_EXEMPT_OPERATIONS.has(String(operation.operationId)),
+    )
+  }
+
   it('names the permitted roles on organisation-scoped routes', () => {
-    const scoped = operations().filter(([path]) => path.includes('{organisationId}'))
+    const scoped = membershipScoped()
     expect(scoped.length).toBeGreaterThan(0)
     for (const [path, method, operation] of scoped) {
       expect(String(operation.description), `${method.toUpperCase()} ${path}`).toMatch(/\*\*Roles\.\*\*/)
@@ -166,12 +186,24 @@ describe('authentication and roles', () => {
   })
 
   it('documents both organisation 403 codes on scoped routes', () => {
-    for (const [path, , operation] of operations()) {
-      if (!path.includes('{organisationId}')) continue
+    for (const [path, , operation] of membershipScoped()) {
       const forbidden = (operation.responses as JsonObject)['403'] as JsonObject
       expect(String(forbidden.description), path).toMatch(/ORGANISATION_ACCESS_DENIED/)
       expect(String(forbidden.description), path).toMatch(/ORGANISATION_ROLE_FORBIDDEN/)
     }
+  })
+
+  it('says how the exempt route authorises instead', () => {
+    const [, , restore] = operations().find(
+      ([, , operation]) => operation.operationId === 'restoreOrganisation',
+    ) as [string, string, JsonObject]
+
+    // Not silently unauthenticated: it still needs a session, and it answers
+    // its own refusal code rather than the membership ones.
+    expect(restore.security).toBeDefined()
+    const responses = restore.responses as JsonObject
+    expect(responses['403']).toBeUndefined()
+    expect(String((responses['404'] as JsonObject).description)).toMatch(/ORGANISATION_NOT_RESTORABLE/)
   })
 })
 

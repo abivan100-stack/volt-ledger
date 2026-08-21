@@ -205,6 +205,8 @@ export interface OrganisationRepository {
   findById(id: string): Promise<OrganisationDocument | null>
   listForUser(userId: string): Promise<OrganisationDocument[]>
   softDelete(id: string, actorUserId: string): Promise<boolean>
+  /** Undoes an archive, restoring exactly the rows it soft-deleted. */
+  restore(id: string, actorUserId: string, cutoff: Date): Promise<OrganisationDocument | null>
 }
 
 export interface MembershipRepository {
@@ -307,6 +309,18 @@ export interface WorkerRepository {
   listHeartbeats(): Promise<WorkerHeartbeatDocument[]>
 }
 
+export interface PurgeResult {
+  organisationsPurged: number
+  runsDeleted: number
+  intervalsDeleted: number
+  summariesDeleted: number
+}
+
+export interface RetentionRepository {
+  /** Hard-deletes working data for organisations archived before the cutoff. */
+  purgeArchivedBefore(cutoff: Date): Promise<PurgeResult>
+}
+
 export interface CloseAccountResult {
   closed: boolean
   /** Organisations the account still owns, which is why it was refused. */
@@ -329,6 +343,7 @@ export interface VoltRepositories {
   emailDeliveries: EmailDeliveryRepository
   workers: WorkerRepository
   accounts: AccountRepository
+  retention: RetentionRepository
 }
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
@@ -583,6 +598,79 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
       const ids = memberships.map(({ organisationId }) => organisationId)
       if (ids.length === 0) return []
       return collections.organisations.find({ _id: { $in: ids }, deletedAt: null }).sort({ createdAt: -1 }).toArray()
+    },
+    async restore(id, actorUserId, cutoff) {
+      const session = client.startSession()
+      try {
+        let restored: OrganisationDocument | null = null
+
+        await session.withTransaction(async () => {
+          const organisation = await collections.organisations.findOne({ _id: id }, { session })
+          if (!organisation?.deletedAt) return
+          // Past the window the working data may already be gone, so restoring
+          // would hand back a hollow organisation.
+          if (organisation.deletedAt.getTime() <= cutoff.getTime()) return
+
+          const archivedAt = organisation.deletedAt
+
+          // Only the rows this archive took. Everything it soft-deleted carries
+          // the archive's own instant, so matching on it leaves a membership
+          // removed *before* the archive removed, which is what should happen.
+          const wasOwner = await collections.memberships.findOne(
+            { organisationId: id, userId: actorUserId, role: 'owner', deletedAt: archivedAt },
+            { session },
+          )
+          if (!wasOwner) return
+
+          const now = new Date()
+          const cleared = await collections.organisations.updateOne(
+            { _id: id, deletedAt: archivedAt },
+            { $set: { deletedAt: null, updatedAt: now } },
+            { session },
+          )
+          if (cleared.modifiedCount !== 1) return
+
+          await collections.memberships.updateMany(
+            { organisationId: id, deletedAt: archivedAt },
+            { $set: { deletedAt: null, updatedAt: now } },
+            { session },
+          )
+          for (const collection of [
+            collections.simulationRuns,
+            collections.simulationIntervals,
+            collections.simulationSummaries,
+          ]) {
+            await collection.updateMany(
+              { organisationId: id, deletedAt: archivedAt },
+              { $set: { deletedAt: null } },
+              { session },
+            )
+          }
+
+          // Invitations are deliberately not revived: they were revoked by the
+          // archive, and a pending invitation is an outstanding offer that
+          // should be made again rather than resurrected.
+          await collections.auditEvents.insertOne(
+            {
+              _id: randomUUID(),
+              organisationId: id,
+              actorUserId,
+              action: 'organisation.restored',
+              entityType: 'organisation',
+              entityId: id,
+              metadata: { archivedAt: archivedAt.toISOString() },
+              createdAt: now,
+            },
+            { session },
+          )
+
+          restored = { ...organisation, deletedAt: null, updatedAt: now }
+        })
+
+        return restored
+      } finally {
+        await session.endSession()
+      }
     },
     async softDelete(id, actorUserId) {
       const now = new Date()
@@ -1861,6 +1949,48 @@ function createAccountRepository(
   }
 }
 
+/**
+ * Reclaiming space once an archive is past recovery.
+ *
+ * Deletes only the replayable synthetic output — intervals, summaries, and the
+ * runs behind them. Ledger and audit events are evidence and stay forever, and
+ * the organisation and membership rows stay as tombstones because that evidence
+ * references them. See `retention/policy.ts`.
+ */
+function createRetentionRepository(collections: VoltCollections): RetentionRepository {
+  return {
+    async purgeArchivedBefore(cutoff) {
+      const expired = await collections.organisations
+        .find({ deletedAt: { $ne: null, $lte: cutoff } }, { projection: { _id: 1 } })
+        .toArray()
+
+      const result: PurgeResult = {
+        organisationsPurged: 0,
+        runsDeleted: 0,
+        intervalsDeleted: 0,
+        summariesDeleted: 0,
+      }
+      if (expired.length === 0) return result
+
+      const organisationIds = expired.map((organisation) => organisation._id)
+      const scope = { organisationId: { $in: organisationIds }, deletedAt: { $ne: null } }
+
+      // Not transactional on purpose: this can span a great many documents, and
+      // a partial pass is harmless — the next sweep finishes the job, because
+      // eligibility is derived from the organisation rather than from progress.
+      const intervals = await collections.simulationIntervals.deleteMany(scope)
+      const summaries = await collections.simulationSummaries.deleteMany(scope)
+      const runs = await collections.simulationRuns.deleteMany(scope)
+
+      result.organisationsPurged = expired.length
+      result.intervalsDeleted = intervals.deletedCount
+      result.summariesDeleted = summaries.deletedCount
+      result.runsDeleted = runs.deletedCount
+      return result
+    },
+  }
+}
+
 export function createVoltRepositories(db: Db, client: MongoClient = getMongoClient()): VoltRepositories {
   const collections = getVoltCollections(db)
   return {
@@ -1873,5 +2003,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     emailDeliveries: createEmailDeliveryRepository(collections),
     workers: createWorkerRepository(collections),
     accounts: createAccountRepository(collections, db, client),
+    retention: createRetentionRepository(collections),
   }
 }

@@ -70,6 +70,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
           deletedByUserId = actorUserId
           return true
         },
+        restore: async () => organisation,
       },
       memberships: {
         find: async () => membership,

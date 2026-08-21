@@ -46,6 +46,7 @@ async function startWorker(): Promise<void> {
       signal: controller.signal,
       logger,
       maxAttempts: simulationMaxAttempts,
+      retentionWindowDays: env.RETENTION_WINDOW_DAYS,
       // This process has no HTTP surface, so the heartbeat is the only evidence
       // it is alive. Storage is bound here rather than inside the loop.
       heartbeat: async (snapshot) => {

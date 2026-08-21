@@ -284,6 +284,35 @@ const ROUTES: RouteDoc[] = [
     errors: [...MEMBERSHIP_ERRORS, INVALID_ORGANISATION_ID, ORGANISATION_NOT_FOUND],
   },
   {
+    method: 'post',
+    path: '/api/v1/organisations/:organisationId/restore',
+    operationId: 'restoreOrganisation',
+    summary: 'Undo an archive',
+    description:
+      'Restores an archived organisation and everything the archive soft-deleted with it: ' +
+      'memberships and working simulation data, exactly the rows that carry the archive’s own ' +
+      'instant. A membership removed before the archive stays removed. Pending invitations are not ' +
+      'revived — they were revoked, and an outstanding offer should be made again rather than ' +
+      'resurrected. Only the owner at the moment of the archive may do this, and only inside the ' +
+      'recovery window set by `RETENTION_WINDOW_DAYS`; afterwards the working data has been purged ' +
+      'and there is nothing whole to restore.',
+    tags: ['Organisations'],
+    authenticated: true,
+    success: [
+      { status: 200, description: 'The organisation is live again.', schema: 'OrganisationRestoreResponse' },
+    ],
+    errors: [
+      ...AUTH_ERRORS,
+      INVALID_ORGANISATION_ID,
+      {
+        status: 404,
+        code: 'ORGANISATION_NOT_RESTORABLE',
+        description:
+          'No archived organisation for this caller to restore, or it is past its recovery window.',
+      },
+    ],
+  },
+  {
     method: 'delete',
     path: '/api/v1/organisations/:organisationId',
     operationId: 'archiveOrganisation',

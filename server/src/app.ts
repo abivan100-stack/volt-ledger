@@ -47,6 +47,7 @@ import { sendVerificationCodeEmail } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
+import { purgeCutoff } from './retention/policy.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
 import {
@@ -74,7 +75,10 @@ import {
 } from './simulations/monteCarlo.js'
 
 export interface OrganisationRouteRepositories {
-  organisations: Pick<OrganisationRepository, 'createWithOwner' | 'findById' | 'listForUser' | 'softDelete'>
+  organisations: Pick<
+    OrganisationRepository,
+    'createWithOwner' | 'findById' | 'listForUser' | 'softDelete' | 'restore'
+  >
   memberships: Pick<
     MembershipRepository,
     'find' | 'listForOrganisation' | 'updateRole' | 'remove' | 'transferOwnership'
@@ -579,6 +583,34 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
     return { organisation: serializeOrganisation(organisation, access.membership.role) }
+  })
+
+  app.post('/api/v1/organisations/:organisationId/restore', async (request, reply) => {
+    const parsedParams = organisationIdSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.code(400).send({ error: 'Invalid organisation identifier', code: 'INVALID_ORGANISATION_ID' })
+    }
+
+    const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    // Authorisation cannot use getOrganisationAccess: the memberships it reads
+    // are soft-deleted while the organisation is archived. The repository proves
+    // instead that the caller held owner at the moment of the archive.
+    const restored = await repositories().organisations.restore(
+      parsedParams.data.organisationId,
+      access.session.user.id,
+      purgeCutoff(new Date(), env.RETENTION_WINDOW_DAYS),
+    )
+
+    if (!restored) {
+      return reply.code(404).send({
+        error: 'No archived organisation to restore, or it is past its recovery window.',
+        code: 'ORGANISATION_NOT_RESTORABLE',
+      })
+    }
+
+    return { organisation: serializeOrganisation(restored, 'owner') }
   })
 
   app.delete('/api/v1/organisations/:organisationId', async (request, reply) => {

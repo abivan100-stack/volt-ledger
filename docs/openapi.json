@@ -572,6 +572,18 @@
         ],
         "additionalProperties": false
       },
+      "OrganisationRestoreResponse": {
+        "type": "object",
+        "properties": {
+          "organisation": {
+            "$ref": "#/components/schemas/Organisation"
+          }
+        },
+        "required": [
+          "organisation"
+        ],
+        "additionalProperties": false
+      },
       "Membership": {
         "type": "object",
         "properties": {
@@ -1976,6 +1988,75 @@
           },
           "500": {
             "description": "- `ORGANISATION_DELETE_FAILED` — The transaction could not be completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisations/{organisationId}/restore": {
+      "post": {
+        "operationId": "restoreOrganisation",
+        "summary": "Undo an archive",
+        "description": "Restores an archived organisation and everything the archive soft-deleted with it: memberships and working simulation data, exactly the rows that carry the archive’s own instant. A membership removed before the archive stays removed. Pending invitations are not revived — they were revoked, and an outstanding offer should be made again rather than resurrected. Only the owner at the moment of the archive may do this, and only inside the recovery window set by `RETENTION_WINDOW_DAYS`; afterwards the working data has been purged and there is nothing whole to restore.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organisationId",
+            "in": "path",
+            "required": true,
+            "description": "Organisation UUID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The organisation is live again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganisationRestoreResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_ORGANISATION_ID` — The organisation identifier in the path is not a UUID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `ORGANISATION_NOT_RESTORABLE` — No archived organisation for this caller to restore, or it is past its recovery window.",
             "content": {
               "application/json": {
                 "schema": {

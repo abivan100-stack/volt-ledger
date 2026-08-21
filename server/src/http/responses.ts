@@ -87,6 +87,11 @@ export const organisationListResponseSchema = z.object({
   organisations: z.array(organisationSchema),
 }).strict()
 
+/** A restored organisation, with the caller's role as it was before the archive. */
+export const organisationRestoreResponseSchema = z.object({
+  organisation: z.lazy(() => organisationSchema),
+}).strict()
+
 export const organisationResponseSchema = z.object({
   organisation: organisationSchema,
 }).strict()

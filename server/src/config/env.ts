@@ -38,6 +38,7 @@ export const envSchema = z
     SIMULATION_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
     SIMULATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
     WORKER_ID: z.string().min(1).default('volt-worker'),
+    RETENTION_WINDOW_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
 
     GOOGLE_CLIENT_ID: optionalString,
     GOOGLE_CLIENT_SECRET: optionalString,

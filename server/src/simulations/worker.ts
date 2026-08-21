@@ -12,6 +12,7 @@ import {
   createWorkerHealth,
   type WorkerHealthSnapshot,
 } from '../observability/workerHealth.js'
+import { purgeCutoff } from '../retention/policy.js'
 import { computeBackoffMs } from './backoff.js'
 import { decryptDeliveryUrl } from '../email/outbox.js'
 import { EmailDeliveryError, sendOrganisationInvitationEmail } from '../email/resend.js'
@@ -27,6 +28,10 @@ type SimulationWorkerRepositories = {
     VoltRepositories['simulations'],
     'claimNextQueuedRun' | 'completeRun' | 'transitionRun'
   >
+}
+
+type RetentionWorkerRepositories = {
+  retention: Pick<VoltRepositories['retention'], 'purgeArchivedBefore'>
 }
 
 type InvitationWorkerRepositories = {
@@ -264,6 +269,8 @@ export interface SimulationWorkerOptions {
   maxBackoffMs?: number
   /** Claims allowed per run before it is quarantined as permanently failing. */
   maxAttempts?: number
+  /** Days an archive stays recoverable. Omit to disable the purge sweep. */
+  retentionWindowDays?: number
   /**
    * Where the worker publishes its condition. Injected rather than reached for,
    * so the loop stays unaware of storage and a failing sink cannot stop work.
@@ -300,7 +307,10 @@ function waitForPoll(milliseconds: number, signal?: AbortSignal): Promise<void> 
 }
 
 export async function runSimulationWorker(
-  repositories: SimulationWorkerRepositories & InvitationWorkerRepositories & Partial<EmailWorkerRepositories>,
+  repositories: SimulationWorkerRepositories &
+    InvitationWorkerRepositories &
+    Partial<EmailWorkerRepositories> &
+    Partial<RetentionWorkerRepositories>,
   options: SimulationWorkerOptions = {},
 ): Promise<void> {
   const pollIntervalMs = Math.min(Math.max(options.pollIntervalMs ?? 1_000, 100), 60_000)
@@ -361,6 +371,22 @@ export async function runSimulationWorker(
       try {
         const expired = await expirePendingInvitations(repositories)
         if (expired > 0) logger.info('maintenance.invitations_expired', { expired })
+
+        if (repositories.retention && options.retentionWindowDays !== undefined) {
+          const cutoff = purgeCutoff(new Date(), options.retentionWindowDays)
+          const purged = await repositories.retention.purgeArchivedBefore(cutoff)
+          // Only reported when it did something: a sweep that finds nothing is
+          // the normal case and would otherwise fill the log every interval.
+          if (purged.organisationsPurged > 0) {
+            logger.info('maintenance.retention_purged', {
+              organisations: purged.organisationsPurged,
+              runs: purged.runsDeleted,
+              intervals: purged.intervalsDeleted,
+              summaries: purged.summariesDeleted,
+              cutoff: cutoff.toISOString(),
+            })
+          }
+        }
       } catch (error) {
         // Maintenance is independent of the queue; its failure must not stop
         // simulations from being processed.
