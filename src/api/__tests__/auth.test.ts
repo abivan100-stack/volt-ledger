@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { signInWithEmail, signUpWithEmail } from '../auth'
+import { resendVerificationEmail, signInWithEmail, signUpWithEmail } from '../auth'
 import type { ApiClient, ApiRequestOptions } from '../client'
 
 type RequestCall = [string, ApiRequestOptions]
@@ -58,6 +58,20 @@ describe('signUpWithEmail', () => {
     expect(request).toHaveBeenCalledWith('/api/auth/sign-up/email', {
       method: 'POST',
       body: { name: 'Asha', email: 'asha@example.com', password: 'a-long-password' },
+      signal: undefined,
+    })
+  })
+})
+
+describe('resendVerificationEmail', () => {
+  it('posts the address to Better Auth verification resend', async () => {
+    const { client, request } = stubClient({ status: true })
+
+    await resendVerificationEmail({ email: 'asha@example.com' }, { client })
+
+    expect(request).toHaveBeenCalledWith('/api/auth/send-verification-email', {
+      method: 'POST',
+      body: { email: 'asha@example.com' },
       signal: undefined,
     })
   })

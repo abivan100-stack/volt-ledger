@@ -4,15 +4,17 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import SignUpForm from '../SignUpForm'
 import { ApiError } from '../../../api/errors'
 
-const { signUpMock } = vi.hoisted(() => ({ signUpMock: vi.fn() }))
+const { resendMock, signUpMock } = vi.hoisted(() => ({ resendMock: vi.fn(), signUpMock: vi.fn() }))
 
 vi.mock('../../../api/auth', () => ({
   signUpWithEmail: signUpMock,
+  resendVerificationEmail: resendMock,
   signInWithEmail: vi.fn(),
 }))
 
 beforeEach(() => {
   signUpMock.mockReset()
+  resendMock.mockReset()
 })
 
 afterEach(() => {
@@ -79,6 +81,20 @@ describe('SignUpForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /different address/i }))
 
     expect(screen.getByLabelText('PASSWORD')).toBeTruthy()
+  })
+
+  it('can request a fresh verification email', async () => {
+    signUpMock.mockResolvedValue(undefined)
+    resendMock.mockResolvedValue(undefined)
+    render(<SignUpForm />)
+
+    fillForm()
+    fireEvent.click(submitButton())
+    await screen.findByRole('status')
+    fireEvent.click(screen.getByRole('button', { name: /send again/i }))
+
+    await waitFor(() => expect(resendMock).toHaveBeenCalledWith({ email: 'asha@example.com' }))
+    expect(screen.getByText(/fresh verification link/i)).toBeTruthy()
   })
 
   it('marks account fields as required for browser and assistive technology', () => {

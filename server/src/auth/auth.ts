@@ -48,6 +48,7 @@ export function getAuthService(): AuthService {
       ? {
           emailVerification: {
             sendOnSignUp: true,
+            sendOnSignIn: true,
             sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
               await sendResendVerificationEmail({ to: user.email, url })
             },

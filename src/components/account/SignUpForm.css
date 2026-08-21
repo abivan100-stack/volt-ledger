@@ -25,6 +25,11 @@
   font-size: 13px;
 }
 
+.account-confirmation-note {
+  color: var(--settle);
+  font-size: 13px;
+}
+
 .account-confirmation strong {
   font-weight: 600;
 }

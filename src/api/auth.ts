@@ -27,6 +27,10 @@ export interface EmailSignUpInput {
   password: string
 }
 
+export interface VerificationEmailInput {
+  email: string
+}
+
 /** Signs in and, on success, leaves a session cookie on the browser. */
 export async function signInWithEmail(
   input: EmailSignInInput,
@@ -53,5 +57,16 @@ export async function signUpWithEmail(
   await send<unknown>(options, '/api/auth/sign-up/email', {
     method: 'POST',
     body: { name: input.name, email: input.email, password: input.password },
+  })
+}
+
+/** Requests another verification link without requiring an active session. */
+export async function resendVerificationEmail(
+  input: VerificationEmailInput,
+  options: ResourceOptions = {},
+): Promise<void> {
+  await send<unknown>(options, '/api/auth/send-verification-email', {
+    method: 'POST',
+    body: { email: input.email },
   })
 }

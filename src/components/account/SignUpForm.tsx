@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { signUpWithEmail } from '../../api/auth'
+import { resendVerificationEmail, signUpWithEmail } from '../../api/auth'
 import { ApiError } from '../../api/errors'
 import PasswordField from './PasswordField'
 import './SignUpForm.css'
@@ -19,6 +19,25 @@ function SignUpForm() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [resendMessage, setResendMessage] = useState<string | null>(null)
+  const [resendError, setResendError] = useState<string | null>(null)
+
+  const handleResend = async (): Promise<void> => {
+    if (registeredEmail === null || resending) return
+
+    setResending(true)
+    setResendMessage(null)
+    setResendError(null)
+    try {
+      await resendVerificationEmail({ email: registeredEmail })
+      setResendMessage('A fresh verification link has been sent.')
+    } catch (caught) {
+      setResendError(caught instanceof ApiError ? caught.message : 'The verification email could not be sent.')
+    } finally {
+      setResending(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -54,10 +73,29 @@ function SignUpForm() {
           If it does not arrive, check your spam folder. Returning to sign in and submitting your
           credentials again sends a fresh link.
         </p>
+        {resendMessage !== null && <p className="account-confirmation-note">{resendMessage}</p>}
+        {resendError !== null && (
+          <p className="account-error" role="alert">
+            {resendError}
+          </p>
+        )}
         <button
           className="mono account-secondary-action"
           type="button"
-          onClick={() => setRegisteredEmail(null)}
+          onClick={() => void handleResend()}
+          disabled={resending}
+          aria-busy={resending}
+        >
+          {resending ? 'SENDING…' : 'SEND AGAIN'}
+        </button>
+        <button
+          className="mono account-secondary-action"
+          type="button"
+          onClick={() => {
+            setRegisteredEmail(null)
+            setResendMessage(null)
+            setResendError(null)
+          }}
         >
           USE A DIFFERENT ADDRESS
         </button>
