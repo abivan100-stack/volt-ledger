@@ -39,6 +39,7 @@ import type {
 } from './db/models.js'
 import { encryptDeliveryUrl } from './email/outbox.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
+import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
 import {
@@ -413,6 +414,12 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     url: '/api/auth/*',
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     handler: async (request, reply) => {
+      // Registering the email-OTP plugin published nine endpoints; the app uses
+      // one. The others are refused here rather than left reachable.
+      if (isBlockedAuthPath(request.raw.url ?? request.url)) {
+        return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' })
+      }
+
       try {
         const requestUrl = new URL(request.raw.url ?? request.url, env.BETTER_AUTH_URL)
         const body = request.method === 'GET' || request.body == null ? undefined : JSON.stringify(request.body)

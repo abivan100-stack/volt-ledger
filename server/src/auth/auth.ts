@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { mongodbAdapter } from '@better-auth/mongo-adapter'
 import { betterAuth } from 'better-auth'
 import { emailOTP } from 'better-auth/plugins'
@@ -77,7 +78,23 @@ export function getAuthService(): AuthService {
             otpLength: VERIFICATION_CODE_LENGTH,
             expiresIn: VERIFICATION_CODE_TTL_SECONDS,
             allowedAttempts: VERIFICATION_CODE_ALLOWED_ATTEMPTS,
-            storeOTP: 'hashed',
+            /**
+             * Keyed, not plain. `storeOTP: 'hashed'` is an unsalted SHA-256, and
+             * a six-digit space is a million digests — precomputable in under a
+             * second, so a leaked backup or a read replica would hand over every
+             * live code. An HMAC keyed on the server secret is useless without
+             * that secret, which is not in the database.
+             */
+            storeOTP: {
+              hash: async (otp: string) =>
+                createHmac('sha256', env.BETTER_AUTH_SECRET).update(otp).digest('base64url'),
+            },
+            /**
+             * Volt has no passwordless sign-in. Left false, the plugin mints a
+             * whole account from a code alone — verified, with a session, and no
+             * password — and mails codes to addresses that never registered.
+             */
+            disableSignUp: true,
             overrideDefaultEmailVerification: true,
             sendVerificationOTP: async ({ email, otp }: { email: string; otp: string }) => {
               await sendVerificationCodeEmail({
