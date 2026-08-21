@@ -25,10 +25,29 @@ export interface EmailSignUpInput {
   email: string
   /** The API enforces a 12–128 character length. */
   password: string
+  /** Where the verification link returns to. Defaults to this app's account page. */
+  callbackURL?: string
 }
 
 export interface VerificationEmailInput {
   email: string
+  callbackURL?: string
+}
+
+/**
+ * Where the browser should land once the verification link is opened.
+ *
+ * Better Auth defaults this to `/`, which it resolves against its own origin, so
+ * a freshly verified visitor is dropped on the API root rather than back in the
+ * app. It is derived from the origin actually serving the app because the server
+ * checks the value against its trusted origins, and returns `undefined` off a
+ * browser so no unusable destination is ever sent.
+ */
+export function verificationCallbackUrl(
+  origin: string | undefined = typeof window === 'undefined' ? undefined : window.location.origin,
+): string | undefined {
+  if (origin === undefined || origin === '') return undefined
+  return `${origin.replace(/\/+$/, '')}/account`
 }
 
 /** Signs in and, on success, leaves a session cookie on the browser. */
@@ -54,9 +73,16 @@ export async function signUpWithEmail(
   input: EmailSignUpInput,
   options: ResourceOptions = {},
 ): Promise<void> {
+  const callbackURL = input.callbackURL ?? verificationCallbackUrl()
+
   await send<unknown>(options, '/api/auth/sign-up/email', {
     method: 'POST',
-    body: { name: input.name, email: input.email, password: input.password },
+    body: {
+      name: input.name,
+      email: input.email,
+      password: input.password,
+      ...(callbackURL ? { callbackURL } : {}),
+    },
   })
 }
 
@@ -65,8 +91,13 @@ export async function resendVerificationEmail(
   input: VerificationEmailInput,
   options: ResourceOptions = {},
 ): Promise<void> {
+  const callbackURL = input.callbackURL ?? verificationCallbackUrl()
+
   await send<unknown>(options, '/api/auth/send-verification-email', {
     method: 'POST',
-    body: { email: input.email },
+    body: {
+      email: input.email,
+      ...(callbackURL ? { callbackURL } : {}),
+    },
   })
 }
