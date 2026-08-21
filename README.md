@@ -240,25 +240,25 @@ Fill these Dashboard values before deploying:
 - `BETTER_AUTH_URL`: the deployed API HTTPS origin.
 - `WEB_ORIGIN`: the deployed static-site HTTPS origin.
 - `VITE_API_BASE_URL`: the same deployed API HTTPS origin.
-- `RESEND_API_KEY` and `EMAIL_FROM`: verified production email delivery settings.
-  Resend's `onboarding@resend.dev` sender is development-only and can deliver
-  only to the Resend account owner. Add and verify a domain in Resend, then set
-  `EMAIL_FROM` to an address on that domain before deploying so verification
-  and organisation-invitation messages reach other recipients. Production
-  treats the `resend.dev` sender as unconfigured instead of enabling sign-up
-  that cannot deliver.
+- Email delivery: use either Resend (`RESEND_API_KEY` plus `EMAIL_FROM`) or
+  Gmail SMTP (`SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER`,
+  `SMTP_PASSWORD`, plus `EMAIL_FROM`). Gmail requires a Google App Password,
+  not the account password; configure all four SMTP variables together. When
+  SMTP is configured, Volt uses it instead of Resend, so a domain purchase is
+  not required for development or small-scale testing. Resend's
+  `onboarding@resend.dev` sender remains development-only and can deliver only
+  to the Resend account owner.
 - `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
 
 Production startup rejects HTTP values for `BETTER_AUTH_URL` and `WEB_ORIGIN`.
 Use the local HTTP defaults in `server/.env.example` only for development or
 test environments.
 
-The Blueprint prompts for the Atlas and auth values on both the API and worker
+The Blueprint prompts for the Atlas, auth, and email values on both the API and worker
 because the current server environment contract is process-wide; the worker
 does not expose an HTTP or authentication surface, but it must still satisfy
-that shared startup schema. The worker also receives `RESEND_API_KEY` and
-`EMAIL_FROM`, because it is the process that drains the durable invitation
-email outbox.
+that shared startup schema. The worker also receives the email variables,
+because it is the process that drains the durable invitation email outbox.
 
 The API binds to Render's injected `PORT` on `0.0.0.0` and reports readiness at
 `/health`. The worker has no public endpoint and should be monitored through its

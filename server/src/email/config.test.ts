@@ -43,4 +43,29 @@ describe('getEmailDeliveryConfigurationError', () => {
       }),
     ).toBe('RESEND_API_KEY and EMAIL_FROM are required for email delivery.')
   })
+
+  it('allows Gmail SMTP without a Resend API key', () => {
+    expect(
+      getEmailDeliveryConfigurationError({
+        nodeEnv: 'production',
+        emailFrom: 'Volt <abivan100@gmail.com>',
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 465,
+        smtpUser: 'abivan100@gmail.com',
+        smtpPassword: 'app-password',
+      }),
+    ).toBeUndefined()
+  })
+
+  it('rejects partially configured SMTP credentials', () => {
+    expect(
+      getEmailDeliveryConfigurationError({
+        nodeEnv: 'development',
+        resendApiKey: 're_test_key',
+        emailFrom: 'onboarding@resend.dev',
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 465,
+      }),
+    ).toBe('SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASSWORD must be provided together.')
+  })
 })

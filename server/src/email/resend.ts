@@ -1,10 +1,12 @@
 import { Resend } from 'resend'
+import nodemailer, { type Transporter } from 'nodemailer'
 import { env } from '../config/env.js'
 import { getEmailDeliveryConfigurationError } from './config.js'
 import { announceLink } from './devLinks.js'
 import type { InvitationRole } from '../db/models.js'
 
 let resendClient: Resend | undefined
+let smtpTransporter: Transporter | undefined
 
 export interface VerificationEmailInput {
   to: string
@@ -40,11 +42,84 @@ function getResendClient(): Resend {
   return resendClient
 }
 
+function isSmtpConfigured(): boolean {
+  return Boolean(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASSWORD)
+}
+
+function getSmtpTransporter(): Transporter {
+  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASSWORD) {
+    throw new Error('SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASSWORD are required')
+  }
+
+  smtpTransporter ??= nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465,
+    requireTLS: env.SMTP_PORT === 587,
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASSWORD,
+    },
+  })
+
+  return smtpTransporter
+}
+
+function smtpError(error: unknown): EmailDeliveryError {
+  const candidate = error as { code?: unknown; responseCode?: unknown; message?: unknown }
+  const code = typeof candidate.code === 'string' ? candidate.code : 'SMTP_SEND_FAILED'
+  const responseCode = typeof candidate.responseCode === 'number' ? candidate.responseCode : undefined
+  const retryable =
+    responseCode === undefined
+      ? ['ECONNECTION', 'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ESOCKET'].includes(code)
+      : responseCode >= 400 && responseCode < 500
+  const message = typeof candidate.message === 'string' ? candidate.message : 'SMTP email failed'
+  return new EmailDeliveryError(`SMTP email failed: ${message}`, code, retryable)
+}
+
+async function sendSmtpEmail(input: {
+  to: string
+  from: string
+  subject: string
+  text: string
+  html: string
+  idempotencyKey?: string
+}): Promise<void> {
+  try {
+    const result = await getSmtpTransporter().sendMail({
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      messageId: input.idempotencyKey ? `<${input.idempotencyKey}@volt.local>` : undefined,
+    })
+
+    if (result.rejected.length > 0) {
+      throw new EmailDeliveryError(
+        `SMTP rejected recipient: ${result.rejected.join(', ')}`,
+        'SMTP_RECIPIENT_REJECTED',
+        false,
+      )
+    }
+  } catch (error) {
+    if (error instanceof EmailDeliveryError) throw error
+    throw smtpError(error)
+  }
+}
+
 export function isEmailDeliveryConfigured(): boolean {
   return !getEmailDeliveryConfigurationError({
     nodeEnv: env.NODE_ENV,
     resendApiKey: env.RESEND_API_KEY,
     emailFrom: env.EMAIL_FROM,
+    smtpHost: env.SMTP_HOST,
+    smtpPort: env.SMTP_PORT,
+    smtpUser: env.SMTP_USER,
+    smtpPassword: env.SMTP_PASSWORD,
   })
 }
 
@@ -53,6 +128,10 @@ function requireEmailDeliveryConfiguration(): string {
     nodeEnv: env.NODE_ENV,
     resendApiKey: env.RESEND_API_KEY,
     emailFrom: env.EMAIL_FROM,
+    smtpHost: env.SMTP_HOST,
+    smtpPort: env.SMTP_PORT,
+    smtpUser: env.SMTP_USER,
+    smtpPassword: env.SMTP_PASSWORD,
   })
 
   if (error) throw new Error(error)
@@ -78,8 +157,20 @@ export async function sendVerificationEmail({ to, url }: VerificationEmailInput)
   // leaves a link the developer can open.
   announceLink('Verify your Volt account', to, url)
 
-  const client = getResendClient()
   const safeUrl = escapeHtml(url)
+
+  if (isSmtpConfigured()) {
+    await sendSmtpEmail({
+      from: emailFrom,
+      to,
+      subject: 'Verify your Volt account',
+      text: `Verify your Volt account by opening this link:\n${url}`,
+      html: `<p>Verify your Volt account to continue.</p><p><a href="${safeUrl}">Verify email address</a></p>`,
+    })
+    return
+  }
+
+  const client = getResendClient()
 
   const { error } = await client.emails.send({
     from: emailFrom,
@@ -111,10 +202,23 @@ export async function sendOrganisationInvitationEmail({
 
   announceLink(`Invitation to ${organisationName}`, to, url)
 
-  const client = getResendClient()
   const safeOrganisationName = escapeHtml(organisationName)
   const safeUrl = escapeHtml(url)
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+
+  if (isSmtpConfigured()) {
+    await sendSmtpEmail({
+      from: emailFrom,
+      to,
+      subject: `You're invited to ${organisationName} on Volt`,
+      text: `You have been invited to join ${organisationName} on Volt as a ${role}. Accept the invitation here:\n${url}`,
+      html: `<p>You have been invited to join <strong>${safeOrganisationName}</strong> on Volt as a ${roleLabel}.</p><p><a href="${safeUrl}">Accept invitation</a></p>`,
+      idempotencyKey,
+    })
+    return
+  }
+
+  const client = getResendClient()
 
   const { error } = await client.emails.send({
     from: emailFrom,

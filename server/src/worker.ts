@@ -16,6 +16,10 @@ async function startWorker(): Promise<void> {
     nodeEnv: env.NODE_ENV,
     resendApiKey: env.RESEND_API_KEY,
     emailFrom: env.EMAIL_FROM,
+    smtpHost: env.SMTP_HOST,
+    smtpPort: env.SMTP_PORT,
+    smtpUser: env.SMTP_USER,
+    smtpPassword: env.SMTP_PASSWORD,
   })
   if (emailConfigurationError) {
     throw new Error(`EMAIL_DELIVERY_CONFIGURATION_INVALID: ${emailConfigurationError}`)
