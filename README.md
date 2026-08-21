@@ -221,7 +221,38 @@ Runtime validation stays in the handlers rather than moving to Fastify route sch
 
 ## Deployment
 
-The project targets [Render](https://render.com) for static deployment. Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
+The repository includes a Render Blueprint in `render.yaml` for the complete
+runtime: the static Vite site, the public Fastify API, and the private
+simulation worker. The Blueprint uses the existing MongoDB Atlas replica set;
+it does not create or migrate a database. Apply it from the Render Dashboard
+after pushing the file to the connected Git repository.
+
+The worker uses Render's `starter` plan because Render does not offer free
+background-worker instances; the static site and API remain on the free plan.
+
+Fill these Dashboard values before deploying:
+
+- `MONGODB_URI`: the existing Atlas replica-set connection string.
+- `MONGODB_DB_NAME`: the production database name (the Blueprint defaults to `volt`).
+- `BETTER_AUTH_SECRET`: a new random secret of at least 32 characters.
+- `BETTER_AUTH_URL`: the deployed API HTTPS origin.
+- `WEB_ORIGIN`: the deployed static-site HTTPS origin.
+- `VITE_API_BASE_URL`: the same deployed API HTTPS origin.
+- `RESEND_API_KEY` and `EMAIL_FROM`: verified production email delivery settings.
+- `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
+
+The Blueprint prompts for the Atlas and auth values on both the API and worker
+because the current server environment contract is process-wide; the worker
+does not expose an HTTP or authentication surface, but it must still satisfy
+that shared startup schema.
+
+The API binds to Render's injected `PORT` on `0.0.0.0` and reports readiness at
+`/health`. The worker has no public endpoint and should be monitored through its
+persisted heartbeat. After applying the Blueprint, verify the API health check,
+recent error logs, and a queued simulation before treating the deployment as
+ready. See [ADR 0011](docs/adr/0011-render-api-worker-blueprint.md).
+
+Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
 
 ```text
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

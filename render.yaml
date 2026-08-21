@@ -1,0 +1,71 @@
+services:
+  - type: web
+    name: volt-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build:api
+    startCommand: node server/dist/api.js
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: volt-production-runtime
+      - key: MONGODB_URI
+        sync: false
+      - key: VOLT_DNS_SERVERS
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+  - type: worker
+    name: volt-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build:api
+    startCommand: node server/dist/worker.js
+    envVars:
+      - fromGroup: volt-production-runtime
+      - key: MONGODB_URI
+        sync: false
+      - key: VOLT_DNS_SERVERS
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: WORKER_ID
+        value: volt-worker-production
+
+  - type: web
+    name: volt-web
+    runtime: static
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+
+envVarGroups:
+  - name: volt-production-runtime
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_DB_NAME
+        value: volt
+      - key: SIMULATION_DAILY_RUN_LIMIT
+        value: "100"
+      - key: SIMULATION_MAX_ATTEMPTS
+        value: "5"
