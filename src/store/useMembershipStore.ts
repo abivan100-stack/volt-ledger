@@ -27,6 +27,7 @@ export interface MembershipState {
   members: Membership[]
   error: string | null
   pendingLoad: Promise<void> | null
+  requestGeneration: number
   load: (organisationId: string) => Promise<void>
   changeRole: (userId: string, role: AssignableRole) => Promise<Membership>
   remove: (userId: string) => Promise<void>
@@ -59,25 +60,30 @@ function requireOrganisationId(organisationId: string | null): string {
 
 export const useMembershipStore = create<MembershipState>()((set, get) => ({
   ...EMPTY,
+  requestGeneration: 0,
 
   load: (organisationId) => {
     const state = get()
     if (state.pendingLoad && state.organisationId === organisationId) return state.pendingLoad
 
-    set({ organisationId, status: 'loading', error: null })
+    const requestGeneration =
+      state.organisationId === organisationId ? state.requestGeneration : state.requestGeneration + 1
+    const isCurrent = () =>
+      get().organisationId === organisationId && get().requestGeneration === requestGeneration
+    set({ organisationId, status: 'loading', error: null, requestGeneration })
     const loading = listMemberships(organisationId)
       .then((members) => {
         // A slower request for a previously selected organisation must not
         // overwrite the list the user is now looking at.
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'ready', members, error: null })
       })
       .catch((error: unknown) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'error', error: messageFor(error) })
       })
       .finally(() => {
-        if (get().organisationId === organisationId) set({ pendingLoad: null })
+        if (isCurrent()) set({ pendingLoad: null })
       })
 
     set({ pendingLoad: loading })
@@ -86,7 +92,9 @@ export const useMembershipStore = create<MembershipState>()((set, get) => ({
 
   changeRole: async (userId, role) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     const updated = await updateMembershipRole(organisationId, userId, role)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return updated
     set((state) => ({
       members: state.members.map((member) => (member.userId === userId ? updated : member)),
     }))
@@ -95,7 +103,9 @@ export const useMembershipStore = create<MembershipState>()((set, get) => ({
 
   remove: async (userId) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     await removeMembership(organisationId, userId)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
     set((state) => ({
       members: state.members.filter((member) => member.userId !== userId),
     }))
@@ -103,7 +113,9 @@ export const useMembershipStore = create<MembershipState>()((set, get) => ({
 
   handOverOwnership: async (userId) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     const ownership = await transferOwnership(organisationId, userId)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
     set((state) => ({
       members: state.members.map((member) => {
         if (member.userId === ownership.newOwner.userId) return ownership.newOwner
@@ -116,7 +128,7 @@ export const useMembershipStore = create<MembershipState>()((set, get) => ({
     await useOrganisationStore.getState().load()
   },
 
-  reset: () => set({ ...EMPTY }),
+  reset: () => set((state) => ({ ...EMPTY, requestGeneration: state.requestGeneration + 1 })),
 }))
 
 // Members belong to one organisation and one session; drop them when either changes.

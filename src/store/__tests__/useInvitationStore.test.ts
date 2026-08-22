@@ -132,6 +132,24 @@ describe('invite', () => {
     expect(useInvitationStore.getState().invitations).toEqual([PENDING])
   })
 
+  it('does not add a completed invite to a newly selected organisation', async () => {
+    listMock.mockResolvedValueOnce([PENDING])
+    await useInvitationStore.getState().load(ORG_A)
+
+    let release: (value: Invitation) => void = () => {}
+    createMock.mockReturnValue(new Promise<Invitation>((resolve) => { release = resolve }))
+    const inviting = useInvitationStore.getState().invite({ email: 'new@example.com', role: 'viewer' })
+
+    const other = invitation('invitation-2')
+    listMock.mockResolvedValueOnce([other])
+    await useInvitationStore.getState().load(ORG_B)
+    release(invitation('invitation-new', { email: 'new@example.com', role: 'viewer' }))
+    await inviting
+
+    expect(useInvitationStore.getState().organisationId).toBe(ORG_B)
+    expect(useInvitationStore.getState().invitations).toEqual([other])
+  })
+
   it('propagates an undelivered invitation, which the server has already revoked', async () => {
     listMock.mockResolvedValue([])
     await useInvitationStore.getState().load(ORG_A)

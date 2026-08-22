@@ -26,6 +26,7 @@ export interface InvitationState {
   invitations: Invitation[]
   error: string | null
   pendingLoad: Promise<void> | null
+  requestGeneration: number
   load: (organisationId: string) => Promise<void>
   invite: (input: CreateInvitationInput) => Promise<Invitation>
   revoke: (invitationId: string) => Promise<void>
@@ -55,23 +56,28 @@ function requireOrganisationId(organisationId: string | null): string {
 
 export const useInvitationStore = create<InvitationState>()((set, get) => ({
   ...EMPTY,
+  requestGeneration: 0,
 
   load: (organisationId) => {
     const state = get()
     if (state.pendingLoad && state.organisationId === organisationId) return state.pendingLoad
 
-    set({ organisationId, status: 'loading', error: null })
+    const requestGeneration =
+      state.organisationId === organisationId ? state.requestGeneration : state.requestGeneration + 1
+    const isCurrent = () =>
+      get().organisationId === organisationId && get().requestGeneration === requestGeneration
+    set({ organisationId, status: 'loading', error: null, requestGeneration })
     const loading = listInvitations(organisationId)
       .then((invitations) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'ready', invitations, error: null })
       })
       .catch((error: unknown) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'error', error: messageFor(error) })
       })
       .finally(() => {
-        if (get().organisationId === organisationId) set({ pendingLoad: null })
+        if (isCurrent()) set({ pendingLoad: null })
       })
 
     set({ pendingLoad: loading })
@@ -80,14 +86,18 @@ export const useInvitationStore = create<InvitationState>()((set, get) => ({
 
   invite: async (input) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     const created = await createInvitation(organisationId, input)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return created
     set((state) => ({ invitations: [created, ...state.invitations] }))
     return created
   },
 
   revoke: async (invitationId) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     await revokeInvitation(organisationId, invitationId)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
     // The record is retained for history, so mark it revoked rather than
     // dropping it from the list.
     set((state) => ({
@@ -97,7 +107,7 @@ export const useInvitationStore = create<InvitationState>()((set, get) => ({
     }))
   },
 
-  reset: () => set({ ...EMPTY }),
+  reset: () => set((state) => ({ ...EMPTY, requestGeneration: state.requestGeneration + 1 })),
 }))
 
 useOrganisationStore.subscribe((state, previous) => {

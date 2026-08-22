@@ -174,6 +174,24 @@ describe('submit', () => {
     expect(useSimulationStore.getState().runs).toEqual([])
   })
 
+  it('does not add a completed submission to a newly selected organisation', async () => {
+    listMock.mockResolvedValueOnce([])
+    await useSimulationStore.getState().load(ORG_A)
+
+    let release: (value: SimulationRun) => void = () => {}
+    createMock.mockReturnValue(new Promise<SimulationRun>((resolve) => { release = resolve }))
+    const submitting = useSimulationStore.getState().submit(INPUT)
+
+    const otherRun = { ...run('run-b'), organisationId: ORG_B }
+    listMock.mockResolvedValueOnce([otherRun])
+    await useSimulationStore.getState().load(ORG_B)
+    release(run('run-new'))
+    await submitting
+
+    expect(useSimulationStore.getState().organisationId).toBe(ORG_B)
+    expect(useSimulationStore.getState().runs).toEqual([otherRun])
+  })
+
   it('refuses to act when no organisation is selected', async () => {
     await expect(useSimulationStore.getState().submit(INPUT)).rejects.toThrow(
       /No organisation is selected/,
