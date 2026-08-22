@@ -4,7 +4,11 @@ import { betterAuth } from 'better-auth'
 import { emailOTP } from 'better-auth/plugins'
 import { env } from '../config/env.js'
 import { getMongoClient, getMongoDb } from '../db/mongo.js'
-import { isEmailDeliveryConfigured, sendVerificationCodeEmail } from '../email/resend.js'
+import { isEmailDeliveryConfigured } from '../email/resend.js'
+import { sendVerificationCodeEmailWithRetry } from '../email/verificationDelivery.js'
+import { createLogger } from '../observability/logger.js'
+
+const logger = createLogger({ service: 'volt-api' })
 
 /** Digits in a verification code. Six is the length people expect to retype. */
 export const VERIFICATION_CODE_LENGTH = 6
@@ -113,12 +117,30 @@ export function getAuthService(): AuthService {
              */
             changeEmail: { enabled: true, verifyCurrentEmail: true },
             overrideDefaultEmailVerification: true,
-            sendVerificationOTP: async ({ email, otp }: { email: string; otp: string }) => {
-              await sendVerificationCodeEmail({
-                to: email,
-                code: otp,
-                expiresInMinutes: Math.round(VERIFICATION_CODE_TTL_SECONDS / 60),
-              })
+            /**
+             * Wraps the send in a bounded retry rather than calling the
+             * provider once. Better Auth awaits this promise but discards a
+             * rejection into its own logger, so a transient failure here would
+             * otherwise be invisible: the caller is told the code was sent, no
+             * code arrives, and nothing tries again.
+             */
+            sendVerificationOTP: async ({
+              email,
+              otp,
+              type,
+            }: {
+              email: string
+              otp: string
+              type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
+            }) => {
+              await sendVerificationCodeEmailWithRetry(
+                {
+                  to: email,
+                  code: otp,
+                  expiresInMinutes: Math.round(VERIFICATION_CODE_TTL_SECONDS / 60),
+                },
+                { logger: logger.child({ flow: type }) },
+              )
             },
           }),
         ]

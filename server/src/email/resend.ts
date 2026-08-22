@@ -204,7 +204,16 @@ export async function sendVerificationCodeEmail({
   code,
   expiresInMinutes,
 }: VerificationCodeEmailInput): Promise<void> {
-  const emailFrom = requireEmailDeliveryConfiguration()
+  let emailFrom: string
+  try {
+    emailFrom = requireEmailDeliveryConfiguration()
+  } catch (error) {
+    // Classified like every other failure here, so a caller retrying on
+    // `EmailDeliveryError.retryable` does not have to special-case a plain
+    // `Error` to know a missing key will not fix itself on attempt two.
+    const message = error instanceof Error ? error.message : 'Email delivery is not configured'
+    throw new EmailDeliveryError(message, 'EMAIL_DELIVERY_NOT_CONFIGURED', false)
+  }
 
   announceCode('Volt verification code', to, code)
 
@@ -221,7 +230,11 @@ export async function sendVerificationCodeEmail({
   const { error } = await getResendClient().emails.send({ from: emailFrom, to, subject, text, html })
 
   if (error) {
-    throw new Error(`Resend email failed: ${error.message}`)
+    // Matches sendOrganisationInvitationEmail's classification: a 5xx, a 429,
+    // or no status at all (a network failure before Resend answered) is worth
+    // retrying; anything else — a rejected address, a bad request — is not.
+    const retryable = error.statusCode === null || error.statusCode >= 500 || error.statusCode === 429
+    throw new EmailDeliveryError(`Resend email failed: ${error.message}`, error.name, retryable)
   }
 }
 

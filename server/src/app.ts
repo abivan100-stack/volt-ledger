@@ -43,7 +43,7 @@ import type {
   WorkerHeartbeatDocument,
 } from './db/models.js'
 import { encryptDeliveryUrl } from './email/outbox.js'
-import { sendVerificationCodeEmail } from './email/resend.js'
+import { sendVerificationCodeEmailWithRetry } from './email/verificationDelivery.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
@@ -496,7 +496,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     // anyone, so the code is minted here instead where the session fixes it.
     const email = access.session.user.email
     const code = await auth().createVerificationCode(email)
-    await sendVerificationCodeEmail({
+    await sendVerificationCodeEmailWithRetry({
       to: email,
       code,
       expiresInMinutes: Math.round(VERIFICATION_CODE_TTL_SECONDS / 60),
