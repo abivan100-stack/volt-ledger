@@ -9,6 +9,7 @@ import AuditPanel from './AuditPanel'
 import InvitationPanel from './InvitationPanel'
 import LedgerPanel from './LedgerPanel'
 import MemberList from './MemberList'
+import RestoreOrganisation from './RestoreOrganisation'
 import SimulationPanel from './SimulationPanel'
 import './OrganisationPanel.css'
 
@@ -67,6 +68,9 @@ function SignedInOrganisations() {
           simulations and keep a settlement ledger.
         </p>
         <CreateOrganisationForm />
+        {/* Archiving your only organisation lands you here, which is exactly
+            where the undo has to be reachable. */}
+        <RestoreOrganisation />
       </section>
     )
   }
@@ -114,6 +118,7 @@ function SignedInOrganisations() {
       <LedgerPanel />
       <AuditPanel />
       <ArchiveOrganisation />
+      <RestoreOrganisation />
     </section>
   )
 }

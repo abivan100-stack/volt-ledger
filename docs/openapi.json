@@ -584,6 +584,54 @@
         ],
         "additionalProperties": false
       },
+      "ArchivedOrganisation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "archivedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "restorableUntil": {
+            "type": "string",
+            "description": "After this the working data is purged and restore refuses"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "archivedAt",
+          "restorableUntil"
+        ],
+        "additionalProperties": false
+      },
+      "ArchivedOrganisationListResponse": {
+        "type": "object",
+        "properties": {
+          "organisations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchivedOrganisation"
+            },
+            "description": "Most recently archived first"
+          }
+        },
+        "required": [
+          "organisations"
+        ],
+        "additionalProperties": false
+      },
       "Membership": {
         "type": "object",
         "properties": {
@@ -1830,6 +1878,43 @@
         }
       }
     },
+    "/api/v1/organisations/archived": {
+      "get": {
+        "operationId": "listArchivedOrganisations",
+        "summary": "Archives you can still undo",
+        "description": "Organisations the caller owned at the moment they were archived, that are still inside the recovery window set by `RETENTION_WINDOW_DAYS`. This is how a restore is found at all: an archived organisation has no active memberships, so it does not appear in the ordinary list, and without this route the window would only be reachable by someone who never closed the tab. Each entry carries `restorableUntil`, the instant after which the working data is purged and `restoreOrganisation` refuses. Entries carry no role: owning it at the archive is what put it in the list.",
+        "tags": [
+          "Organisations"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every archive still inside its window, most recent first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivedOrganisationListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `UNAUTHENTICATED` — No session cookie, or the session has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organisations/{organisationId}": {
       "get": {
         "operationId": "getOrganisation",
@@ -1911,7 +1996,7 @@
       "delete": {
         "operationId": "archiveOrganisation",
         "summary": "Archive an organisation",
-        "description": "Owner only, and soft: active memberships, invitations, simulation runs, intervals and summaries are marked deleted in one transaction, and pending invitations are revoked. Ledger and audit history are retained for provenance. There is no undo.\n\n**Roles.** `owner`.",
+        "description": "Owner only, and soft: active memberships, invitations, simulation runs, intervals and summaries are marked deleted in one transaction, and pending invitations are revoked. Ledger and audit history are retained for provenance. Reversible by `restoreOrganisation` for `RETENTION_WINDOW_DAYS` afterwards, and irreversible once that window closes and the working data is purged; `listArchivedOrganisations` says how long is left. Revoked invitations are not part of the undo.\n\n**Roles.** `owner`.",
         "tags": [
           "Organisations"
         ],

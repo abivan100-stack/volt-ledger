@@ -47,7 +47,7 @@ import { sendVerificationCodeEmail } from './email/resend.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
-import { purgeCutoff } from './retention/policy.js'
+import { purgeCutoff, recoverableUntil } from './retention/policy.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
 import { buildOpenApiDocument } from './openapi/document.js'
 import {
@@ -77,7 +77,7 @@ import {
 export interface OrganisationRouteRepositories {
   organisations: Pick<
     OrganisationRepository,
-    'createWithOwner' | 'findById' | 'listForUser' | 'softDelete' | 'restore'
+    'createWithOwner' | 'findById' | 'listForUser' | 'listRestorableForUser' | 'softDelete' | 'restore'
   >
   memberships: Pick<
     MembershipRepository,
@@ -119,6 +119,25 @@ function serializeOrganisation(organisation: OrganisationDocument, role: Members
     role,
     createdAt: organisation.createdAt.toISOString(),
     updatedAt: organisation.updatedAt.toISOString(),
+  }
+}
+
+/**
+ * An archive the caller can still undo.
+ *
+ * `deletedAt` is non-null by construction — the repository only returns rows an
+ * archive stamped — but the document type cannot say so, so it is read once here
+ * and the deadline derived from it rather than from now, giving the UI a fixed
+ * instant to count down to.
+ */
+function serializeArchivedOrganisation(organisation: OrganisationDocument, windowDays: number) {
+  const archivedAt = organisation.deletedAt ?? organisation.updatedAt
+  return {
+    id: organisation._id,
+    name: organisation.name,
+    slug: organisation.slug,
+    archivedAt: archivedAt.toISOString(),
+    restorableUntil: recoverableUntil(archivedAt, windowDays).toISOString(),
   }
 }
 
@@ -555,6 +574,25 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       if (membership) response.push(serializeOrganisation(organisation, membership.role))
     }
     return { organisations: response }
+  })
+
+  app.get('/api/v1/organisations/archived', async (request, reply) => {
+    const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())
+    if (!access.ok) return reply.code(access.statusCode).send({ error: access.error, code: access.code })
+
+    // Without this route the recovery window would only be reachable by someone
+    // who still had the tab open when they archived, which is not a window.
+    const windowDays = env.RETENTION_WINDOW_DAYS
+    const archived = await repositories().organisations.listRestorableForUser(
+      access.session.user.id,
+      purgeCutoff(new Date(), windowDays),
+    )
+
+    return {
+      organisations: archived.map((organisation) =>
+        serializeArchivedOrganisation(organisation, windowDays),
+      ),
+    }
   })
 
   app.get('/api/v1/organisations/:organisationId', async (request, reply) => {

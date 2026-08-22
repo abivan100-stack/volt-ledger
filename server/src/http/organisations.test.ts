@@ -65,6 +65,7 @@ function createRepositories(role: MembershipDocument['role'] = 'owner') {
           return { organisation, membership }
         },
         listForUser: async () => [organisation],
+        listRestorableForUser: async () => [],
         findById: async () => organisation,
         softDelete: async (_organisationId: string, actorUserId: string) => {
           deletedByUserId = actorUserId

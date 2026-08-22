@@ -273,6 +273,30 @@ const ROUTES: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/api/v1/organisations/archived',
+    operationId: 'listArchivedOrganisations',
+    summary: 'Archives you can still undo',
+    description:
+      'Organisations the caller owned at the moment they were archived, that are still inside the ' +
+      'recovery window set by `RETENTION_WINDOW_DAYS`. This is how a restore is found at all: an ' +
+      'archived organisation has no active memberships, so it does not appear in the ordinary ' +
+      'list, and without this route the window would only be reachable by someone who never ' +
+      'closed the tab. Each entry carries `restorableUntil`, the instant after which the working ' +
+      'data is purged and `restoreOrganisation` refuses. Entries carry no role: owning it at the ' +
+      'archive is what put it in the list.',
+    tags: ['Organisations'],
+    authenticated: true,
+    success: [
+      {
+        status: 200,
+        description: 'Every archive still inside its window, most recent first.',
+        schema: 'ArchivedOrganisationListResponse',
+      },
+    ],
+    errors: AUTH_ERRORS,
+  },
+  {
+    method: 'get',
     path: '/api/v1/organisations/:organisationId',
     operationId: 'getOrganisation',
     summary: 'Read one organisation',
@@ -318,7 +342,12 @@ const ROUTES: RouteDoc[] = [
     operationId: 'archiveOrganisation',
     summary: 'Archive an organisation',
     description:
-      'Owner only, and soft: active memberships, invitations, simulation runs, intervals and summaries are marked deleted in one transaction, and pending invitations are revoked. Ledger and audit history are retained for provenance. There is no undo.',
+      'Owner only, and soft: active memberships, invitations, simulation runs, intervals and ' +
+      'summaries are marked deleted in one transaction, and pending invitations are revoked. ' +
+      'Ledger and audit history are retained for provenance. Reversible by ' +
+      '`restoreOrganisation` for `RETENTION_WINDOW_DAYS` afterwards, and irreversible once that ' +
+      'window closes and the working data is purged; `listArchivedOrganisations` says how long is ' +
+      'left. Revoked invitations are not part of the undo.',
     tags: ['Organisations'],
     authenticated: true,
     roles: ['owner'],

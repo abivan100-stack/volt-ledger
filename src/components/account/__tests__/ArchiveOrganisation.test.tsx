@@ -85,12 +85,23 @@ describe('ArchiveOrganisation confirmation', () => {
     expect(confirmationField()).toBeTruthy()
   })
 
-  it('explains what is removed and what is retained', () => {
+  it('explains what is removed, what is retained, and what can be undone', () => {
     openForm()
     const warning = screen.getByText(/removes every member/i)
     expect(warning.textContent).toMatch(/soft-deletes its simulation runs/i)
     expect(warning.textContent).toMatch(/Ledger and audit history are retained/i)
-    expect(warning.textContent).toMatch(/cannot be undone/i)
+    // This said "cannot be undone" after restore shipped. Telling an owner a
+    // recoverable action is permanent is its own kind of wrong, so the window
+    // and its end are both named.
+    expect(warning.textContent).toMatch(/restore it for a limited time/i)
+    expect(warning.textContent).toMatch(/deleted permanently/i)
+    expect(warning.textContent).not.toMatch(/cannot be undone/i)
+  })
+
+  it('warns that a restore does not reissue the invitations it revoked', () => {
+    openForm()
+    const warning = screen.getByText(/removes every member/i)
+    expect(warning.textContent).toMatch(/not reissued by a restore/i)
   })
 
   it('refuses to archive until the identifier is typed exactly', () => {

@@ -3,7 +3,10 @@ import { ApiError } from '../api/errors'
 import {
   archiveOrganisation,
   createOrganisation,
+  listArchivedOrganisations,
   listOrganisations,
+  restoreOrganisation,
+  type ArchivedOrganisation,
   type CreateOrganisationInput,
   type Organisation,
 } from '../api/organisations'
@@ -29,24 +32,48 @@ export interface OrganisationState {
    * that resetting the store also drops it.
    */
   pendingLoad: Promise<void> | null
+  /**
+   * Archives the user can still undo. Separate from `organisations` because an
+   * archived organisation is not one you can work in — mixing them would put
+   * something in the selector that has no members, no runs, and no ledger to
+   * read.
+   */
+  archived: ArchivedOrganisation[]
+  archivedStatus: OrganisationStatus
+  archivedError: string | null
+  pendingArchivedLoad: Promise<void> | null
   load: () => Promise<void>
+  loadArchived: () => Promise<void>
   select: (organisationId: string | null) => void
   /** The selected organisation, or `null`. */
   selected: () => Organisation | null
   create: (input: CreateOrganisationInput) => Promise<Organisation>
   archive: (organisationId: string) => Promise<void>
+  restore: (organisationId: string) => Promise<Organisation>
   reset: () => void
 }
 
 const EMPTY: Pick<
   OrganisationState,
-  'status' | 'organisations' | 'selectedId' | 'error' | 'pendingLoad'
+  | 'status'
+  | 'organisations'
+  | 'selectedId'
+  | 'error'
+  | 'pendingLoad'
+  | 'archived'
+  | 'archivedStatus'
+  | 'archivedError'
+  | 'pendingArchivedLoad'
 > = {
   status: 'unknown',
   organisations: [],
   selectedId: null,
   error: null,
   pendingLoad: null,
+  archived: [],
+  archivedStatus: 'unknown',
+  archivedError: null,
+  pendingArchivedLoad: null,
 }
 
 function messageFor(error: unknown): string {
@@ -91,6 +118,30 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
     return loading
   },
 
+  loadArchived: () => {
+    const pending = get().pendingArchivedLoad
+    if (pending) return pending
+
+    set({ archivedStatus: 'loading', archivedError: null })
+    const loading = listArchivedOrganisations()
+      .then((archived) => {
+        set({ archivedStatus: 'ready', archived, archivedError: null })
+      })
+      .catch((error: unknown) => {
+        set({
+          archivedStatus: 'error',
+          archivedError:
+            error instanceof ApiError ? error.message : 'Your archives could not be loaded',
+        })
+      })
+      .finally(() => {
+        set({ pendingArchivedLoad: null })
+      })
+
+    set({ pendingArchivedLoad: loading })
+    return loading
+  },
+
   select: (organisationId) => {
     if (organisationId === null) {
       set({ selectedId: null })
@@ -130,6 +181,22 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
           : state.selectedId
       return { organisations, selectedId }
     })
+
+    // The undo deadline is the server's to state, so the new archive is fetched
+    // rather than guessed. Deliberately not awaited: the archive has already
+    // succeeded, and a failed refresh must not report it as failed.
+    if (get().archivedStatus !== 'unknown') void get().loadArchived()
+  },
+
+  restore: async (organisationId) => {
+    const restored = await restoreOrganisation(organisationId)
+    set((state) => ({
+      organisations: [...state.organisations, restored],
+      archived: state.archived.filter((entry) => entry.id !== organisationId),
+      selectedId: restored.id,
+      status: 'ready',
+    }))
+    return restored
   },
 
   reset: () => set({ ...EMPTY }),

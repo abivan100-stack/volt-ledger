@@ -7,16 +7,20 @@ import { useSessionStore } from '../../../store/useSessionStore'
 import { ApiError } from '../../../api/errors'
 import type { Organisation } from '../../../api/organisations'
 
-const { listMock, createMock, archiveMock } = vi.hoisted(() => ({
+const { listMock, createMock, archiveMock, listArchivedMock, restoreMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
   archiveMock: vi.fn(),
+  listArchivedMock: vi.fn(),
+  restoreMock: vi.fn(),
 }))
 
 vi.mock('../../../api/organisations', () => ({
   listOrganisations: listMock,
   createOrganisation: createMock,
   archiveOrganisation: archiveMock,
+  listArchivedOrganisations: listArchivedMock,
+  restoreOrganisation: restoreMock,
 }))
 
 function organisation(id: string, overrides: Partial<Organisation> = {}): Organisation {
@@ -44,6 +48,10 @@ beforeEach(() => {
   listMock.mockReset()
   createMock.mockReset()
   archiveMock.mockReset()
+  restoreMock.mockReset()
+  // The panel mounts the restore surface, which asks for the archives on sight.
+  listArchivedMock.mockReset()
+  listArchivedMock.mockResolvedValue([])
 })
 
 afterEach(() => {

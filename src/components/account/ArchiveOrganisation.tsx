@@ -7,11 +7,12 @@ import './ArchiveOrganisation.css'
 /**
  * Owner-only organisation archival.
  *
- * Archiving is soft but not undoable from here: it removes active access and
- * working simulation data in one transaction while ledger and audit history are
- * retained for provenance. Because there is no undo, the control is behind a
- * disclosure and requires the organisation's identifier to be typed out, so it
- * cannot be reached by a stray click.
+ * Archiving is soft: it removes active access and working simulation data in one
+ * transaction while ledger and audit history are retained for provenance. It can
+ * be undone from `RestoreOrganisation` for a window afterwards, and not at all
+ * once that window closes — so the control stays behind a disclosure and still
+ * requires the organisation's identifier to be typed out. A recoverable mistake
+ * is not a harmless one: everyone else loses access the moment this succeeds.
  */
 function ArchiveOrganisation() {
   const organisation = useOrganisationStore((state) => state.selected())
@@ -66,7 +67,9 @@ function ArchiveOrganisation() {
         <p className="archive-warning">
           Archiving <strong>{organisation.name}</strong> removes every member&apos;s access and
           soft-deletes its simulation runs and results. Ledger and audit history are retained for
-          provenance. This cannot be undone from Volt.
+          provenance. You can restore it for a limited time afterwards; once that window closes the
+          simulation data is deleted permanently. Pending invitations are revoked and are not
+          reissued by a restore.
         </p>
 
         <label className="account-field">

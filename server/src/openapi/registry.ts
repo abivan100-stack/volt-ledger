@@ -35,6 +35,8 @@ export const RESPONSE_SCHEMAS = {
   OrganisationListResponse: responses.organisationListResponseSchema,
   OrganisationResponse: responses.organisationResponseSchema,
   OrganisationRestoreResponse: responses.organisationRestoreResponseSchema,
+  ArchivedOrganisation: responses.archivedOrganisationSchema,
+  ArchivedOrganisationListResponse: responses.archivedOrganisationListResponseSchema,
   Membership: responses.membershipSchema,
   MembershipListResponse: responses.membershipListResponseSchema,
   MembershipResponse: responses.membershipResponseSchema,

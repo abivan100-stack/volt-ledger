@@ -61,6 +61,17 @@ export function isRecoverable(
   return deletedAt.getTime() > purgeCutoff(now, windowDays).getTime()
 }
 
+/**
+ * The instant an archive stops being restorable.
+ *
+ * Derived from the archive rather than from now, so it is a fixed deadline the
+ * API can publish and the UI can count down to. It is the same boundary
+ * `purgeCutoff` sweeps past from the other direction.
+ */
+export function recoverableUntil(deletedAt: Date, windowDays: number): Date {
+  return new Date(deletedAt.getTime() + windowDays * MS_PER_DAY)
+}
+
 /** How much of the window is left, floored at zero. */
 export function recoverableForMs(
   deletedAt: Date | null,
@@ -68,6 +79,5 @@ export function recoverableForMs(
   windowDays: number,
 ): number {
   if (deletedAt === null) return 0
-  const expiresAt = deletedAt.getTime() + windowDays * MS_PER_DAY
-  return Math.max(0, expiresAt - now.getTime())
+  return Math.max(0, recoverableUntil(deletedAt, windowDays).getTime() - now.getTime())
 }

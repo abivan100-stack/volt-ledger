@@ -4,16 +4,20 @@ import { useSessionStore } from '../useSessionStore'
 import { ApiError } from '../../api/errors'
 import type { Organisation } from '../../api/organisations'
 
-const { listMock, createMock, archiveMock } = vi.hoisted(() => ({
+const { listMock, createMock, archiveMock, listArchivedMock, restoreMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
   archiveMock: vi.fn(),
+  listArchivedMock: vi.fn(),
+  restoreMock: vi.fn(),
 }))
 
 vi.mock('../../api/organisations', () => ({
   listOrganisations: listMock,
   createOrganisation: createMock,
   archiveOrganisation: archiveMock,
+  listArchivedOrganisations: listArchivedMock,
+  restoreOrganisation: restoreMock,
 }))
 
 function organisation(id: string, overrides: Partial<Organisation> = {}): Organisation {
@@ -40,7 +44,17 @@ beforeEach(() => {
   listMock.mockReset()
   createMock.mockReset()
   archiveMock.mockReset()
+  listArchivedMock.mockReset()
+  restoreMock.mockReset()
 })
+
+const ARCHIVED = {
+  id: 'c',
+  name: 'Org c',
+  slug: 'org-c',
+  archivedAt: '2026-08-01T00:00:00.000Z',
+  restorableUntil: '2026-08-31T00:00:00.000Z',
+}
 
 describe('initial state', () => {
   it('starts empty with nothing selected', () => {
@@ -49,6 +63,97 @@ describe('initial state', () => {
     expect(state.organisations).toEqual([])
     expect(state.selectedId).toBeNull()
     expect(state.error).toBeNull()
+  })
+
+  it('knows nothing about archives until something asks', () => {
+    const state = useOrganisationStore.getState()
+    expect(state.archived).toEqual([])
+    expect(state.archivedStatus).toBe('unknown')
+    expect(listArchivedMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('loadArchived', () => {
+  it('stores what can still be restored', async () => {
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    await useOrganisationStore.getState().loadArchived()
+
+    const state = useOrganisationStore.getState()
+    expect(state.archivedStatus).toBe('ready')
+    expect(state.archived).toEqual([ARCHIVED])
+    expect(state.archivedError).toBeNull()
+  })
+
+  it('keeps archives out of the working list', async () => {
+    listMock.mockResolvedValue([FIRST])
+    await useOrganisationStore.getState().load()
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    await useOrganisationStore.getState().loadArchived()
+
+    // An archived organisation has no members, no runs and no ledger to read;
+    // putting one in the selector would offer a workspace that is not there.
+    const state = useOrganisationStore.getState()
+    expect(state.organisations).toEqual([FIRST])
+    expect(state.selectedId).toBe(FIRST.id)
+  })
+
+  it('holds a failure rather than rejecting, since nothing asked for this', async () => {
+    listArchivedMock.mockRejectedValue(
+      new ApiError({ message: 'Service unavailable', status: 503, code: 'UNAVAILABLE' }),
+    )
+
+    await expect(useOrganisationStore.getState().loadArchived()).resolves.toBeUndefined()
+
+    const state = useOrganisationStore.getState()
+    expect(state.archivedStatus).toBe('error')
+    expect(state.archivedError).toBe('Service unavailable')
+  })
+
+  it('shares one in-flight request', async () => {
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    const first = useOrganisationStore.getState().loadArchived()
+    const second = useOrganisationStore.getState().loadArchived()
+
+    expect(first).toBe(second)
+    await first
+    expect(listArchivedMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('restore', () => {
+  it('returns the organisation to the working list and selects it', async () => {
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    await useOrganisationStore.getState().loadArchived()
+
+    const revived = organisation('c')
+    restoreMock.mockResolvedValue(revived)
+    await useOrganisationStore.getState().restore('c')
+
+    const state = useOrganisationStore.getState()
+    expect(restoreMock).toHaveBeenCalledWith('c')
+    expect(state.organisations).toEqual([revived])
+    expect(state.selectedId).toBe('c')
+    // It is no longer an archive, so it must not still be offered as one.
+    expect(state.archived).toEqual([])
+  })
+
+  it('leaves the archive listed when the restore fails', async () => {
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    await useOrganisationStore.getState().loadArchived()
+
+    restoreMock.mockRejectedValue(
+      new ApiError({
+        message: 'No archived organisation to restore',
+        status: 404,
+        code: 'ORGANISATION_NOT_RESTORABLE',
+      }),
+    )
+
+    await expect(useOrganisationStore.getState().restore('c')).rejects.toMatchObject({
+      code: 'ORGANISATION_NOT_RESTORABLE',
+    })
+    expect(useOrganisationStore.getState().archived).toEqual([ARCHIVED])
+    expect(useOrganisationStore.getState().organisations).toEqual([])
   })
 })
 
@@ -235,6 +340,46 @@ describe('archive', () => {
     expect(useOrganisationStore.getState().selectedId).toBeNull()
   })
 
+  it('refreshes the archives, since the server sets the undo deadline', async () => {
+    listMock.mockResolvedValue([FIRST])
+    await useOrganisationStore.getState().load()
+    listArchivedMock.mockResolvedValue([])
+    await useOrganisationStore.getState().loadArchived()
+
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    archiveMock.mockResolvedValue(undefined)
+    await useOrganisationStore.getState().archive(FIRST.id)
+    await useOrganisationStore.getState().loadArchived()
+
+    expect(useOrganisationStore.getState().archived).toEqual([ARCHIVED])
+  })
+
+  it('does not fetch archives nobody has asked for', async () => {
+    listMock.mockResolvedValue([FIRST])
+    await useOrganisationStore.getState().load()
+
+    archiveMock.mockResolvedValue(undefined)
+    await useOrganisationStore.getState().archive(FIRST.id)
+
+    // Nothing is showing the restore surface, so there is no list to keep fresh.
+    expect(listArchivedMock).not.toHaveBeenCalled()
+  })
+
+  it('still reports success when refreshing the archives afterwards fails', async () => {
+    listMock.mockResolvedValue([FIRST])
+    await useOrganisationStore.getState().load()
+    listArchivedMock.mockResolvedValue([])
+    await useOrganisationStore.getState().loadArchived()
+
+    listArchivedMock.mockRejectedValue(new Error('offline'))
+    archiveMock.mockResolvedValue(undefined)
+
+    // The archive already committed. Reporting it as failed because a follow-up
+    // read failed would tell the owner to do it again.
+    await expect(useOrganisationStore.getState().archive(FIRST.id)).resolves.toBeUndefined()
+    expect(useOrganisationStore.getState().organisations).toEqual([])
+  })
+
   it('leaves the list untouched when archiving fails', async () => {
     listMock.mockResolvedValue([FIRST])
     await useOrganisationStore.getState().load()
@@ -267,6 +412,18 @@ describe('session changes', () => {
     expect(state.status).toBe('unknown')
     expect(state.organisations).toEqual([])
     expect(state.selectedId).toBeNull()
+  })
+
+  it('clears the archives too, since they name organisations by identifier', async () => {
+    useSessionStore.setState({ status: 'authenticated' })
+    listArchivedMock.mockResolvedValue([ARCHIVED])
+    await useOrganisationStore.getState().loadArchived()
+
+    useSessionStore.getState().expire()
+
+    const state = useOrganisationStore.getState()
+    expect(state.archived).toEqual([])
+    expect(state.archivedStatus).toBe('unknown')
   })
 
   it('leaves the list alone while the session stays authenticated', async () => {

@@ -87,6 +87,26 @@ export const organisationListResponseSchema = z.object({
   organisations: z.array(organisationSchema),
 }).strict()
 
+/**
+ * An organisation the caller archived and can still undo.
+ *
+ * Carries no `role`: every entry is one the caller owned at the archive, since
+ * that is what the query selects on, so a role field would restate the question
+ * rather than answer anything. What the caller cannot work out for themselves is
+ * when the offer expires, so the deadline is carried instead.
+ */
+export const archivedOrganisationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  slug: z.string(),
+  archivedAt: isoDateTime,
+  restorableUntil: isoDateTime.describe('After this the working data is purged and restore refuses'),
+}).strict()
+
+export const archivedOrganisationListResponseSchema = z.object({
+  organisations: z.array(archivedOrganisationSchema).describe('Most recently archived first'),
+}).strict()
+
 /** A restored organisation, with the caller's role as it was before the archive. */
 export const organisationRestoreResponseSchema = z.object({
   organisation: z.lazy(() => organisationSchema),

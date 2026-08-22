@@ -331,11 +331,25 @@ describe('documented behaviour that JSON Schema cannot express', () => {
     expect(String(queue?.description)).toMatch(/worker/i)
   })
 
-  it('states that archiving is soft and retains ledger history', () => {
+  it('states that archiving is soft, retains ledger history, and can be undone for a window', () => {
     const archive = operation('/api/v1/organisations/{organisationId}', 'delete')
     const description = String(archive?.description)
     expect(description).toMatch(/retained for provenance/i)
-    expect(description).toMatch(/no undo/i)
+    // The document said "there is no undo" long after restore existed. A
+    // contract that contradicts a route it also publishes is worse than a silent
+    // one, so the two are pinned together here.
+    expect(description).toMatch(/restoreOrganisation/)
+    expect(description).toMatch(/RETENTION_WINDOW_DAYS/)
+    expect(description).not.toMatch(/no undo/i)
+  })
+
+  it('makes an archive discoverable, or the recovery window is unreachable', () => {
+    const listing = operation('/api/v1/organisations/archived', 'get')
+    const description = String(listing?.description)
+    expect(description).toMatch(/restorableUntil/)
+    // An archived organisation has no active memberships, so the ordinary list
+    // cannot show it.
+    expect(description).toMatch(/no active memberships/i)
   })
 })
 

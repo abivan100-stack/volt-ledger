@@ -5,6 +5,7 @@ import {
   isRecoverable,
   purgeCutoff,
   recoverableForMs,
+  recoverableUntil,
 } from './policy.js'
 
 /**
@@ -43,6 +44,21 @@ describe('isRecoverable', () => {
 
   it('says a live organisation is not recoverable, because it was never archived', () => {
     expect(isRecoverable(null, NOW, WINDOW)).toBe(false)
+  })
+})
+
+describe('recoverableUntil', () => {
+  it('is the window measured forward from the archive', () => {
+    expect(recoverableUntil(new Date('2030-05-02T00:00:00.000Z'), WINDOW).toISOString()).toBe(
+      '2030-06-01T00:00:00.000Z',
+    )
+  })
+
+  it('meets purgeCutoff at the same instant, approached from either side', () => {
+    // The deadline the API publishes and the boundary the sweep enforces have to
+    // be the same moment, or something is offered as restorable after it is gone.
+    const archivedAt = purgeCutoff(NOW, WINDOW)
+    expect(recoverableUntil(archivedAt, WINDOW).getTime()).toBe(NOW.getTime())
   })
 })
 

@@ -142,6 +142,113 @@ describeIntegration('Retention', (suite) => {
     ).toBeNull()
   })
 
+  it('lists an archive its owner can still undo', async () => {
+    const repositories = suite.repositories()
+    const org = await organisation('listable-mine')
+    await repositories.organisations.softDelete(org._id, OWNER)
+
+    const listed = await repositories.organisations.listRestorableForUser(
+      OWNER,
+      purgeCutoff(new Date(), 30),
+    )
+
+    expect(listed.map(({ _id }) => _id)).toContain(org._id)
+  })
+
+  it('offers only archives that actually restore', async () => {
+    // The list is a promise. Anything it shows must come back when asked, or the
+    // UI offers a button that answers 404.
+    const repositories = suite.repositories()
+    const org = await organisation('listable-honest')
+    await repositories.organisations.softDelete(org._id, OWNER)
+
+    const listed = await repositories.organisations.listRestorableForUser(
+      OWNER,
+      purgeCutoff(new Date(), 30),
+    )
+    expect(listed.length).toBeGreaterThan(0)
+
+    for (const entry of listed) {
+      expect(
+        await repositories.organisations.restore(entry._id, OWNER, purgeCutoff(new Date(), 30)),
+      ).not.toBeNull()
+    }
+  })
+
+  it('does not offer an archive to someone who was only a member of it', async () => {
+    const repositories = suite.repositories()
+    const org = await organisation('listable-member')
+    await repositories.memberships.create({
+      organisationId: org._id,
+      userId: MEMBER,
+      email: 'member@example.com',
+      role: 'admin',
+    })
+    await repositories.organisations.softDelete(org._id, OWNER)
+
+    // An admin's membership was soft-deleted by the same archive at the same
+    // instant, so only the role separates them — and restore refuses an admin,
+    // so listing one would offer a button that cannot work.
+    const listed = await repositories.organisations.listRestorableForUser(
+      MEMBER,
+      purgeCutoff(new Date(), 30),
+    )
+
+    expect(listed.map(({ _id }) => _id)).not.toContain(org._id)
+  })
+
+  it('does not offer an archive past its window', async () => {
+    const repositories = suite.repositories()
+    const org = await organisation('listable-expired')
+    await repositories.organisations.softDelete(org._id, OWNER)
+
+    const archived = await suite.collections().organisations.findOne({ _id: org._id })
+    await backdateArchive(org._id, archived?.deletedAt as Date, new Date(Date.now() - 45 * DAY))
+
+    const listed = await repositories.organisations.listRestorableForUser(
+      OWNER,
+      purgeCutoff(new Date(), 30),
+    )
+
+    expect(listed.map(({ _id }) => _id)).not.toContain(org._id)
+  })
+
+  it('does not offer a live organisation, since there is nothing to undo', async () => {
+    const repositories = suite.repositories()
+    const org = await organisation('listable-live')
+
+    const listed = await repositories.organisations.listRestorableForUser(
+      OWNER,
+      purgeCutoff(new Date(), 30),
+    )
+
+    expect(listed.map(({ _id }) => _id)).not.toContain(org._id)
+  })
+
+  it('pairs the owner membership to the archive by its own instant', async () => {
+    const repositories = suite.repositories()
+    const org = await organisation('listable-pairing')
+    await repositories.organisations.softDelete(org._id, OWNER)
+
+    // Written directly, because nothing in the API can currently pull the two
+    // instants apart — which is the point. A future query that merely asked
+    // "is there a deleted owner membership?" would list this, and restore would
+    // then refuse it.
+    const archived = await suite.collections().organisations.findOne({ _id: org._id })
+    const archivedAt = archived?.deletedAt as Date
+    await suite.collections().organisations.updateOne(
+      { _id: org._id },
+      { $set: { deletedAt: new Date(archivedAt.getTime() + 1000) } },
+    )
+
+    const listed = await repositories.organisations.listRestorableForUser(
+      OWNER,
+      purgeCutoff(new Date(), 30),
+    )
+
+    expect(listed.map(({ _id }) => _id)).not.toContain(org._id)
+  })
+
   it('purges the working data of an archive past its window', async () => {
     const repositories = suite.repositories()
     const org = await organisation('purge-expired')

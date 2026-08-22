@@ -205,6 +205,12 @@ export interface OrganisationRepository {
   findById(id: string): Promise<OrganisationDocument | null>
   listForUser(userId: string): Promise<OrganisationDocument[]>
   softDelete(id: string, actorUserId: string): Promise<boolean>
+  /**
+   * Archives this user could still undo: ones they owned at the moment of the
+   * archive, not yet past the cutoff. Without this a recovery window is only
+   * reachable by someone who kept the tab open.
+   */
+  listRestorableForUser(userId: string, cutoff: Date): Promise<OrganisationDocument[]>
   /** Undoes an archive, restoring exactly the rows it soft-deleted. */
   restore(id: string, actorUserId: string, cutoff: Date): Promise<OrganisationDocument | null>
 }
@@ -598,6 +604,26 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
       const ids = memberships.map(({ organisationId }) => organisationId)
       if (ids.length === 0) return []
       return collections.organisations.find({ _id: { $in: ids }, deletedAt: null }).sort({ createdAt: -1 }).toArray()
+    },
+    async listRestorableForUser(userId, cutoff) {
+      // An owner membership soft-deleted inside the window is only a candidate.
+      // The archive stamped the membership and the organisation with the same
+      // instant, so pairing on that instant is what proves this user owned *this
+      // archive* — a membership that merely ended recently pairs with nothing.
+      const owned = await collections.memberships
+        .find(
+          { userId, role: 'owner', deletedAt: { $gt: cutoff } },
+          { projection: { organisationId: 1, deletedAt: 1 } },
+        )
+        .toArray()
+      if (owned.length === 0) return []
+
+      return collections.organisations
+        .find({
+          $or: owned.map(({ organisationId, deletedAt }) => ({ _id: organisationId, deletedAt })),
+        })
+        .sort({ deletedAt: -1 })
+        .toArray()
     },
     async restore(id, actorUserId, cutoff) {
       const session = client.startSession()
