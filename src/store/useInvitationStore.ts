@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import {
   createInvitation,
   listInvitations,
@@ -8,6 +8,7 @@ import {
   type Invitation,
 } from '../api/invitations'
 import { useOrganisationStore } from './useOrganisationStore'
+import { requireOrganisationId } from './organisationScope'
 import { useSessionStore } from './useSessionStore'
 
 /**
@@ -44,16 +45,6 @@ const EMPTY: Pick<
   pendingLoad: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The invitations could not be loaded'
-}
-
-function requireOrganisationId(organisationId: string | null): string {
-  if (!organisationId) throw new Error('No organisation is selected')
-  return organisationId
-}
-
 export const useInvitationStore = create<InvitationState>()((set, get) => ({
   ...EMPTY,
   requestGeneration: 0,
@@ -74,7 +65,7 @@ export const useInvitationStore = create<InvitationState>()((set, get) => ({
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return
-        set({ status: 'error', error: messageFor(error) })
+        set({ status: 'error', error: getApiErrorMessage(error, 'The invitations could not be loaded') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingLoad: null })

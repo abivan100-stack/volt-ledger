@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   ApiError,
+  getApiErrorMessage,
   isForbiddenError,
   isNetworkError,
   isRateLimitedError,
@@ -56,5 +57,12 @@ describe('error predicates', () => {
   it('detects network errors', () => {
     expect(isNetworkError(new ApiError({ message: 'x', status: 0, code: 'NETWORK_ERROR' }))).toBe(true)
     expect(isNetworkError(new ApiError({ message: 'x', status: 500, code: 'X' }))).toBe(false)
+  })
+})
+
+describe('getApiErrorMessage', () => {
+  it('prefers the server message and otherwise returns the supplied fallback', () => {
+    expect(getApiErrorMessage(new ApiError({ message: 'Invalid input', status: 400, code: 'INVALID_REQUEST' }), 'Try again')).toBe('Invalid input')
+    expect(getApiErrorMessage(new Error('transport failure'), 'Try again')).toBe('Try again')
   })
 })

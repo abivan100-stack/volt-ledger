@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { signInWithEmail, type EmailSignInInput } from '../api/auth'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import { fetchSession, signOut as signOutRequest, type SessionUser } from '../api/session'
 import { setUnauthenticatedHandler } from '../api/unauthenticated'
 
@@ -56,11 +56,6 @@ const SIGNED_OUT: Pick<SessionState, 'status' | 'user' | 'expiresAt'> = {
   expiresAt: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The session could not be restored'
-}
-
 export const useSessionStore = create<SessionState>()((set, get) => ({
   status: 'unknown',
   user: null,
@@ -97,7 +92,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         if (!isCurrent()) return
         // A failed request is not proof of being signed out — say so, and let the
         // visitor retry rather than tearing down state we cannot confirm is stale.
-        set({ status: 'error', user: null, expiresAt: null, error: messageFor(error) })
+        set({ status: 'error', user: null, expiresAt: null, error: getApiErrorMessage(error, 'The session could not be restored') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingRestore: null })
@@ -130,7 +125,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       }))
     } catch (error) {
       // Sign-out could not be confirmed, so the cookie may still be live.
-      set({ error: messageFor(error) })
+      set({ error: getApiErrorMessage(error, 'The session could not be restored') })
     }
   },
 

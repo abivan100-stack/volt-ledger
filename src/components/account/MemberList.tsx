@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import type { Membership } from '../../api/memberships'
 import {
   ASSIGNABLE_ROLES,
@@ -103,11 +103,6 @@ interface MemberRowProps {
   onError: (message: string | null) => void
 }
 
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
-}
-
 function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
   const [busy, setBusy] = useState(false)
   const [confirmingTransfer, setConfirmingTransfer] = useState(false)
@@ -126,7 +121,7 @@ function MemberRow({ member, actorRole, isSelf, onError }: MemberRowProps) {
     try {
       await action()
     } catch (caught) {
-      onError(messageFor(caught, fallback))
+      onError(getApiErrorMessage(caught, fallback))
     } finally {
       setBusy(false)
     }

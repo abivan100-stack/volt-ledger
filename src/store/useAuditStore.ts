@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { listAuditEvents, type AuditEvent } from '../api/audit'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import { useOrganisationStore } from './useOrganisationStore'
 import { useSessionStore } from './useSessionStore'
 
@@ -56,11 +56,6 @@ const EMPTY: Pick<
   pendingLoad: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The audit history could not be loaded'
-}
-
 export const useAuditStore = create<AuditState>()((set, get) => ({
   ...EMPTY,
   requestGeneration: 0,
@@ -91,7 +86,7 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return
-        set({ status: 'error', error: messageFor(error) })
+        set({ status: 'error', error: getApiErrorMessage(error, 'The audit history could not be loaded') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingLoad: null })
@@ -124,7 +119,7 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
       }))
     } catch (error) {
       if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
-      set({ error: messageFor(error) })
+      set({ error: getApiErrorMessage(error, 'The audit history could not be loaded') })
     } finally {
       if (get().organisationId === organisationId && get().requestGeneration === requestGeneration) {
         set({ loadingMore: false })

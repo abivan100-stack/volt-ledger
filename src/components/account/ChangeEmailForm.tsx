@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { changeEmail, requestEmailChallenge, requestEmailChange } from '../../api/auth'
-import { ApiError } from '../../api/errors'
+import { ApiError, getApiErrorMessage } from '../../api/errors'
 import VerificationCodeField from './VerificationCodeField'
 import './ChangeEmailForm.css'
 
@@ -22,11 +22,8 @@ const CODE_LENGTH = 6
 type Step = 'idle' | 'current' | 'new' | 'done'
 
 function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) {
-    if (error.status === 400) return 'That code is not right, or it has expired.'
-    return error.message
-  }
-  return fallback
+  if (error instanceof ApiError && error.status === 400) return 'That code is not right, or it has expired.'
+  return getApiErrorMessage(error, fallback)
 }
 
 interface ChangeEmailFormProps {

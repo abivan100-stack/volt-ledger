@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import {
   createLedgerAdjustment,
   listLedgerEvents,
@@ -11,6 +11,7 @@ import {
 } from '../api/ledger'
 import type { SimulationOutcome } from '../api/simulations'
 import { useOrganisationStore } from './useOrganisationStore'
+import { requireOrganisationId } from './organisationScope'
 import { useSessionStore } from './useSessionStore'
 
 /**
@@ -50,16 +51,6 @@ const EMPTY: Pick<
   pendingLoad: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The ledger could not be loaded'
-}
-
-function requireOrganisationId(organisationId: string | null): string {
-  if (!organisationId) throw new Error('No organisation is selected')
-  return organisationId
-}
-
 async function fetchInto(
   organisationId: string,
   set: (partial: Partial<LedgerState>) => void,
@@ -71,7 +62,7 @@ async function fetchInto(
     set({ status: 'ready', events: page.events, integrity: page.integrity, error: null })
   } catch (error) {
     if (get().organisationId !== organisationId) return
-    set({ status: 'error', error: messageFor(error) })
+    set({ status: 'error', error: getApiErrorMessage(error, 'The ledger could not be loaded') })
   }
 }
 

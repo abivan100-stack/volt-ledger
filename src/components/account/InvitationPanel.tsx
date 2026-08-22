@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import type { Invitation } from '../../api/invitations'
 import {
   ASSIGNABLE_ROLES,
@@ -29,11 +29,6 @@ function InvitationPanel() {
 interface ManageableInvitationsProps {
   organisationId: string
   actorRole: MembershipRole
-}
-
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
 }
 
 function ManageableInvitations({ organisationId, actorRole }: ManageableInvitationsProps) {
@@ -109,7 +104,7 @@ function InviteForm({ actorRole }: { actorRole: MembershipRole }) {
       setSentTo(created.email)
       setEmail('')
     } catch (caught) {
-      setError(messageFor(caught, 'The invitation could not be sent.'))
+      setError(getApiErrorMessage(caught, 'The invitation could not be sent.'))
     } finally {
       setSubmitting(false)
     }
@@ -187,7 +182,7 @@ function InvitationRow({
     try {
       await useInvitationStore.getState().revoke(invitation.id)
     } catch (caught) {
-      setError(messageFor(caught, 'The invitation could not be revoked.'))
+      setError(getApiErrorMessage(caught, 'The invitation could not be revoked.'))
     } finally {
       setBusy(false)
     }

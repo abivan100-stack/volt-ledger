@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { closeAccount } from '../../api/session'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import './CloseAccount.css'
 
 /**
@@ -12,14 +12,6 @@ import './CloseAccount.css'
  * thing here: the ledger keeps its record of who accepted a settlement, as an
  * identifier that no longer reaches a person.
  */
-
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === 'ACCOUNT_OWNS_ORGANISATIONS') return error.message
-    return error.message
-  }
-  return 'The account could not be closed.'
-}
 
 interface CloseAccountProps {
   /** Called once the account is closed, so the session can be discarded. */
@@ -38,7 +30,7 @@ function CloseAccount({ onClosed }: CloseAccountProps) {
       await closeAccount()
       onClosed?.()
     } catch (caught) {
-      setError(messageFor(caught))
+      setError(getApiErrorMessage(caught, 'The account could not be closed.'))
       setConfirming(false)
     } finally {
       setClosing(false)

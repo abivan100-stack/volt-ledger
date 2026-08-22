@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { ApiError, getApiErrorMessage } from '../api/errors'
 import {
   createSimulationRun,
   getSimulationQuota,
@@ -12,6 +12,7 @@ import {
   type SimulationRun,
 } from '../api/simulations'
 import { useOrganisationStore } from './useOrganisationStore'
+import { requireOrganisationId } from './organisationScope'
 import { useSessionStore } from './useSessionStore'
 
 /**
@@ -72,16 +73,6 @@ const EMPTY: Omit<
   resultsError: null,
 }
 
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
-}
-
-function requireOrganisationId(organisationId: string | null): string {
-  if (!organisationId) throw new Error('No organisation is selected')
-  return organisationId
-}
-
 export const useSimulationStore = create<SimulationState>()((set, get) => ({
   ...EMPTY,
 
@@ -104,7 +95,7 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return
-        set({ status: 'error', error: messageFor(error, 'The simulations could not be loaded') })
+        set({ status: 'error', error: getApiErrorMessage(error, 'The simulations could not be loaded') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingLoad: null })
@@ -181,7 +172,7 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
       set({
         results: null,
         resultsStatus: 'error',
-        resultsError: messageFor(error, 'The results could not be loaded'),
+        resultsError: getApiErrorMessage(error, 'The results could not be loaded'),
       })
     }
   },

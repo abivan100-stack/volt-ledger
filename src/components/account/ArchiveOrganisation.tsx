@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import { canArchiveOrganisation } from '../../lib/permissions'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
 import './ArchiveOrganisation.css'
@@ -45,7 +45,7 @@ function ArchiveOrganisation() {
       // The organisation is gone from the list, so the panel unmounts this.
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : 'The organisation could not be archived.',
+        getApiErrorMessage(caught, 'The organisation could not be archived.'),
       )
       setSubmitting(false)
     }

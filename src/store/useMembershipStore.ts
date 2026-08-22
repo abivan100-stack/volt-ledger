@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import {
   listMemberships,
   removeMembership,
@@ -9,6 +9,7 @@ import {
 } from '../api/memberships'
 import type { AssignableRole } from '../lib/permissions'
 import { useOrganisationStore } from './useOrganisationStore'
+import { requireOrganisationId } from './organisationScope'
 import { useSessionStore } from './useSessionStore'
 
 /**
@@ -47,17 +48,6 @@ const EMPTY: Pick<
   pendingLoad: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The members could not be loaded'
-}
-
-/** Fails loudly rather than sending a mutation at an unknown organisation. */
-function requireOrganisationId(organisationId: string | null): string {
-  if (!organisationId) throw new Error('No organisation is selected')
-  return organisationId
-}
-
 export const useMembershipStore = create<MembershipState>()((set, get) => ({
   ...EMPTY,
   requestGeneration: 0,
@@ -80,7 +70,7 @@ export const useMembershipStore = create<MembershipState>()((set, get) => ({
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return
-        set({ status: 'error', error: messageFor(error) })
+        set({ status: 'error', error: getApiErrorMessage(error, 'The members could not be loaded') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingLoad: null })

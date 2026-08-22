@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import { acceptInvitation, type AcceptedInvitation } from '../../api/invitations'
 import { roleLabel } from '../../lib/permissions'
 import { useRestoreSession } from '../../hooks/useRestoreSession'
@@ -87,7 +87,7 @@ function AcceptInvitation({ token }: AcceptInvitationProps) {
       await useOrganisationStore.getState().load()
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : 'The invitation could not be accepted.',
+        getApiErrorMessage(caught, 'The invitation could not be accepted.'),
       )
     } finally {
       setSubmitting(false)

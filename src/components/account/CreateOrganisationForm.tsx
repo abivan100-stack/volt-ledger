@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import type { Organisation } from '../../api/organisations'
 import { MIN_SLUG_LENGTH, isValidSlug, toSlug } from '../../lib/slug'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
@@ -7,11 +7,6 @@ import './CreateOrganisationForm.css'
 
 interface CreateOrganisationFormProps {
   onCreated?: (organisation: Organisation) => void
-}
-
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The organisation could not be created.'
 }
 
 function CreateOrganisationForm({ onCreated }: CreateOrganisationFormProps) {
@@ -54,7 +49,7 @@ function CreateOrganisationForm({ onCreated }: CreateOrganisationFormProps) {
       setSlugEdited(false)
       onCreated?.(created)
     } catch (caught) {
-      setError(messageFor(caught))
+      setError(getApiErrorMessage(caught, 'The organisation could not be created.'))
     } finally {
       setSubmitting(false)
     }

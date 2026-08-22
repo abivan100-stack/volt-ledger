@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { getApiErrorMessage } from '../api/errors'
 import {
   archiveOrganisation,
   createOrganisation,
@@ -78,11 +78,6 @@ const EMPTY: Pick<
   pendingArchivedLoad: null,
 }
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The organisations could not be loaded'
-}
-
 /**
  * Keeps a selection pointing at something real: an existing choice survives a
  * refresh, and anything else falls back to the first organisation.
@@ -115,7 +110,7 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
       })
       .catch((error: unknown) => {
         if (!isCurrent()) return
-        set({ status: 'error', error: messageFor(error) })
+        set({ status: 'error', error: getApiErrorMessage(error, 'The organisations could not be loaded') })
       })
       .finally(() => {
         if (isCurrent()) set({ pendingLoad: null })
@@ -142,7 +137,7 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
         set({
           archivedStatus: 'error',
           archivedError:
-            error instanceof ApiError ? error.message : 'Your archives could not be loaded',
+            getApiErrorMessage(error, 'Your archives could not be loaded'),
         })
       })
       .finally(() => {

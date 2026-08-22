@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import {
   SIMULATION_DAY_TYPES,
   type CreateSimulationInput,
@@ -29,11 +29,6 @@ function SimulationPanel() {
 interface OrganisationSimulationsProps {
   organisationId: string
   canRun: boolean
-}
-
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
 }
 
 function OrganisationSimulations({ organisationId, canRun }: OrganisationSimulationsProps) {
@@ -157,7 +152,7 @@ function SubmitRunForm({ exhausted }: { exhausted: boolean }) {
       await useSimulationStore.getState().submit(input)
       setSeed('')
     } catch (caught) {
-      setError(messageFor(caught, 'The simulation could not be queued.'))
+      setError(getApiErrorMessage(caught, 'The simulation could not be queued.'))
     } finally {
       setSubmitting(false)
     }
