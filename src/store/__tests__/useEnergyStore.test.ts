@@ -325,6 +325,35 @@ describe('commitEdit and restoreChain', () => {
     expect(state.restoredFlash).toBe(false)
   })
 
+  it('runs a deterministic tamper test against the first visible ledger record', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    const before = useEnergyStore.getState()
+    const target = before.chain[Math.max(0, before.chain.length - 10)]
+
+    useEnergyStore.getState().runTamperTest()
+
+    const after = useEnergyStore.getState()
+    const changed = after.chain.find((block) => block.id === target.id)
+    expect(changed?.tampered).toBe(true)
+    expect(changed?.payload.kwh).toBeCloseTo(target.payload.kwh + 0.01, 8)
+    expect(after.compromised).toBe(true)
+    expect(after.invalidCount).toBeGreaterThan(0)
+  })
+
+  it('does not run a tamper test against an empty or already compromised chain', () => {
+    useEnergyStore.setState({ chain: [] })
+    useEnergyStore.getState().runTamperTest()
+    expect(useEnergyStore.getState().compromised).toBe(false)
+
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    useEnergyStore.setState({ compromised: true })
+    const before = useEnergyStore.getState().chain
+    useEnergyStore.getState().runTamperTest()
+    expect(useEnergyStore.getState().chain).toBe(before)
+  })
+
   it('restoring the chain clears the compromise', () => {
     const { targetId, origKwh } = tamperBlock()
     useEnergyStore.getState().restoreChain()

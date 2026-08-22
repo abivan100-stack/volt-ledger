@@ -82,6 +82,8 @@ export interface LedgerSlice {
   restoredFlash: boolean
 
   commitEdit: () => void
+  /** Deliberately changes one visible record to demonstrate chain validation. */
+  runTamperTest: () => void
   restoreChain: () => void
 }
 

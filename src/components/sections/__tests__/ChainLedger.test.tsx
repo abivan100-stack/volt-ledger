@@ -111,6 +111,20 @@ describe('ChainLedger tamper flow', () => {
     expect(row.querySelector('.chain-void-badge')).not.toBeNull()
   })
 
+  it('runs the one-click tamper test and highlights the altered visible record', () => {
+    render(<ChainLedger />)
+    const before = useEnergyStore.getState()
+    const target = before.chain[Math.max(0, before.chain.length - 10)]
+
+    fireEvent.click(screen.getByRole('button', { name: 'RUN TAMPER TEST' }))
+
+    const changed = useEnergyStore.getState().chain.find((block) => block.id === target.id)
+    expect(changed?.tampered).toBe(true)
+    expect(screen.getByText('INTEGRITY VOID')).toBeTruthy()
+    expect(rowFor(target.id).querySelector('.chain-void-badge')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'RUN TAMPER TEST' }).getAttribute('disabled')).not.toBeNull()
+  })
+
   it('re-sealing restores the original block and clears the void state', () => {
     render(<ChainLedger />)
     const targetId = newestBlockId()

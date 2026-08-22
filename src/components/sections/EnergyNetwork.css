@@ -237,6 +237,11 @@
   border-radius: 999px;
 }
 
+.net-node[aria-expanded="true"] .net-node-chip {
+  transform: translate(-50%, -50%) scale(1.09);
+  border-color: color-mix(in srgb, var(--net-role) 88%, transparent);
+}
+
 .net-node-produce {
   --net-role: var(--net-produce);
 }
@@ -284,6 +289,7 @@
   background: var(--card);
   box-shadow: 0 6px 16px -12px color-mix(in srgb, var(--ink) 70%, transparent);
   pointer-events: auto;
+  cursor: pointer;
   transition: transform 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
 }
 
@@ -321,6 +327,7 @@
   align-items: center;
   text-align: center;
   pointer-events: auto;
+  cursor: pointer;
 }
 
 /* The text box butts up against the chip and holds the visual gap as padding,

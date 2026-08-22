@@ -1,0 +1,152 @@
+.household-brief {
+  margin-top: 16px;
+  border: 1px solid var(--rule-2);
+  background: var(--card);
+  box-shadow: 0 20px 48px -38px color-mix(in srgb, var(--ink) 55%, transparent);
+  animation: household-brief-in 0.2s var(--ease-out);
+}
+
+@keyframes household-brief-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.household-brief-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 18px 15px;
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.household-brief-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.household-brief-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.household-brief-status-exporting {
+  color: var(--sun);
+}
+
+.household-brief-status-importing {
+  color: var(--settle);
+}
+
+.household-brief-status-balanced {
+  color: var(--ink-soft);
+}
+
+.household-brief-name {
+  margin: 8px 0 3px;
+  font-size: 27px;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.household-brief-system {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+}
+
+.household-brief-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  color: var(--ink-soft);
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.household-brief-close:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+
+.household-brief-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.household-brief-metric {
+  min-width: 0;
+  padding: 15px 14px;
+  border-right: 1px solid var(--rule-2);
+}
+
+.household-brief-metric:last-child {
+  border-right: 0;
+}
+
+.household-brief-metric-label {
+  color: var(--ink-soft);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.household-brief-metric-value {
+  margin-top: 8px;
+  font-size: clamp(13px, 1.75vw, 17px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.household-brief-metric-value-sun {
+  color: var(--sun);
+}
+
+.household-brief-metric-value-settle {
+  color: var(--settle);
+}
+
+.household-brief-metric-caption {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  line-height: 1.45;
+}
+
+@media (max-width: 540px) {
+  .household-brief-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .household-brief-metric {
+    border-bottom: 1px solid var(--rule-2);
+  }
+
+  .household-brief-metric:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .household-brief-metric:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
