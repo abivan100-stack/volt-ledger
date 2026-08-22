@@ -4,6 +4,7 @@ import { betterAuth } from 'better-auth'
 import { emailOTP } from 'better-auth/plugins'
 import { env } from '../config/env.js'
 import { getMongoClient, getMongoDb } from '../db/mongo.js'
+import { createVoltRepositories } from '../db/repositories.js'
 import { isEmailDeliveryConfigured } from '../email/resend.js'
 import { sendVerificationCodeEmailWithRetry } from '../email/verificationDelivery.js'
 import { createLogger } from '../observability/logger.js'
@@ -58,6 +59,18 @@ export function getAuthService(): AuthService {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     trustedOrigins: [env.WEB_ORIGIN],
+    databaseHooks: {
+      user: {
+        update: {
+          // Membership rows intentionally keep an address for the organisation
+          // directory. Better Auth owns email changes, so mirror the final,
+          // verified address only after its user write has completed.
+          after: async (user) => {
+            await createVoltRepositories(getMongoDb()).memberships.syncEmail(user.id, user.email)
+          },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,

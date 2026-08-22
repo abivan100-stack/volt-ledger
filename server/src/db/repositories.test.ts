@@ -152,6 +152,27 @@ describe('Volt Mongo repositories', () => {
     })
   })
 
+  it('keeps active membership directory emails in sync with the identity record', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_123',
+      email: 'old@example.com',
+      role: 'operator',
+    })
+    await repositories.memberships.create({
+      organisationId: 'org_456',
+      userId: 'user_123',
+      email: 'old@example.com',
+      role: 'viewer',
+    })
+
+    await repositories.memberships.syncEmail('user_123', ' New@Example.COM ')
+
+    expect((await repositories.memberships.listForOrganisation('org_123'))[0]?.email).toBe('new@example.com')
+    expect((await repositories.memberships.listForOrganisation('org_456'))[0]?.email).toBe('new@example.com')
+  })
+
   it('queues invitation email data in the same transaction as the invitation', async () => {
     let transactionCount = 0
     const client = {

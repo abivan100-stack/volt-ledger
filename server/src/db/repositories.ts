@@ -221,6 +221,8 @@ export interface MembershipRepository {
   /** Active memberships across every organisation the user belongs to. */
   listForUser(userId: string): Promise<MembershipDocument[]>
   listForOrganisation(organisationId: string): Promise<MembershipDocument[]>
+  /** Keeps the denormalised member directory aligned with Better Auth. */
+  syncEmail(userId: string, email: string): Promise<void>
   updateRole(organisationId: string, userId: string, role: MembershipRole, actorUserId: string): Promise<MembershipDocument | null>
   remove(organisationId: string, userId: string, actorUserId: string): Promise<MembershipDocument | null>
   transferOwnership(
@@ -806,6 +808,12 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
     },
     listForOrganisation(organisationId) {
       return collections.memberships.find({ organisationId, deletedAt: null }).sort({ createdAt: 1 }).toArray()
+    },
+    async syncEmail(userId, email) {
+      await collections.memberships.updateMany(
+        { userId, deletedAt: null },
+        { $set: { email: normaliseInvitationEmail(email), updatedAt: new Date() } },
+      )
     },
     async updateRole(organisationId, userId, role, actorUserId) {
       assertMembershipRole(role)
