@@ -409,7 +409,9 @@ export async function runSimulationWorker(
         ...(options.maxAttempts === undefined ? {} : { maxAttempts: options.maxAttempts }),
       })
       consecutiveFailures = 0
-      health.pollSucceeded({ processed: processed !== null || processedEmail !== null })
+      // `processedCount` is a run counter, not a general work-item counter.
+      // Invitation mail keeps the worker healthy but must not inflate it.
+      health.pollSucceeded({ processed: processed !== null })
       await publishHeartbeat()
       if (!processed && !processedEmail) await sleep(pollIntervalMs, options.signal)
     } catch (error) {
