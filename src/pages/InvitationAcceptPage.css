@@ -37,8 +37,18 @@
 }
 
 @media (max-width: 760px) {
-  .invite-page-inner {
+  /*
+   * Matches the base rule's own specificity (.invite-page prefixed) — the
+   * same mistake as AccountPage.css had: a bare .invite-page-inner here has
+   * strictly lower specificity than the desktop rule above and can never
+   * win, at any viewport, media query or not.
+   */
+  .invite-page .invite-page-inner {
     padding-top: 56px;
     padding-bottom: 72px;
+  }
+
+  .invite-page-card {
+    padding: 24px;
   }
 }
