@@ -196,6 +196,21 @@ describe('setAction', () => {
     expect(state.nextCursor).toBeNull()
   })
 
+  it('does not let an older filter response overwrite the new filter', async () => {
+    let release: (value: AuditEventPage) => void = () => {}
+    listMock.mockReturnValueOnce(new Promise<AuditEventPage>((resolve) => { release = resolve }))
+    const unfiltered = useAuditStore.getState().load(ORG_A)
+
+    listMock.mockResolvedValueOnce(page([event('filtered', 'membership.removed')]))
+    await useAuditStore.getState().setAction('membership.removed')
+    release(page([event('unfiltered')]))
+    await unfiltered
+
+    const state = useAuditStore.getState()
+    expect(state.action).toBe('membership.removed')
+    expect(state.events.map((entry) => entry.id)).toEqual(['filtered'])
+  })
+
   it('clears the filter back to the whole stream', async () => {
     listMock.mockResolvedValue(page([event('a')]))
     await useAuditStore.getState().load(ORG_A)

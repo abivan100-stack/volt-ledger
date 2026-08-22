@@ -27,6 +27,8 @@ export interface AuditState {
   loadingMore: boolean
   error: string | null
   pendingLoad: Promise<void> | null
+  /** Invalidates a page when its organisation or filter changes. */
+  requestGeneration: number
   load: (organisationId: string) => Promise<void>
   loadMore: () => Promise<void>
   setAction: (action: string | null) => Promise<void>
@@ -61,20 +63,25 @@ function messageFor(error: unknown): string {
 
 export const useAuditStore = create<AuditState>()((set, get) => ({
   ...EMPTY,
+  requestGeneration: 0,
 
   load: (organisationId) => {
     const state = get()
     if (state.pendingLoad && state.organisationId === organisationId) return state.pendingLoad
 
     const action = state.organisationId === organisationId ? state.action : null
-    set({ organisationId, action, status: 'loading', error: null })
+    const requestGeneration =
+      state.organisationId === organisationId ? state.requestGeneration : state.requestGeneration + 1
+    const isCurrent = () =>
+      get().organisationId === organisationId && get().requestGeneration === requestGeneration
+    set({ organisationId, action, status: 'loading', error: null, requestGeneration })
 
     const loading = listAuditEvents(organisationId, {
       limit: AUDIT_PAGE_SIZE,
       ...(action ? { action } : {}),
     })
       .then((page) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({
           status: 'ready',
           events: page.events,
@@ -83,11 +90,11 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
         })
       })
       .catch((error: unknown) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'error', error: messageFor(error) })
       })
       .finally(() => {
-        if (get().organisationId === organisationId) set({ pendingLoad: null })
+        if (isCurrent()) set({ pendingLoad: null })
       })
 
     set({ pendingLoad: loading })
@@ -95,7 +102,7 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
   },
 
   loadMore: async () => {
-    const { organisationId, nextCursor, action, loadingMore } = get()
+    const { organisationId, nextCursor, action, loadingMore, requestGeneration } = get()
     if (!organisationId || !nextCursor || loadingMore) return
 
     set({ loadingMore: true, error: null })
@@ -106,16 +113,22 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
         ...(action ? { action } : {}),
       })
       // The cursor may have been abandoned while this was in flight.
-      if (get().organisationId !== organisationId || get().nextCursor !== nextCursor) return
+      if (
+        get().organisationId !== organisationId ||
+        get().requestGeneration !== requestGeneration ||
+        get().nextCursor !== nextCursor
+      ) return
       set((state) => ({
         events: [...state.events, ...page.events],
         nextCursor: page.nextCursor,
       }))
     } catch (error) {
-      if (get().organisationId !== organisationId) return
+      if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
       set({ error: messageFor(error) })
     } finally {
-      if (get().organisationId === organisationId) set({ loadingMore: false })
+      if (get().organisationId === organisationId && get().requestGeneration === requestGeneration) {
+        set({ loadingMore: false })
+      }
     }
   },
 
@@ -123,12 +136,18 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
     const organisationId = get().organisationId
     if (get().action === action) return
     // Start a fresh page: an existing cursor belongs to the previous filter.
-    set({ action, events: [], nextCursor: null, pendingLoad: null })
+    set((state) => ({
+      action,
+      events: [],
+      nextCursor: null,
+      pendingLoad: null,
+      requestGeneration: state.requestGeneration + 1,
+    }))
     if (!organisationId) return
     await get().load(organisationId)
   },
 
-  reset: () => set({ ...EMPTY }),
+  reset: () => set((state) => ({ ...EMPTY, requestGeneration: state.requestGeneration + 1 })),
 }))
 
 useOrganisationStore.subscribe((state, previous) => {
