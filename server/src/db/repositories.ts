@@ -1925,6 +1925,11 @@ function createAccountRepository(
           }
 
           const now = new Date()
+          const user = await db.collection('user').findOne({ _id: userId as never }, { session })
+          const userEmail = typeof user?.email === 'string' ? user.email : null
+          const acceptedInvitations = await collections.organisationInvitations
+            .find({ acceptedByUserId: userId }, { session })
+            .toArray()
 
           for (const membership of memberships) {
             await collections.memberships.updateOne(
@@ -1943,6 +1948,45 @@ function createAccountRepository(
                 metadata: { previousRole: membership.role },
                 createdAt: now,
               },
+              { session },
+            )
+          }
+
+          // A membership tombstone is retained as audit evidence, but its email
+          // must not turn the ledger's opaque user ID back into an identity.
+          // Include already-released memberships too: a user may have left an
+          // organisation before closing their account.
+          await collections.memberships.updateMany(
+            { userId },
+            { $set: { email: null, updatedAt: now } },
+            { session },
+          )
+
+          // Accepted invitations and their outbox rows form another direct
+          // userId -> email link. Keep the invitation/audit history, but make
+          // the address anonymous at the same time as the Better Auth row.
+          const anonymised = anonymisedEmail(userId)
+          if (acceptedInvitations.length > 0) {
+            await collections.organisationInvitations.updateMany(
+              { acceptedByUserId: userId },
+              { $set: { email: anonymised, updatedAt: now } },
+              { session },
+            )
+          }
+
+          const deliveryScopes: Filter<EmailDeliveryDocument>[] = []
+          if (acceptedInvitations.length > 0) {
+            deliveryScopes.push({
+              idempotencyKey: {
+                $in: acceptedInvitations.map((invitation) => `organisation-invitation:${invitation._id}`),
+              },
+            })
+          }
+          if (userEmail) deliveryScopes.push({ to: userEmail })
+          if (deliveryScopes.length > 0) {
+            await collections.emailDeliveries.updateMany(
+              { $or: deliveryScopes },
+              { $set: { to: anonymised, updatedAt: now } },
               { session },
             )
           }
