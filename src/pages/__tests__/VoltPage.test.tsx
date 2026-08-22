@@ -57,3 +57,16 @@ describe('VoltPage arriving with #how', () => {
     expect(scrollToIdMock).not.toHaveBeenCalled()
   })
 })
+
+describe('VoltPage title', () => {
+  it('sets its own title rather than relying on a global default', () => {
+    // App.tsx used to set this from one place keyed on pathname; on any
+    // navigation where a page's own title effect landed in the same commit as
+    // that one, the generic title fired after the specific one and won — a
+    // page could show the wrong tab title depending on render timing. Every
+    // page now owns its own title outright, so there is nothing left to race.
+    renderAt('/')
+
+    expect(document.title).toBe('Volt — Local Energy Ledger')
+  })
+})

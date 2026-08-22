@@ -49,12 +49,6 @@ function App() {
     // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    document.title = location.pathname.startsWith('/ledger')
-      ? 'Volt Ledger — Live Energy Exchange'
-      : 'Volt — Local Energy Ledger'
-  }, [location.pathname])
-
   return (
     <>
       <a href="#main" className="mono skip-link">

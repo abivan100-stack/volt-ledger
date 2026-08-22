@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import Header from '../components/sections/Header'
 import Footer from '../components/sections/Footer'
 import DossierDrawer from '../components/sections/DossierDrawer'
@@ -17,6 +17,10 @@ interface LedgerPageFrameProps {
 function LedgerPageFrame({ kicker, title, body, children }: LedgerPageFrameProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   useScrollReveal(containerRef, 0.08)
+
+  useEffect(() => {
+    document.title = 'Volt Ledger — Live Energy Exchange'
+  }, [])
 
   return (
     <>

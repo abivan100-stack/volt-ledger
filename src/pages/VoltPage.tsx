@@ -13,6 +13,10 @@ function VoltPage() {
   const location = useLocation()
 
   useEffect(() => {
+    document.title = 'Volt — Local Energy Ledger'
+  }, [])
+
+  useEffect(() => {
     // Reaching this page with #how in the URL means the header's "How it
     // works" link sent someone here from off the home page — React Router does
     // not scroll to a hash on its own, so this section has to.
