@@ -133,7 +133,7 @@ function ChangeEmailForm({ currentEmail, onChanged }: ChangeEmailFormProps) {
     return (
       <form className="change-email account-form" onSubmit={submitCurrent} noValidate>
         <p className="account-confirmation-note" role="status">
-          We sent a code to <strong>{currentEmail}</strong>. Enter it along with the address you want
+          We requested a code for <strong>{currentEmail}</strong>. If it does not arrive shortly, start again, then enter it along with the address you want
           to move to.
         </p>
 

@@ -68,7 +68,7 @@ function SignUpForm() {
       await resendVerificationEmail({ email: registeredEmail })
       setCode('')
       setVerifyError(null)
-      setResendMessage('A new code has been sent.')
+      setResendMessage('A new code was requested. If it does not arrive shortly, try again.')
     } catch (caught) {
       setResendError(caught instanceof ApiError ? caught.message : 'The code could not be sent.')
     } finally {
@@ -113,7 +113,8 @@ function SignUpForm() {
     return (
       <form className="account-form" onSubmit={handleVerify} noValidate>
         <p className="account-confirmation-note" role="status">
-          We sent a {VERIFICATION_CODE_LENGTH}-digit code to <strong>{registeredEmail}</strong>.
+          We requested a {VERIFICATION_CODE_LENGTH}-digit code for <strong>{registeredEmail}</strong>. If it does
+          not arrive shortly, use “Send a new code”.
         </p>
 
         <VerificationCodeField
