@@ -3,6 +3,7 @@ import type { ClientSession, Db, Filter, MongoClient } from 'mongodb'
 import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
+import { isRoleManagementAllowed } from '../memberships/permissions.js'
 import {
   ANONYMISED_NAME,
   anonymisedEmail,
@@ -821,12 +822,15 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
       try {
         let updated: MembershipDocument | null = null
         await session.withTransaction(async () => {
-          const current = await collections.memberships.findOne(
-            { organisationId, userId, deletedAt: null },
-            { session },
-          )
+          const [actor, current] = await Promise.all([
+            collections.memberships.findOne({ organisationId, userId: actorUserId, deletedAt: null }, { session }),
+            collections.memberships.findOne({ organisationId, userId, deletedAt: null }, { session }),
+          ])
           if (!current) return
           if (current.role === 'owner' || role === 'owner') throw new Error('OWNER_PROTECTED')
+          if (!actor || !isRoleManagementAllowed(actor.role, current.role, role)) {
+            throw new Error('MEMBERSHIP_ROLE_FORBIDDEN')
+          }
           if (current.role === role) {
             updated = current
             return
@@ -865,12 +869,15 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
       try {
         let removed: MembershipDocument | null = null
         await session.withTransaction(async () => {
-          const current = await collections.memberships.findOne(
-            { organisationId, userId, deletedAt: null },
-            { session },
-          )
+          const [actor, current] = await Promise.all([
+            collections.memberships.findOne({ organisationId, userId: actorUserId, deletedAt: null }, { session }),
+            collections.memberships.findOne({ organisationId, userId, deletedAt: null }, { session }),
+          ])
           if (!current) return
           if (current.role === 'owner') throw new Error('OWNER_PROTECTED')
+          if (!actor || !isRoleManagementAllowed(actor.role, current.role)) {
+            throw new Error('MEMBERSHIP_ROLE_FORBIDDEN')
+          }
 
           const now = new Date()
           const result = await collections.memberships.updateOne(

@@ -348,6 +348,12 @@ describe('Volt Mongo repositories', () => {
       }),
     } as unknown as MongoClient
     const repositories = createVoltRepositories(createMemoryDb(), client)
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_owner',
+      email: 'owner@example.com',
+      role: 'owner',
+    })
     const created = await repositories.memberships.create({
       organisationId: 'org_123',
       userId: 'user_456',
@@ -361,14 +367,18 @@ describe('Volt Mongo repositories', () => {
     expect(removed).toMatchObject({ _id: created._id, role: 'viewer' })
     expect(await repositories.memberships.find('org_123', 'user_456')).toBeNull()
 
-    await repositories.memberships.create({
-      organisationId: 'org_123',
-      userId: 'user_owner',
-      email: 'owner@example.com',
-      role: 'owner',
-    })
     await expect(repositories.memberships.remove('org_123', 'user_owner', 'user_owner')).rejects.toThrow(
       'OWNER_PROTECTED',
+    )
+
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_admin',
+      email: 'admin@example.com',
+      role: 'admin',
+    })
+    await expect(repositories.memberships.updateRole('org_123', 'user_admin', 'viewer', 'user_admin')).rejects.toThrow(
+      'MEMBERSHIP_ROLE_FORBIDDEN',
     )
   })
 

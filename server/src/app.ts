@@ -73,6 +73,7 @@ import {
   digestSimulationInput,
   parseMonteCarloInput,
 } from './simulations/monteCarlo.js'
+import { isRoleManagementAllowed } from './memberships/permissions.js'
 
 export interface OrganisationRouteRepositories {
   organisations: Pick<
@@ -354,19 +355,6 @@ function inspectLedgerIntegrity(events: LedgerEventDocument[]) {
     firstSequence: ordered[0]?.sequence ?? null,
     lastSequence: ordered.at(-1)?.sequence ?? null,
   }
-}
-
-function isRoleManagementAllowed(
-  actorRole: MembershipRole,
-  targetRole: MembershipRole,
-  nextRole?: MembershipRole,
-): boolean {
-  if (targetRole === 'owner' || nextRole === 'owner') return false
-  if (actorRole === 'owner') return true
-  if (actorRole === 'admin') {
-    return (targetRole === 'operator' || targetRole === 'viewer') && nextRole !== 'admin'
-  }
-  return false
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -1246,6 +1234,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       if (error instanceof Error && error.message === 'OWNER_PROTECTED') {
         return reply.code(403).send({ error: 'The Owner membership is protected', code: 'MEMBERSHIP_OWNER_PROTECTED' })
       }
+      if (error instanceof Error && error.message === 'MEMBERSHIP_ROLE_FORBIDDEN') {
+        return reply.code(403).send({ error: 'Your role cannot perform this action', code: 'MEMBERSHIP_ROLE_FORBIDDEN' })
+      }
       app.log.error({ err: error }, 'Membership role update failed')
       return reply.code(500).send({ error: 'Membership role could not be updated', code: 'MEMBERSHIP_UPDATE_FAILED' })
     }
@@ -1290,6 +1281,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     } catch (error) {
       if (error instanceof Error && error.message === 'OWNER_PROTECTED') {
         return reply.code(403).send({ error: 'The Owner membership is protected', code: 'MEMBERSHIP_OWNER_PROTECTED' })
+      }
+      if (error instanceof Error && error.message === 'MEMBERSHIP_ROLE_FORBIDDEN') {
+        return reply.code(403).send({ error: 'Your role cannot perform this action', code: 'MEMBERSHIP_ROLE_FORBIDDEN' })
       }
       app.log.error({ err: error }, 'Membership removal failed')
       return reply.code(500).send({ error: 'Membership could not be removed', code: 'MEMBERSHIP_REMOVE_FAILED' })
