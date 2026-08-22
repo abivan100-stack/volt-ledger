@@ -357,6 +357,39 @@ export interface VoltRepositories {
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
 
+function invitationDeliveryKey(invitationId: string): string {
+  return `organisation-invitation:${invitationId}`
+}
+
+function invitationIdFromDelivery(delivery: EmailDeliveryDocument): string | null {
+  if (delivery.invitationId) return delivery.invitationId
+  const prefix = 'organisation-invitation:'
+  return delivery.idempotencyKey.startsWith(prefix) ? delivery.idempotencyKey.slice(prefix.length) : null
+}
+
+function invitationDeliveryFilter(invitationIds: string[]): Filter<EmailDeliveryDocument> {
+  return {
+    $or: [
+      { invitationId: { $in: invitationIds } },
+      { idempotencyKey: { $in: invitationIds.map(invitationDeliveryKey) } },
+    ],
+  }
+}
+
+async function cancelPendingInvitationDeliveries(
+  collections: VoltCollections,
+  invitationIds: string[],
+  now: Date,
+  session?: ClientSession,
+): Promise<void> {
+  if (invitationIds.length === 0) return
+  await collections.emailDeliveries.updateMany(
+    { ...invitationDeliveryFilter(invitationIds), status: 'pending' },
+    { $set: { status: 'cancelled', lockedUntil: null, updatedAt: now } },
+    session ? { session } : undefined,
+  )
+}
+
 function normaliseSlug(value: string): string {
   const slug = value.trim().toLowerCase()
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
@@ -733,10 +766,19 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
           { $set: { deletedAt: now, updatedAt: now } },
           options,
         )
+        const pendingInvitations = await collections.organisationInvitations
+          .find({ organisationId: id, status: 'pending', deletedAt: null }, { session })
+          .toArray()
         await collections.organisationInvitations.updateMany(
-          { organisationId: id, status: 'pending', deletedAt: null },
+          { _id: { $in: pendingInvitations.map((invitation) => invitation._id) } },
           { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
           options,
+        )
+        await cancelPendingInvitationDeliveries(
+          collections,
+          pendingInvitations.map((invitation) => invitation._id),
+          now,
+          session,
         )
         await collections.organisationInvitations.updateMany(
           { organisationId: id, deletedAt: null },
@@ -1624,7 +1666,8 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
       if (input.emailDelivery) {
         const delivery: EmailDeliveryDocument = {
           _id: randomUUID(),
-          idempotencyKey: `organisation-invitation:${document._id}`,
+          invitationId: document._id,
+          idempotencyKey: invitationDeliveryKey(document._id),
           kind: 'organisation_invitation',
           to: document.email,
           organisationName: input.emailDelivery.organisationName,
@@ -1654,9 +1697,18 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
       return { invitation: document, token }
     },
     async expirePending(now = new Date()) {
+      const expired = await collections.organisationInvitations
+        .find({ status: 'pending', deletedAt: null, expiresAt: { $lte: now } })
+        .toArray()
+      if (expired.length === 0) return 0
       const result = await collections.organisationInvitations.updateMany(
-        { status: 'pending', deletedAt: null, expiresAt: { $lte: now } },
+        { _id: { $in: expired.map((invitation) => invitation._id) } },
         { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
+      )
+      await cancelPendingInvitationDeliveries(
+        collections,
+        expired.map((invitation) => invitation._id),
+        now,
       )
       return result.modifiedCount
     },
@@ -1698,6 +1750,9 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
         { _id: invitationId, organisationId, status: 'pending', deletedAt: null },
         { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
       )
+      if (result.modifiedCount === 1) {
+        await cancelPendingInvitationDeliveries(collections, [invitationId], now)
+      }
       return result.modifiedCount === 1
     },
     async accept(token, userId, userEmail) {
@@ -1799,7 +1854,8 @@ function createEmailDeliveryRepository(collections: VoltCollections): EmailDeliv
   return {
     async claimNext(now = new Date(), leaseMs = 5 * 60 * 1000) {
       const lockedUntil = new Date(now.getTime() + leaseMs)
-      return collections.emailDeliveries.findOneAndUpdate(
+      while (true) {
+        const claimed = await collections.emailDeliveries.findOneAndUpdate(
         {
           $or: [
             { status: 'pending', nextAttemptAt: { $lte: now } },
@@ -1818,7 +1874,23 @@ function createEmailDeliveryRepository(collections: VoltCollections): EmailDeliv
           sort: { nextAttemptAt: 1, createdAt: 1 },
           returnDocument: 'after',
         },
-      )
+        )
+        if (!claimed) return null
+
+        const invitationId = invitationIdFromDelivery(claimed)
+        const invitation = invitationId
+          ? await collections.organisationInvitations.findOne({ _id: invitationId, status: 'pending', deletedAt: null })
+          : null
+        if (invitation && invitation.expiresAt.getTime() > now.getTime()) return claimed
+
+        // A delivery can outlive an invitation during a deploy or from an older
+        // document that predates invitationId. Do not send a link that cannot
+        // be accepted; terminal cancellation also keeps it out of future polls.
+        await collections.emailDeliveries.updateOne(
+          { _id: claimed._id, status: 'processing' },
+          { $set: { status: 'cancelled', lockedUntil: null, updatedAt: now } },
+        )
+      }
     },
 
     async markSent(id, now = new Date()) {

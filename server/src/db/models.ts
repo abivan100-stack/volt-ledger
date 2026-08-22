@@ -18,11 +18,13 @@ export type InvitationRole = Exclude<MembershipRole, 'owner'>
 export const workerHealthStatuses = ['starting', 'healthy', 'degraded', 'stopped'] as const
 export type WorkerHealthStatus = (typeof workerHealthStatuses)[number]
 
-export const emailDeliveryStatuses = ['pending', 'processing', 'sent', 'failed'] as const
+export const emailDeliveryStatuses = ['pending', 'processing', 'sent', 'failed', 'cancelled'] as const
 export type EmailDeliveryStatus = (typeof emailDeliveryStatuses)[number]
 
 export interface EmailDeliveryDocument {
   _id: string
+  /** Present on new rows; older rows can still be recovered from the key. */
+  invitationId?: string
   idempotencyKey: string
   kind: 'organisation_invitation'
   to: string

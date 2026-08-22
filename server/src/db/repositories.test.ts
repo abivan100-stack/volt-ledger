@@ -205,6 +205,7 @@ describe('Volt Mongo repositories', () => {
     expect(created.token).toBe('raw-token-for-transaction-test')
     expect(deliveries).toHaveLength(1)
     expect(deliveries[0]).toMatchObject({
+      invitationId: created.invitation._id,
       idempotencyKey: `organisation-invitation:${created.invitation._id}`,
       to: 'friend@example.com',
       status: 'pending',
@@ -218,6 +219,7 @@ describe('Volt Mongo repositories', () => {
     const now = new Date('2030-01-01T00:00:00.000Z')
     const document: EmailDeliveryDocument = {
       _id: 'delivery_1',
+      invitationId: 'invitation_1',
       idempotencyKey: 'organisation-invitation:invitation_1',
       kind: 'organisation_invitation',
       to: 'friend@example.com',
@@ -233,6 +235,22 @@ describe('Volt Mongo repositories', () => {
       updatedAt: now,
       sentAt: null,
     }
+    await (db.collection(collectionNames.organisationInvitations) as ReturnType<typeof createMemoryCollection>).insertOne({
+      _id: 'invitation_1',
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      tokenHash: 'token-hash',
+      status: 'pending',
+      invitedByUserId: 'user_123',
+      expiresAt: new Date(now.getTime() + 60_000),
+      acceptedByUserId: null,
+      acceptedAt: null,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
     await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>).insertOne(document)
 
     const claimed = await repositories.emailDeliveries.claimNext(now, 60_000)
@@ -243,6 +261,30 @@ describe('Volt Mongo repositories', () => {
     expect(reclaimed?.attemptCount).toBe(2)
     expect(await repositories.emailDeliveries.markSent('delivery_1', now)).toBe(true)
     expect(await repositories.emailDeliveries.claimNext(new Date(now.getTime() + 3_000))).toBeNull()
+  })
+
+  it('cancels an undelivered invitation email once the invitation is revoked', async () => {
+    const db = createMemoryDb()
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => operation(),
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(db, client)
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      invitedByUserId: 'owner_123',
+      emailDelivery: { encryptedUrl: 'encrypted-payload', organisationName: 'Solar Commons' },
+    })
+
+    expect(await repositories.invitations.revoke('org_123', created.invitation._id)).toBe(true)
+    expect(await repositories.emailDeliveries.claimNext()).toBeNull()
+    const delivery = await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>)
+      .findOne({ invitationId: created.invitation._id })
+    expect(delivery).toMatchObject({ status: 'cancelled' })
   })
 
   it('accepts an invitation and creates the membership in one transaction', async () => {
