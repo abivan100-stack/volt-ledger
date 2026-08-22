@@ -54,6 +54,33 @@ describe('Header', () => {
     expect(logo.getAttribute('href')).toBe('/')
     expect(logo.textContent).toContain('VOLT')
   })
+
+  it('renders the logo as a link back home on the account page too', () => {
+    // A "back to top" button here would only scroll the account page — the
+    // logo has to actually navigate on every page that is not the home page,
+    // not only the ledger.
+    renderHeader('/account')
+
+    const logo = screen.getByRole('link', { name: 'Volt — back to home' })
+    expect(logo.getAttribute('href')).toBe('/')
+  })
+
+  it('links "how it works" to the home page section from off the home page', () => {
+    // There is no #how element to scroll to on the account page, so an
+    // in-place scroll would silently do nothing; this has to navigate.
+    renderHeader('/account')
+
+    const howItWorks = screen.getByRole('link', { name: /how it works/i })
+    expect(howItWorks.getAttribute('href')).toBe('/#how')
+  })
+
+  it('scrolls "how it works" in place without navigating away from the home page', () => {
+    renderHeader('/')
+
+    const howItWorks = screen.getByText(/how it works/i)
+    expect(howItWorks.tagName).toBe('A')
+    expect(howItWorks.getAttribute('href')).toBe('#how')
+  })
 })
 
 describe('Header account link', () => {
