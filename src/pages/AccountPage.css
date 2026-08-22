@@ -18,6 +18,21 @@
   padding-bottom: 96px;
 }
 
+/*
+ * A plain 640px column still reads as a stray strip once it is on its own —
+ * a visible boundary is what turns the space around it into deliberate page
+ * margin rather than missing content. Same card recipe as .member-row and
+ * every other bordered panel in this app (background: var(--card), a
+ * var(--rule) hairline, 4px radius), just sized for a whole page instead of
+ * one row.
+ */
+.account-page-card {
+  padding: 40px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
 .account-page-kicker {
   margin: 0 0 26px;
   font-size: 10px;
@@ -42,8 +57,19 @@
 }
 
 @media (max-width: 760px) {
-  .account-page-inner {
+  /*
+   * Matches the base rule's own specificity (.account-page prefixed) —
+   * without it, this override has strictly lower specificity than the
+   * desktop rule above and can never win, at any viewport, media query or
+   * not. Equal specificity is what lets "later in the file, and only active
+   * under 760px" decide it correctly instead.
+   */
+  .account-page .account-page-inner {
     padding-top: 56px;
     padding-bottom: 72px;
+  }
+
+  .account-page-card {
+    padding: 24px;
   }
 }

@@ -17,9 +17,11 @@ function InvitationAcceptPage() {
       <Header />
       <main className="invite-page" id="main">
         <div className="container invite-page-inner">
-          <p className="mono invite-page-kicker">VOLT / INVITATION</p>
-          <h1 className="serif invite-page-heading">Join an organisation</h1>
-          <AcceptInvitation token={searchParams.get('token')} />
+          <div className="invite-page-card">
+            <p className="mono invite-page-kicker">VOLT / INVITATION</p>
+            <h1 className="serif invite-page-heading">Join an organisation</h1>
+            <AcceptInvitation token={searchParams.get('token')} />
+          </div>
         </div>
       </main>
     </>

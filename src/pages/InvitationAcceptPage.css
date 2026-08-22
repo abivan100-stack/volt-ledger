@@ -12,6 +12,15 @@
   padding-bottom: 96px;
 }
 
+/* Same card recipe as .member-row and every other bordered panel in this
+   app — see AccountPage.css, which this page mirrors exactly. */
+.invite-page-card {
+  padding: 40px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
 .invite-page-kicker {
   margin: 0 0 26px;
   font-size: 10px;
