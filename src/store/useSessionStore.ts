@@ -39,6 +39,8 @@ export interface SessionState {
    * every later caller await a request that will never settle.
    */
   pendingRestore: Promise<void> | null
+  /** Invalidates responses that began before a sign-in, sign-out, or expiry. */
+  requestGeneration: number
   restore: () => Promise<void>
   /** Signs in with email and password, then loads the resulting session. */
   signIn: (input: EmailSignInInput) => Promise<void>
@@ -66,15 +68,19 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   error: null,
   expired: false,
   pendingRestore: null,
+  requestGeneration: 0,
 
   restore: () => {
     // Shared across concurrent callers so a burst of mounts issues one request.
     const pending = get().pendingRestore
     if (pending) return pending
 
+    const requestGeneration = get().requestGeneration
+    const isCurrent = () => get().requestGeneration === requestGeneration
     set({ status: 'restoring', error: null })
     const restoring = fetchSession()
       .then((session) => {
+        if (!isCurrent()) return
         if (session) {
           set({
             status: 'authenticated',
@@ -88,12 +94,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         set({ ...SIGNED_OUT, error: null })
       })
       .catch((error: unknown) => {
+        if (!isCurrent()) return
         // A failed request is not proof of being signed out — say so, and let the
         // visitor retry rather than tearing down state we cannot confirm is stale.
         set({ status: 'error', user: null, expiresAt: null, error: messageFor(error) })
       })
       .finally(() => {
-        set({ pendingRestore: null })
+        if (isCurrent()) set({ pendingRestore: null })
       })
 
     set({ pendingRestore: restoring })
@@ -107,14 +114,20 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     // The cookie is set but its user is not, so read the session back rather
     // than inventing state from the credentials that were submitted. Any restore
     // already in flight predates this sign-in, so it cannot answer for it.
-    set({ pendingRestore: null })
+    set((state) => ({ pendingRestore: null, requestGeneration: state.requestGeneration + 1 }))
     await get().restore()
   },
 
   signOut: async () => {
     try {
       await signOutRequest()
-      set({ ...SIGNED_OUT, error: null, expired: false })
+      set((state) => ({
+        ...SIGNED_OUT,
+        error: null,
+        expired: false,
+        pendingRestore: null,
+        requestGeneration: state.requestGeneration + 1,
+      }))
     } catch (error) {
       // Sign-out could not be confirmed, so the cookie may still be live.
       set({ error: messageFor(error) })
@@ -123,7 +136,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   expire: () => {
     const wasAuthenticated = get().status === 'authenticated'
-    set({ ...SIGNED_OUT, expired: wasAuthenticated })
+    set((state) => ({
+      ...SIGNED_OUT,
+      expired: wasAuthenticated,
+      pendingRestore: null,
+      requestGeneration: state.requestGeneration + 1,
+    }))
   },
 
   dismissExpiryNotice: () => set({ expired: false }),

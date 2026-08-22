@@ -235,6 +235,19 @@ describe('load', () => {
     ])
     expect(listMock).toHaveBeenCalledTimes(1)
   })
+
+  it('drops a list response that resolves after a session reset', async () => {
+    let release: (value: Organisation[]) => void = () => {}
+    listMock.mockReturnValue(new Promise<Organisation[]>((resolve) => { release = resolve }))
+
+    const pending = useOrganisationStore.getState().load()
+    useOrganisationStore.getState().reset()
+    release([FIRST])
+    await pending
+
+    expect(useOrganisationStore.getState().organisations).toEqual([])
+    expect(useOrganisationStore.getState().status).toBe('unknown')
+  })
 })
 
 describe('select', () => {

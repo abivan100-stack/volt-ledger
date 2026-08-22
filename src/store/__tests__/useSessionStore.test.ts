@@ -145,6 +145,20 @@ describe('signOut', () => {
     expect(state.expired).toBe(false)
   })
 
+  it('does not resurrect a session response that predates a successful sign-out', async () => {
+    let release: (value: Session | null) => void = () => {}
+    fetchSessionMock.mockReturnValue(new Promise<Session | null>((resolve) => { release = resolve }))
+    const pendingRestore = useSessionStore.getState().restore()
+
+    signOutMock.mockResolvedValue(undefined)
+    await useSessionStore.getState().signOut()
+    release(SESSION)
+    await pendingRestore
+
+    expect(useSessionStore.getState().status).toBe('anonymous')
+    expect(useSessionStore.getState().user).toBeNull()
+  })
+
   it('keeps the visitor signed in when sign-out cannot reach the server', async () => {
     fetchSessionMock.mockResolvedValue(SESSION)
     await useSessionStore.getState().restore()

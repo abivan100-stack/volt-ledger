@@ -42,6 +42,8 @@ export interface OrganisationState {
   archivedStatus: OrganisationStatus
   archivedError: string | null
   pendingArchivedLoad: Promise<void> | null
+  /** Invalidates work started by the previous browser session. */
+  requestGeneration: number
   load: () => Promise<void>
   loadArchived: () => Promise<void>
   select: (organisationId: string | null) => void
@@ -92,14 +94,18 @@ function resolveSelection(organisations: Organisation[], current: string | null)
 
 export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
   ...EMPTY,
+  requestGeneration: 0,
 
   load: () => {
     const pending = get().pendingLoad
     if (pending) return pending
 
+    const requestGeneration = get().requestGeneration
+    const isCurrent = () => get().requestGeneration === requestGeneration
     set({ status: 'loading', error: null })
     const loading = listOrganisations()
       .then((organisations) => {
+        if (!isCurrent()) return
         set({
           status: 'ready',
           organisations,
@@ -108,10 +114,11 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
         })
       })
       .catch((error: unknown) => {
+        if (!isCurrent()) return
         set({ status: 'error', error: messageFor(error) })
       })
       .finally(() => {
-        set({ pendingLoad: null })
+        if (isCurrent()) set({ pendingLoad: null })
       })
 
     set({ pendingLoad: loading })
@@ -122,12 +129,16 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
     const pending = get().pendingArchivedLoad
     if (pending) return pending
 
+    const requestGeneration = get().requestGeneration
+    const isCurrent = () => get().requestGeneration === requestGeneration
     set({ archivedStatus: 'loading', archivedError: null })
     const loading = listArchivedOrganisations()
       .then((archived) => {
+        if (!isCurrent()) return
         set({ archivedStatus: 'ready', archived, archivedError: null })
       })
       .catch((error: unknown) => {
+        if (!isCurrent()) return
         set({
           archivedStatus: 'error',
           archivedError:
@@ -135,7 +146,7 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
         })
       })
       .finally(() => {
-        set({ pendingArchivedLoad: null })
+        if (isCurrent()) set({ pendingArchivedLoad: null })
       })
 
     set({ pendingArchivedLoad: loading })
@@ -160,7 +171,9 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
   },
 
   create: async (input) => {
+    const requestGeneration = get().requestGeneration
     const created = await createOrganisation(input)
+    if (get().requestGeneration !== requestGeneration) return created
     set((state) => ({
       organisations: [...state.organisations, created],
       selectedId: created.id,
@@ -170,7 +183,9 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
   },
 
   archive: async (organisationId) => {
+    const requestGeneration = get().requestGeneration
     await archiveOrganisation(organisationId)
+    if (get().requestGeneration !== requestGeneration) return
     set((state) => {
       const organisations = state.organisations.filter(
         (organisation) => organisation.id !== organisationId,
@@ -189,7 +204,9 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
   },
 
   restore: async (organisationId) => {
+    const requestGeneration = get().requestGeneration
     const restored = await restoreOrganisation(organisationId)
+    if (get().requestGeneration !== requestGeneration) return restored
     set((state) => ({
       organisations: [...state.organisations, restored],
       archived: state.archived.filter((entry) => entry.id !== organisationId),
@@ -199,7 +216,7 @@ export const useOrganisationStore = create<OrganisationState>()((set, get) => ({
     return restored
   },
 
-  reset: () => set({ ...EMPTY }),
+  reset: () => set((state) => ({ ...EMPTY, requestGeneration: state.requestGeneration + 1 })),
 }))
 
 // Organisation data belongs to a session. When one ends — signed out or expired —
