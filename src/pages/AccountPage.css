@@ -3,7 +3,17 @@
   border-bottom: 1px solid var(--rule-2);
 }
 
-.account-page-inner {
+/*
+ * .container caps this at the site's 1200px section width, sized for the
+ * multi-column marketing sections elsewhere. Nothing on this page is wider
+ * than 560px, so at that width the page reads as a narrow column stranded in
+ * a mostly-empty row rather than a settings page. Recapping it here — with a
+ * selector specific enough to beat .container outright, not by depending on
+ * which stylesheet happens to load last — turns it into a deliberately
+ * narrow, centered column instead.
+ */
+.account-page .account-page-inner {
+  max-width: 640px;
   padding-top: 72px;
   padding-bottom: 96px;
 }

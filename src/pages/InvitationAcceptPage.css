@@ -3,7 +3,11 @@
   border-bottom: 1px solid var(--rule-2);
 }
 
-.invite-page-inner {
+/* Same narrowing as AccountPage.css: nothing here is wider than 460px, so
+   the site's 1200px section width — sized for marketing-page grids — leaves
+   this page looking like a stray column rather than a settings page. */
+.invite-page .invite-page-inner {
+  max-width: 640px;
   padding-top: 72px;
   padding-bottom: 96px;
 }
