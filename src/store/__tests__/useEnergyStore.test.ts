@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useEnergyStore } from '../useEnergyStore'
+import { MAX_LEDGER_HISTORY_DAYS } from '../simSlice'
 import { formatClock } from '../../lib/format'
 import { tickHousehold } from '../../lib/simulation'
 
@@ -152,6 +153,30 @@ describe('tryTrade', () => {
     expect(to.spent).toBeCloseTo(before.households[importerId].spent + block.payload.credit, 10)
     expect(to.balance).toBeCloseTo(before.households[importerId].balance - block.payload.credit, 10)
     expect(to.trades).toBe(before.households[importerId].trades + 1)
+  })
+
+  it('keeps only the most recent archived simulated days', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    const state = useEnergyStore.getState()
+    useEnergyStore.setState({
+      simMinute: TOTAL_DAILY_MINUTES - 2 * state.config.simSpeed,
+      ledgerHistory: Array.from({ length: MAX_LEDGER_HISTORY_DAYS }, (_, index) => ({
+        simDay: index + 1,
+        dayType: state.dayType,
+        chain: [],
+        totalKwh: 0,
+        totalCredit: 0,
+        rate: state.rate,
+        compromised: false,
+        invalidCount: 0,
+      })),
+    })
+
+    useEnergyStore.getState().tick()
+
+    expect(useEnergyStore.getState().ledgerHistory).toHaveLength(MAX_LEDGER_HISTORY_DAYS)
+    expect(useEnergyStore.getState().ledgerHistory[0]?.simDay).toBe(2)
   })
 
   it('caps traded energy by both parties\' simulated interval capacity', () => {

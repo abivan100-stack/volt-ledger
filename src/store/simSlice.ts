@@ -36,6 +36,8 @@ const SEED_RATE_SALT = 103
 const SEED_INTERVAL_MINUTES = 5
 
 export const SIM_SPEEDS = [1, 2, 4, 8] as const
+/** Keep kiosk sessions bounded while preserving a useful recent demonstration history. */
+export const MAX_LEDGER_HISTORY_DAYS = 14
 
 type HouseholdSeed = Omit<
   Household,
@@ -293,7 +295,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
             chain: [],
             ledgerHistory: state.chain.length
               ? [...state.ledgerHistory, {
-                  simDay: state.simDay,
+                   simDay: state.simDay,
                   dayType: state.dayType,
                   chain: state.chain,
                   totalKwh: state.totalKwhToday,
@@ -301,7 +303,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
                   rate: state.rate,
                   compromised: state.compromised,
                   invalidCount: state.invalidCount,
-                }]
+                  }].slice(-MAX_LEDGER_HISTORY_DAYS)
               : state.ledgerHistory,
             nextBlockId: 1,
             compromised: false,
