@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import EnergyNetwork from '../EnergyNetwork'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 import { shortName } from '../../../lib/energyNetwork'
@@ -139,7 +139,7 @@ describe('EnergyNetwork', () => {
     expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
   })
 
-  it('supports keyboard focus and opening one concise household snapshot per node', () => {
+  it('supports keyboard focus and opening one concise household snapshot per node', async () => {
     measureStage(600, 450)
     const { container } = render(<EnergyNetwork />)
     const nodes = screen.getAllByRole('button')
@@ -159,7 +159,7 @@ describe('EnergyNetwork', () => {
     expect(nodes[0].getAttribute('aria-expanded')).toBe('true')
 
     fireEvent.click(screen.getByRole('button', { name: /close nikil sundaram snapshot/i }))
-    expect(screen.queryByRole('heading', { name: 'Nikil Sundaram' })).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Nikil Sundaram' })).toBeNull())
 
     fireEvent.keyDown(nodes[1], { key: 'Enter' })
     expect(screen.getByRole('heading', { name: 'Prem Ramesh' })).toBeTruthy()

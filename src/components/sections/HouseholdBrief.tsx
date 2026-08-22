@@ -1,4 +1,5 @@
 import { buildHouseholdBrief } from '../../lib/householdBrief'
+import { motion } from 'motion/react'
 import type { Household } from '../../store/useEnergyStore'
 import './HouseholdBrief.css'
 
@@ -19,7 +20,15 @@ function HouseholdBrief({ household, onClose }: HouseholdBriefProps) {
   const statusClass = `household-brief-status-${brief.status.toLowerCase()}`
 
   return (
-    <aside id="network-household-brief" className="household-brief" aria-labelledby="household-brief-title">
+    <motion.aside
+      id="network-household-brief"
+      className="household-brief"
+      aria-labelledby="household-brief-title"
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+    >
       <div className="household-brief-heading">
         <div>
           <div className={`mono household-brief-status ${statusClass}`}>
@@ -40,7 +49,7 @@ function HouseholdBrief({ household, onClose }: HouseholdBriefProps) {
         <BriefMetric label="Demand now" value={brief.draw} />
         <BriefMetric label="Local activity" value={brief.trades} caption={`${brief.netBenefit} net benefit today`} />
       </div>
-    </aside>
+    </motion.aside>
   )
 }
 

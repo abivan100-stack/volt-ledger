@@ -1,0 +1,69 @@
+.volt-alert-dialog-overlay {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background: color-mix(in srgb, var(--void) 38%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.volt-alert-dialog-content {
+  position: fixed;
+  z-index: 91;
+  top: 50%;
+  left: 50%;
+  width: min(100% - 32px, 560px);
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+  border-radius: 5px;
+  box-shadow: 0 28px 72px -36px color-mix(in srgb, var(--void) 72%, transparent);
+  outline: none;
+  transform: translate(-50%, -50%);
+}
+
+.volt-alert-dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.volt-alert-dialog-title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.volt-alert-dialog-description {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.58;
+}
+
+.volt-alert-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 540px) {
+  .volt-alert-dialog-content {
+    width: min(100% - 24px, 560px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .volt-alert-dialog-header {
+    padding: 18px 17px 15px;
+  }
+
+  .volt-alert-dialog-title {
+    font-size: 25px;
+  }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import type { HouseholdStatus } from '../../lib/householdStatus'
 import {
@@ -219,7 +220,15 @@ function EnergyNetwork() {
           ))}
         </ul>
       </div>
-      {selectedHousehold && <HouseholdBrief household={selectedHousehold} onClose={() => setSelectedHouseIndex(null)} />}
+      <AnimatePresence initial={false}>
+        {selectedHousehold && (
+          <HouseholdBrief
+            key={selectedHousehold.id}
+            household={selectedHousehold}
+            onClose={() => setSelectedHouseIndex(null)}
+          />
+        )}
+      </AnimatePresence>
 
     </section>
   )
