@@ -344,12 +344,18 @@ export function startNeighbourhoodMap(
   let rafHandle: number | undefined
   let intervalHandle: ReturnType<typeof setInterval> | undefined
   let visibilityHandler: (() => void) | undefined
-  const themeMedia = window.matchMedia?.('(prefers-color-scheme: dark)')
-  const themeChangeHandler = () => refreshThemeColors()
-  themeMedia?.addEventListener?.('change', themeChangeHandler)
-  let startLoop: (() => void) | undefined
   let isPaused = false
   let dead = false
+  const themeMedia = window.matchMedia?.('(prefers-color-scheme: dark)')
+  const repaintTheme = () => {
+    refreshThemeColors()
+    if (!dead && !isPaused && refresh()) draw(performance.now())
+  }
+  const themeChangeHandler = () => repaintTheme()
+  themeMedia?.addEventListener?.('change', themeChangeHandler)
+  const themeObserver = new MutationObserver(repaintTheme)
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  let startLoop: (() => void) | undefined
 
   if (options.reducedMotion) {
     let tries = 0
@@ -410,6 +416,7 @@ export function startNeighbourhoodMap(
       if (intervalHandle !== undefined) clearInterval(intervalHandle)
       if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
       themeMedia?.removeEventListener?.('change', themeChangeHandler)
+      themeObserver.disconnect()
     },
   }
 }
