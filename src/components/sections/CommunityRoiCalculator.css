@@ -1,0 +1,291 @@
+.roi-calculator-section {
+  padding: 5rem 0;
+  border-top: 1px solid var(--rule-2);
+  background: var(--paper);
+}
+
+.roi-calculator-container {
+  max-width: 1040px;
+}
+
+.roi-calculator-heading {
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.15;
+  margin: 0.75rem 0 1rem;
+}
+
+.roi-calculator-heading em {
+  font-style: italic;
+  color: var(--sun);
+}
+
+.roi-calculator-intro {
+  font-size: 1rem;
+  color: var(--ink-soft);
+  max-width: 680px;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+.roi-calculator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+@media (max-width: 860px) {
+  .roi-calculator-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roi-calculator-form {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  padding: 2rem;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.roi-form-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--rule-2);
+  padding-bottom: 0.75rem;
+  margin: 0;
+}
+
+.roi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roi-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.roi-field-label {
+  font-size: 0.75rem;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.roi-field-val {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--sun);
+}
+
+.roi-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--rule);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.roi-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sun);
+  border: 2px solid var(--paper);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.roi-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sun);
+  border: 2px solid var(--paper);
+  cursor: pointer;
+}
+
+.roi-field-hint {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.roi-calculator-results {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.roi-prosumer-box {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.roi-highlight-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  background: var(--card-soft, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--rule);
+  padding: 1.5rem 2rem;
+}
+
+.roi-highlight-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.roi-highlight-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.roi-highlight-value {
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.roi-highlight-sub {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.roi-stat-sun {
+  color: var(--sun) !important;
+}
+
+.roi-breakdown-grid {
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.roi-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.roi-breakdown-label {
+  color: var(--ink-soft);
+}
+
+.roi-breakdown-val {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.roi-breakdown-net {
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+.roi-breakdown-total {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.roi-carbon-strip {
+  border-top: 1px solid var(--rule-2);
+  background: var(--card-soft, rgba(0, 0, 0, 0.02));
+  padding: 0.9rem 2rem;
+}
+
+.roi-carbon-text {
+  font-size: 0.75rem;
+  color: var(--settle);
+}
+
+/* Renter Box */
+.roi-renter-box {
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+  justify-content: center;
+}
+
+.roi-renter-tag {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  background: var(--settle-soft, rgba(26, 107, 46, 0.1));
+  color: var(--settle);
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+}
+
+.roi-renter-title {
+  font-size: 1.4rem;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.25;
+  margin: 0;
+}
+
+.roi-renter-desc {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.roi-renter-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.roi-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.roi-stat-label {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.roi-stat-value {
+  font-size: 1.25rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.roi-stat-sub {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
