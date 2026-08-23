@@ -61,6 +61,16 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--settle) 12%, transparent);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .net-live-pulse {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--settle) 14%, transparent);
+  }
+}
+
+:root[data-theme='dark'] .net-live-pulse {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--settle) 14%, transparent);
+}
+
 .net-status {
   display: inline-flex;
   align-items: center;
@@ -272,6 +282,24 @@
 .net-node-produce::before,
 .net-node-consume::before {
   opacity: 1;
+}
+
+/* The halo reads as an electric bloom on the dark surfaces: the brighter
+   green/amber accents of the dark theme bleed through the 20% gradient.
+   Shrink the halo's reach and drop its strength so it stays an indicator
+   rather than a glow. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .net-node::before {
+    width: calc(var(--net-chip) * 1.7);
+    height: calc(var(--net-chip) * 1.7);
+    background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 12%, transparent) 0%, transparent 58%);
+  }
+}
+
+:root[data-theme='dark'] .net-node::before {
+  width: calc(var(--net-chip) * 1.7);
+  height: calc(var(--net-chip) * 1.7);
+  background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 12%, transparent) 0%, transparent 58%);
 }
 
 .net-node-chip {
