@@ -24,7 +24,9 @@
   border: none;
   padding: 0;
   margin: 0;
-  background: color-mix(in srgb, var(--ink) 50%, transparent);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   cursor: pointer;
   animation: scrimIn 0.2s ease;
 }
@@ -37,7 +39,7 @@
   width: min(472px, 94vw);
   background: var(--paper);
   border-left: 1px solid var(--rule-2);
-  box-shadow: -44px 0 90px -50px color-mix(in srgb, var(--ink) 75%, transparent);
+  box-shadow: -24px 0 64px -20px rgba(0, 0, 0, 0.65);
   overflow-y: auto;
   animation: sheetIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
