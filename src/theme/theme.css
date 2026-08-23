@@ -29,23 +29,23 @@
   --header-height: 66px;
 }
 
-/* Native dark mode follows the user's operating-system preference. The warm
-   neutrals stay intentional, so the ledger still feels like the same product
-   instead of switching to an unrelated black-and-neon theme. */
+/* Native dark mode follows the user's operating-system preference. The dark
+   theme uses neutral charcoal backgrounds and muted accents so the ledger
+   reads as a calm, professional surface rather than a warm retro palette. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper: #17140F;
-    --paper-2: #252019;
-    --card: #211C15;
-    --ink: #F5F1E8;
-    --ink-soft: #B8AE9D;
-    --rule: #3D352A;
-    --rule-2: #6A5B47;
-    --sun: #D9902B;
-    --settle: #66B58D;
-    --volt: #6CCB8D;
-    --bolt: #FFD34D;
-    --void: #F07B70;
+    --paper: #14161A;
+    --paper-2: #1B1E24;
+    --card: #1E2127;
+    --ink: #E8EAED;
+    --ink-soft: #9AA1AB;
+    --rule: #2E333B;
+    --rule-2: #4A515C;
+    --sun: #C89B4A;
+    --settle: #5FA98C;
+    --volt: #7FCB9B;
+    --bolt: #F2C94C;
+    --void: #E07A6A;
   }
 }
 
@@ -55,18 +55,18 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --paper: #17140F;
-  --paper-2: #252019;
-  --card: #211C15;
-  --ink: #F5F1E8;
-  --ink-soft: #B8AE9D;
-  --rule: #3D352A;
-  --rule-2: #6A5B47;
-  --sun: #D9902B;
-  --settle: #66B58D;
-  --volt: #6CCB8D;
-  --bolt: #FFD34D;
-  --void: #F07B70;
+  --paper: #14161A;
+  --paper-2: #1B1E24;
+  --card: #1E2127;
+  --ink: #E8EAED;
+  --ink-soft: #9AA1AB;
+  --rule: #2E333B;
+  --rule-2: #4A515C;
+  --sun: #C89B4A;
+  --settle: #5FA98C;
+  --volt: #7FCB9B;
+  --bolt: #F2C94C;
+  --void: #E07A6A;
 }
 
 body {
