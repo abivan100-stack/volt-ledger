@@ -396,7 +396,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   app.addHook('onRequest', async (request, reply) => {
     const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
     const cookieAuthenticated = typeof request.headers.cookie === 'string' && request.headers.cookie.length > 0
-    if (stateChanging && request.url.startsWith('/api/v1/') && cookieAuthenticated && !isSameOriginRequest(request)) {
+    if (stateChanging && request.url.startsWith('/api/') && cookieAuthenticated && !isSameOriginRequest(request)) {
       return reply.code(403).send({ error: 'Cross-site request rejected', code: 'CSRF_ORIGIN_MISMATCH' })
     }
   })
