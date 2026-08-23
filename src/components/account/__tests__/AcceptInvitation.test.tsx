@@ -133,6 +133,8 @@ describe('AcceptInvitation when signed in', () => {
     renderPage()
 
     expect((await screen.findByText(/verify your email address first/i)).textContent).toBeTruthy()
+    const button = await screen.findByRole('button', { name: /accept invitation/i })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('reports an invitation issued to a different address', async () => {
