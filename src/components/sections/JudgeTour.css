@@ -1,62 +1,70 @@
-.judge-tour-overlay {
+/*
+ * Floating bottom-docked tour controller.
+ * Designed specifically for judges and competition evaluators.
+ * Non-blocking floating card docked at the bottom right/center with high z-index.
+ */
+
+.judge-tour-dock {
   position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  width: min(580px, calc(100vw - 2rem));
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  max-width: 480px;
+  width: calc(100vw - 48px);
   pointer-events: none;
-  animation: judge-tour-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: judge-tour-pop 0.3s var(--ease-out);
 }
 
 @keyframes judge-tour-pop {
   from {
     opacity: 0;
-    transform: translate(-50%, 20px) scale(0.96);
+    transform: translateY(16px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 .judge-tour-card {
   pointer-events: auto;
   background: var(--card);
-  border: 1px solid var(--rule);
-  border-top: 3px solid var(--sun);
-  border-radius: 6px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 1.5rem;
+  border: 1px solid var(--rule-2);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.48), 0 0 0 1px color-mix(in srgb, var(--sun) 25%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  backdrop-filter: blur(12px);
+  gap: 14px;
+  box-sizing: border-box;
 }
 
 .judge-tour-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .judge-tour-badge-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
 }
 
 .judge-tour-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   color: var(--sun);
-  background: var(--sun-soft, rgba(178, 106, 18, 0.1));
-  padding: 0.2rem 0.5rem;
-  border-radius: 2px;
-  font-weight: 600;
+  background: color-mix(in srgb, var(--sun) 14%, transparent);
+  padding: 3px 8px;
+  border-radius: 4px;
 }
 
 .judge-tour-bolt {
@@ -65,147 +73,197 @@
 }
 
 .judge-tour-counter {
-  font-size: 0.7rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   color: var(--ink-soft);
 }
 
 .judge-tour-close {
-  background: none;
-  border: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
-  padding: 0.2rem;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0;
+  transition: all 0.18s var(--ease-out);
 }
 
 .judge-tour-close:hover {
   color: var(--ink);
-  background: var(--card-soft, rgba(0, 0, 0, 0.05));
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-color: var(--rule-2);
 }
 
 .judge-tour-x {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .judge-tour-content {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 8px;
+}
+
+.judge-tour-page-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--volt);
+}
+
+.judge-tour-compass {
+  width: 13px;
+  height: 13px;
+}
+
+.judge-tour-page-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .judge-tour-title {
-  font-size: 1.35rem;
-  font-weight: 400;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
   color: var(--ink);
-  line-height: 1.2;
-  margin: 0;
-}
-
-.judge-tour-sub {
-  font-size: 0.75rem;
-  color: var(--sun);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 .judge-tour-body {
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  font-size: 13px;
   line-height: 1.5;
-  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  margin: 0;
 }
 
 .judge-tour-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--rule-2);
-  padding-top: 1rem;
-  margin-top: 0.25rem;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
 }
 
 .judge-tour-progress-dots {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 6px;
 }
 
 .judge-tour-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--rule);
-  border: none;
-  cursor: pointer;
+  border: 1px solid var(--rule-2);
+  background: color-mix(in srgb, var(--rule-2) 60%, transparent);
   padding: 0;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out);
 }
 
 .judge-tour-dot-active {
+  width: 20px;
+  border-radius: 4px;
   background: var(--sun);
-  transform: scale(1.3);
+  border-color: var(--sun);
 }
 
 .judge-tour-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .judge-tour-autoplay {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  background: none;
-  border: 1px solid var(--rule);
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 5px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--rule-2);
+  background: transparent;
   color: var(--ink-soft);
-  font-size: 0.7rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 3px;
   cursor: pointer;
+  transition: all 0.18s var(--ease-out);
 }
 
 .judge-tour-autoplay:hover {
   color: var(--ink);
-  border-color: var(--ink-soft);
+  border-color: var(--sun);
 }
 
 .judge-tour-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.75rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 3px;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  border-radius: 5px;
   cursor: pointer;
-  font-weight: 500;
+  transition: all 0.18s var(--ease-out);
 }
 
 .judge-tour-btn-prev {
-  background: var(--card-soft, rgba(0, 0, 0, 0.05));
-  border: 1px solid var(--rule);
+  background: transparent;
+  border: 1px solid var(--rule-2);
   color: var(--ink);
 }
 
 .judge-tour-btn-prev:hover {
-  background: var(--rule);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .judge-tour-btn-next {
   background: var(--sun);
   border: 1px solid var(--sun);
-  color: #ffffff;
+  color: var(--paper);
 }
 
 .judge-tour-btn-next:hover {
-  opacity: 0.9;
+  filter: brightness(1.1);
 }
 
 .judge-tour-icon-sm {
   width: 12px;
   height: 12px;
+}
+
+@media (max-width: 580px) {
+  .judge-tour-dock {
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+
+  .judge-tour-card {
+    padding: 16px 18px;
+  }
+
+  .judge-tour-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .judge-tour-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }

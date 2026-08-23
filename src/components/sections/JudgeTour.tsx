@@ -1,107 +1,120 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Zap, Play, Pause, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Sparkles, Play, Pause, X, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { scrollToId } from '../../utils/scrollToId'
+import { useTourStore } from '../../store/useTourStore'
 import type { DayType } from '../../lib/simulation'
 import './JudgeTour.css'
 
 interface TourStep {
+  badge: string
   title: string
   subtitle: string
   body: string
-  badge: string
-  targetId: string
+  path: string
+  targetId?: string
   setup: () => void
 }
 
-interface JudgeTourProps {
-  isOpen: boolean
-  onClose: () => void
-}
+const AUTO_ADVANCE_MS = 10000
 
-const AUTO_ADVANCE_MS = 9000
+export function JudgeTour() {
+  const isOpen = useTourStore((state) => state.isOpen)
+  const closeTour = useTourStore((state) => state.closeTour)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const previousState = useRef<{ dayType: string; simMinute: number; running: boolean } | null>(null)
+  const initialSnapshot = useRef<{
+    dayType: string
+    simMinute: number
+    running: boolean
+    pathname: string
+  } | null>(null)
 
   const steps: TourStep[] = [
     {
-      badge: 'STEP 1 · SOLAR PEAK',
-      title: 'Solar Peak in Nolambur (12:30 PM)',
-      subtitle: 'Surplus generation meets neighborhood demand',
-      body: 'At midday, rooftop solar generation reaches peak capacity (+3.4 kW). Pranav has excess green energy, while Abivan (a tenant with no roof) is running appliances.',
-      targetId: 'energy-network',
+      badge: '01 · VISION & GAP',
+      title: 'The Local Solar Opportunity',
+      subtitle: 'Home · Nolambur Microgrid Concept',
+      body: 'In Nolambur, utilities pay solar owners only ₹3.10/kWh for grid export while charging neighbours ₹8.50/kWh. Volt turns the street into an automated P2P microgrid where neighbours trade directly at ₹5.50/kWh — saving consumers 35% while giving solar owners 77% higher revenue.',
+      path: '/',
       setup: () => {
         useEnergyStore.getState().restoreChain()
+        useEnergyStore.getState().closeDossier()
         useEnergyStore.setState({ dayType: 'sunny-weekday', simMinute: 750 })
         useEnergyStore.getState().start()
       },
     },
     {
-      badge: 'STEP 2 · P2P EXCHANGE',
-      title: 'Direct Peer-to-Peer Trading',
-      subtitle: 'Fair community tariffs replace utility monopoly',
-      body: 'Instead of dumping surplus to the grid for ₹3.10 feed-in credits, Pranav sells 1.15 kWh directly to Abivan at ₹5.50/kWh — saving Abivan 35% while giving Pranav 77% higher revenue.',
-      targetId: 'energy-network',
+      badge: '02 · LIVE TELEMETRY',
+      title: 'Real-Time Street Telemetry',
+      subtitle: 'Ledger Overview · 10 Household Balance',
+      body: 'The live Overview tracks energy generation, consumption, and battery storage across 10 households. Volt achieves 92% local street autonomy with automated rate adjustments. Evaluators can simulate different weather patterns (Cloudy, Heatwave, Weekend) to stress-test the grid.',
+      path: '/ledger',
       setup: () => {
         useEnergyStore.getState().restoreChain()
-        useEnergyStore.setState({ simMinute: 780 })
+        useEnergyStore.getState().closeDossier()
       },
     },
     {
-      badge: 'STEP 3 · IMMUTABLE LEDGER',
-      title: 'Cryptographic SHA-256 Ledger',
-      subtitle: 'Mathematical trust without central middlemen',
-      body: 'Every trade is sealed into an append-only cryptographic block linked to the previous seal: SHA256(prevHash + payload). Energy transfers and rupee credits settle instantaneously.',
-      targetId: 'chain-ledger',
+      badge: '03 · SITE PLAN',
+      title: 'Interactive Neighbourhood Map',
+      subtitle: 'Neighbourhood · Physical Bus & Dossiers',
+      body: 'The Site Plan visualizes real-time power transfers across the shared 400V street bus. Notice Pranav’s live dossier: solar generators feed nearby tenants like Abivan in real time, with instant rupee credits accumulating in transparent household wallets.',
+      path: '/ledger/neighbourhood',
       setup: () => {
         useEnergyStore.getState().restoreChain()
+        // Open Pranav's dossier (index 2) to showcase deep telemetry
+        useEnergyStore.getState().selectHouse(2)
       },
     },
     {
-      badge: 'STEP 4 · SECURITY DEMO',
-      title: 'Real-Time Tamper Detection',
-      subtitle: 'Loud cryptographic failure on forged data',
-      body: 'Watch what happens when historical data is altered: the entire downstream chain breaks immediately with an INTEGRITY VOID alert. Fraud is mathematically impossible to conceal.',
-      targetId: 'chain-ledger',
+      badge: '04 · SECURITY DEMO',
+      title: 'Tamper-Evident SHA-256 Chain',
+      subtitle: 'Settlement · Live Tamper Detection Demo',
+      body: 'Every 15-minute trade is sealed into an append-only cryptographic block: SHA256(prevHash + payload). We just injected a simulated tamper into historical records — notice how downstream blocks immediately trigger a loud red INTEGRITY VOID alert!',
+      path: '/ledger/settlement',
       setup: () => {
+        useEnergyStore.getState().closeDossier()
         useEnergyStore.getState().runTamperTest()
       },
     },
     {
-      badge: 'STEP 5 · COMMUNITY IMPACT',
-      title: 'Self-Healing & 92% Street Autonomy',
-      subtitle: 'Transparent, decentralized urban microgrids',
-      body: 'Restoring the authentic cryptographic chain clears the alarm. Volt enables high street autonomy, verified carbon offsets, and equitable access for all residents.',
-      targetId: 'main',
+      badge: '05 · PROOF & FAIRNESS',
+      title: 'Open Cryptographic Auditability',
+      subtitle: 'Settlement · Self-Healing & Verification',
+      body: 'Restoring authentic records instantly re-seals the chain back to verified green. Evaluators can inspect raw JSON payloads, recompute SHA-256 hashes live in the browser Proof Inspector, and verify mathematical Fairness Scores with zero trusted intermediaries.',
+      path: '/ledger/settlement',
       setup: () => {
         useEnergyStore.getState().restoreChain()
+        useEnergyStore.getState().closeDossier()
       },
     },
   ]
 
-  // Save previous state on open, restore on close
+  // On tour open: snapshot initial state; on tour close: restore snapshot
   useEffect(() => {
     if (isOpen) {
       setIsPlaying(false)
-      previousState.current = {
+      initialSnapshot.current = {
         dayType: useEnergyStore.getState().dayType,
         simMinute: useEnergyStore.getState().simMinute,
         running: useEnergyStore.getState().running,
+        pathname: location.pathname,
       }
       setCurrentStep(0)
       steps[0]?.setup()
-      scrollToId(steps[0]?.targetId || 'main')
-    } else if (previousState.current) {
+    } else if (initialSnapshot.current) {
       setIsPlaying(false)
       useEnergyStore.getState().restoreChain()
+      useEnergyStore.getState().closeDossier()
       useEnergyStore.setState({
-        dayType: previousState.current.dayType as DayType,
-        simMinute: previousState.current.simMinute,
+        dayType: initialSnapshot.current.dayType as DayType,
+        simMinute: initialSnapshot.current.simMinute,
       })
-      if (previousState.current.running) {
+      if (initialSnapshot.current.running) {
         useEnergyStore.getState().start()
       } else {
         useEnergyStore.getState().stop()
@@ -110,15 +123,15 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
     // eslint-disable-next-line react/exhaustive-deps
   }, [isOpen])
 
-  // Execute step setup on step change
+  // On step change: navigate to path and execute setup
   useEffect(() => {
     if (!isOpen) return
     const step = steps[currentStep]
     if (step) {
-      step.setup()
-      if (step.targetId) {
-        scrollToId(step.targetId)
+      if (location.pathname !== step.path) {
+        navigate(step.path)
       }
+      step.setup()
     }
     // eslint-disable-next-line react/exhaustive-deps
   }, [currentStep, isOpen])
@@ -128,9 +141,9 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
       setCurrentStep((prev) => prev + 1)
     } else {
       setIsPlaying(false)
-      onClose()
+      closeTour()
     }
-  }, [currentStep, steps.length, onClose])
+  }, [currentStep, steps.length, closeTour])
 
   const handlePrev = useCallback(() => {
     if (currentStep > 0) {
@@ -138,7 +151,7 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
     }
   }, [currentStep])
 
-  // Auto-play interval
+  // Auto-advance timer
   useEffect(() => {
     if (!isOpen || !isPlaying) return
 
@@ -155,7 +168,7 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        closeTour()
       } else if (e.key === 'ArrowRight') {
         handleNext()
       } else if (e.key === 'ArrowLeft') {
@@ -165,50 +178,60 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, handleNext, handlePrev, onClose])
+  }, [isOpen, handleNext, handlePrev, closeTour])
 
   if (!isOpen) return null
 
   const step = steps[currentStep]
 
   return (
-    <div className="judge-tour-overlay" role="dialog" aria-modal="true" aria-label="60-Second Guided Tour">
+    <aside
+      className="judge-tour-dock"
+      role="dialog"
+      aria-modal="false"
+      aria-label="60-Second Guided Judge Tour"
+    >
       <div className="judge-tour-card">
-        <div className="judge-tour-header">
+        <header className="judge-tour-header">
           <div className="judge-tour-badge-row">
             <span className="mono judge-tour-badge">
-              <Zap className="judge-tour-bolt" aria-hidden="true" />
+              <Sparkles className="judge-tour-bolt" aria-hidden="true" />
               {step.badge}
             </span>
             <span className="mono judge-tour-counter">
-              {currentStep + 1} / {steps.length}
+              STEP {currentStep + 1} OF {steps.length}
             </span>
           </div>
           <button
             type="button"
             className="judge-tour-close"
-            aria-label="Exit tour"
-            onClick={onClose}
+            aria-label="Exit Judge Tour"
+            onClick={closeTour}
           >
             <X className="judge-tour-x" aria-hidden="true" />
           </button>
-        </div>
+        </header>
 
-        <div className="judge-tour-content">
+        <main className="judge-tour-content">
+          <div className="judge-tour-page-indicator">
+            <Compass className="judge-tour-compass" aria-hidden="true" />
+            <span className="mono judge-tour-page-label">{step.subtitle}</span>
+          </div>
           <h3 className="serif judge-tour-title">{step.title}</h3>
-          <h4 className="mono judge-tour-sub">{step.subtitle}</h4>
           <p className="judge-tour-body">{step.body}</p>
-        </div>
+        </main>
 
-        <div className="judge-tour-footer">
-          <div className="judge-tour-progress-dots">
+        <footer className="judge-tour-footer">
+          <div className="judge-tour-progress-dots" role="tablist" aria-label="Tour steps">
             {steps.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 className={`judge-tour-dot${idx === currentStep ? ' judge-tour-dot-active' : ''}`}
                 onClick={() => setCurrentStep(idx)}
-                aria-label={`Go to step ${idx + 1}`}
+                aria-label={`Go to tour step ${idx + 1}`}
+                role="tab"
+                aria-selected={idx === currentStep}
               />
             ))}
           </div>
@@ -218,10 +241,10 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
               type="button"
               className="mono judge-tour-autoplay"
               onClick={() => setIsPlaying((p) => !p)}
-              aria-label={isPlaying ? 'Pause auto-play' : 'Start auto-play'}
+              aria-label={isPlaying ? 'Pause auto-advance' : 'Start auto-advance'}
             >
               {isPlaying ? <Pause className="judge-tour-icon-sm" /> : <Play className="judge-tour-icon-sm" />}
-              {isPlaying ? 'PAUSE' : 'AUTO-PLAY'}
+              {isPlaying ? 'PAUSE' : 'AUTO (10s)'}
             </button>
 
             {currentStep > 0 && (
@@ -244,9 +267,9 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
               {currentStep < steps.length - 1 && <ChevronRight className="judge-tour-icon-sm" />}
             </button>
           </div>
-        </div>
+        </footer>
       </div>
-    </div>
+    </aside>
   )
 }
 

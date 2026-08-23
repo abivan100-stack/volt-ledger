@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Header from '../components/sections/Header'
 import Hero from '../components/sections/Hero'
@@ -8,14 +8,12 @@ import LedgerCta from '../components/sections/LedgerCta'
 import ComparisonTable from '../components/sections/ComparisonTable'
 import CommunityRoiCalculator from '../components/sections/CommunityRoiCalculator'
 import PolicyComparison from '../components/sections/PolicyComparison'
-import JudgeTour from '../components/sections/JudgeTour'
 import TradeToastTicker from '../components/ui/TradeToastTicker'
 import Footer from '../components/sections/Footer'
 import { scrollToId } from '../utils/scrollToId'
 
 function VoltPage() {
   const location = useLocation()
-  const [isTourOpen, setIsTourOpen] = useState(false)
 
   useEffect(() => {
     document.title = 'Volt — Local Energy Ledger'
@@ -35,7 +33,7 @@ function VoltPage() {
     <>
       <Header />
       <main id="main">
-        <Hero onStartTour={() => setIsTourOpen(true)} />
+        <Hero />
         <Spread />
         <HowItWorks />
         <CommunityRoiCalculator />
@@ -44,7 +42,6 @@ function VoltPage() {
         <PolicyComparison />
       </main>
       <Footer />
-      <JudgeTour isOpen={isTourOpen} onClose={() => setIsTourOpen(false)} />
       <TradeToastTicker />
     </>
   )

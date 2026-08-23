@@ -6,11 +6,7 @@ import PrimaryLinkButton from '../ui/PrimaryLinkButton'
 import EnergyNetwork from './EnergyNetwork'
 import './Hero.css'
 
-interface HeroProps {
-  onStartTour?: () => void
-}
-
-function Hero({ onStartTour }: HeroProps) {
+function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
 
   useScrollReveal(sectionRef, 0.12)
@@ -32,11 +28,6 @@ function Hero({ onStartTour }: HeroProps) {
           </p>
           <div className="hero-ctas">
             <PrimaryLinkButton to="/ledger">SEE THE LEDGER LIVE →</PrimaryLinkButton>
-            {onStartTour && (
-              <button type="button" onClick={onStartTour} className="mono hero-cta-tour">
-                ✨ 60S JUDGE TOUR
-              </button>
-            )}
             <button type="button" onClick={() => scrollToId('how')} className="mono hero-cta-secondary">
               HOW IT WORKS
             </button>

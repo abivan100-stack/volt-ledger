@@ -57,26 +57,6 @@
   align-items: center;
 }
 
-.hero-cta-tour {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--sun);
-  background: var(--sun-soft, rgba(178, 106, 18, 0.1));
-  border: 1px solid var(--sun);
-  border-radius: 2px;
-  padding: 14px 20px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.15s, transform 0.1s, opacity 0.15s;
-}
-.hero-cta-tour:hover {
-  background: var(--sun);
-  color: #ffffff;
-}
-.hero-cta-tour:active {
-  transform: translateY(1px);
-}
-
 .hero-cta-secondary {
   font-size: 12px;
   letter-spacing: 0.08em;

@@ -1,8 +1,9 @@
 import type { MouseEvent } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Zap } from 'lucide-react'
+import { Zap, Sparkles } from 'lucide-react'
 import { isApiConfigured } from '../../api/config'
 import { useEnergyStore } from '../../store/useEnergyStore'
+import { useTourStore } from '../../store/useTourStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import ThemeToggle from '../ui/ThemeToggle'
 import './Header.css'
@@ -17,6 +18,7 @@ function Header() {
   const isHomePage = location.pathname === '/'
   const isLedgerPage = location.pathname.startsWith('/ledger')
   const rate = useEnergyStore((state) => state.rate)
+  const openTour = useTourStore((state) => state.openTour)
   // The demo needs no account, so the link only appears where one can be used.
   const accountAvailable = isApiConfigured()
 
@@ -79,6 +81,16 @@ function Header() {
             <span className="header-rate-dot" />
             ₹{rate.toFixed(2)}/kWh
           </span>
+          <button
+            type="button"
+            className="mono header-tour-btn"
+            onClick={openTour}
+            aria-label="Start 60-Second Guided Tour for Competition Judges"
+            title="60-Second Guided Story for Judges & Evaluators"
+          >
+            <Sparkles className="header-tour-icon" aria-hidden="true" />
+            <span>JUDGE TOUR</span>
+          </button>
           <ThemeToggle />
         </nav>
       </div>

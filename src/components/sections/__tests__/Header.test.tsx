@@ -81,6 +81,17 @@ describe('Header', () => {
     expect(howItWorks.tagName).toBe('A')
     expect(howItWorks.getAttribute('href')).toBe('#how')
   })
+
+  it('renders the subtle judge tour button and opens tour on click', async () => {
+    const { useTourStore } = await import('../../../store/useTourStore')
+    useTourStore.setState({ isOpen: false })
+    renderHeader('/')
+
+    const tourBtn = screen.getByRole('button', { name: /Start 60-Second Guided Tour/i })
+    expect(tourBtn.textContent).toContain('JUDGE TOUR')
+    tourBtn.click()
+    expect(useTourStore.getState().isOpen).toBe(true)
+  })
 })
 
 describe('Header account link', () => {
