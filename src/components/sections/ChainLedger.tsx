@@ -79,7 +79,7 @@ function ChainLedger() {
   }
 
   return (
-    <div className="chain-block">
+    <div id="chain-ledger" className="chain-block">
       <div className="chain-header">
         <h2 className="serif chain-title">
           The chain <span className="chain-title-sub">· sha-256 sealed</span>

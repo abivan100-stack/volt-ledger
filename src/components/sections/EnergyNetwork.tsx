@@ -120,6 +120,7 @@ function EnergyNetwork() {
 
   return (
     <section
+      id="energy-network"
       data-reveal
       aria-label="Live energy flow across the Nolambur microgrid"
       className="net-panel"

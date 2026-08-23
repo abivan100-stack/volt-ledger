@@ -85,6 +85,7 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
   // Save previous state on open, restore on close
   useEffect(() => {
     if (isOpen) {
+      setIsPlaying(false)
       previousState.current = {
         dayType: useEnergyStore.getState().dayType,
         simMinute: useEnergyStore.getState().simMinute,
@@ -94,6 +95,7 @@ function JudgeTour({ isOpen, onClose }: JudgeTourProps) {
       steps[0]?.setup()
       scrollToId(steps[0]?.targetId || 'main')
     } else if (previousState.current) {
+      setIsPlaying(false)
       useEnergyStore.getState().restoreChain()
       useEnergyStore.setState({
         dayType: previousState.current.dayType as DayType,
