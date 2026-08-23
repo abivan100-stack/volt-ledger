@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Sparkles, Play, Pause, X, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { useTourStore } from '../../store/useTourStore'
+import { scrollToId } from '../../utils/scrollToId'
 import type { DayType } from '../../lib/simulation'
 import './JudgeTour.css'
 
@@ -45,6 +46,7 @@ export function JudgeTour() {
         useEnergyStore.getState().closeDossier()
         useEnergyStore.setState({ dayType: 'sunny-weekday', simMinute: 750 })
         useEnergyStore.getState().start()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       },
     },
     {
@@ -56,6 +58,7 @@ export function JudgeTour() {
       setup: () => {
         useEnergyStore.getState().restoreChain()
         useEnergyStore.getState().closeDossier()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       },
     },
     {
@@ -66,8 +69,8 @@ export function JudgeTour() {
       path: '/ledger/neighbourhood',
       setup: () => {
         useEnergyStore.getState().restoreChain()
-        // Open Pranav's dossier (index 2) to showcase deep telemetry
         useEnergyStore.getState().selectHouse(2)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       },
     },
     {
@@ -79,6 +82,8 @@ export function JudgeTour() {
       setup: () => {
         useEnergyStore.getState().closeDossier()
         useEnergyStore.getState().runTamperTest()
+        setTimeout(() => scrollToId('chain-ledger'), 80)
+        setTimeout(() => scrollToId('chain-ledger'), 250)
       },
     },
     {
@@ -90,6 +95,8 @@ export function JudgeTour() {
       setup: () => {
         useEnergyStore.getState().restoreChain()
         useEnergyStore.getState().closeDossier()
+        setTimeout(() => scrollToId('chain-ledger'), 80)
+        setTimeout(() => scrollToId('chain-ledger'), 250)
       },
     },
   ]
