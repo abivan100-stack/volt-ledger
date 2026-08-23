@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Zap } from 'lucide-react'
 import { isApiConfigured } from '../../api/config'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
@@ -21,9 +22,7 @@ function Header() {
 
   const logo = (
     <>
-      <svg className="header-logo-bolt" viewBox="21.6 14.2 21 35.6" focusable="false" aria-hidden="true">
-        <path d="M35.2 14.2 21.6 35.1h10.1l-2.4 14.7 13.3-22.2H32.4Z" />
-      </svg>
+      <Zap className="header-logo-bolt" aria-hidden="true" />
       <span className="header-logo-word">VOLT</span>
       <span className="serif header-logo-suffix">Ledger</span>
     </>

@@ -38,12 +38,10 @@
 }
 
 .header-logo-bolt {
-  width: 22px;
-  height: 38px;
+  width: 26px;
+  height: 26px;
   fill: var(--bolt);
-  stroke: var(--paper);
-  stroke-linejoin: round;
-  stroke-width: 2;
+  stroke: none;
   align-self: center;
   flex: none;
 }
