@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Zap, X } from 'lucide-react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { shortHash } from '../../lib/format'
@@ -12,7 +13,7 @@ interface ToastItem {
   timestamp: number
 }
 
-const TOAST_DURATION_MS = 4000
+const TOAST_DURATION_MS = 5000
 const MAX_TOASTS = 2
 
 function TradeToastTicker() {
@@ -20,6 +21,8 @@ function TradeToastTicker() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const lastBlockIdRef = useRef<number | null>(chain[chain.length - 1]?.id ?? null)
   const isInitialMount = useRef(true)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -60,7 +63,14 @@ function TradeToastTicker() {
 
   const handleInspect = (id: number) => {
     dismissToast(id)
-    scrollToId('chain-ledger')
+    if (location.pathname === '/ledger/settlement') {
+      scrollToId('chain-ledger')
+    } else {
+      navigate('/ledger/settlement#chain-ledger')
+      setTimeout(() => {
+        scrollToId('chain-ledger')
+      }, 100)
+    }
   }
 
   if (toasts.length === 0) return null

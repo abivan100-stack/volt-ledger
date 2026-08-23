@@ -8,7 +8,6 @@ import LedgerCta from '../components/sections/LedgerCta'
 import ComparisonTable from '../components/sections/ComparisonTable'
 import CommunityRoiCalculator from '../components/sections/CommunityRoiCalculator'
 import PolicyComparison from '../components/sections/PolicyComparison'
-import TradeToastTicker from '../components/ui/TradeToastTicker'
 import Footer from '../components/sections/Footer'
 import { scrollToId } from '../utils/scrollToId'
 
@@ -42,7 +41,6 @@ function VoltPage() {
         <PolicyComparison />
       </main>
       <Footer />
-      <TradeToastTicker />
     </>
   )
 }

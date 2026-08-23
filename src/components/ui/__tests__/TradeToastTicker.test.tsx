@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import TradeToastTicker from '../TradeToastTicker'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 import type { ChainBlock } from '../../../lib/hashChain'
@@ -34,12 +35,20 @@ const sampleBlock: ChainBlock = {
 
 describe('TradeToastTicker component', () => {
   it('renders nothing on initial mount before new trades arrive', () => {
-    const { container } = render(<TradeToastTicker />)
+    const { container } = render(
+      <MemoryRouter>
+        <TradeToastTicker />
+      </MemoryRouter>,
+    )
     expect(container.firstChild).toBeNull()
   })
 
   it('displays a toast when a new block is appended to the chain', () => {
-    render(<TradeToastTicker />)
+    render(
+      <MemoryRouter>
+        <TradeToastTicker />
+      </MemoryRouter>,
+    )
 
     act(() => {
       useEnergyStore.setState({
@@ -54,7 +63,11 @@ describe('TradeToastTicker component', () => {
   })
 
   it('allows manual dismissal of a toast', () => {
-    render(<TradeToastTicker />)
+    render(
+      <MemoryRouter>
+        <TradeToastTicker />
+      </MemoryRouter>,
+    )
 
     act(() => {
       useEnergyStore.setState({
@@ -65,6 +78,26 @@ describe('TradeToastTicker component', () => {
     const closeBtn = screen.getByLabelText(/Dismiss trade notification/i)
     fireEvent.click(closeBtn)
 
+    expect(screen.queryByText(/P2P SETTLEMENT #99/i)).toBeNull()
+  })
+
+  it('navigates and scrolls on VIEW LEDGER click', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <TradeToastTicker />
+      </MemoryRouter>,
+    )
+
+    act(() => {
+      useEnergyStore.setState({
+        chain: [...useEnergyStore.getState().chain, sampleBlock],
+      })
+    })
+
+    const viewBtn = screen.getByRole('button', { name: /VIEW LEDGER →/i })
+    fireEvent.click(viewBtn)
+
+    // Toast is dismissed on click
     expect(screen.queryByText(/P2P SETTLEMENT #99/i)).toBeNull()
   })
 })
