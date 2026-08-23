@@ -82,7 +82,7 @@ export interface OrganisationRouteRepositories {
   >
   memberships: Pick<
     MembershipRepository,
-    'find' | 'listForOrganisation' | 'updateRole' | 'remove' | 'transferOwnership'
+    'find' | 'listForUser' | 'listForOrganisation' | 'updateRole' | 'remove' | 'transferOwnership'
   >
   invitations: Pick<
     InvitationRepository,
@@ -556,10 +556,14 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     const organisationRepository = repositories().organisations
     const membershipRepository = repositories().memberships
     const organisations = await organisationRepository.listForUser(access.session.user.id)
+    const memberships = await membershipRepository.listForUser(access.session.user.id)
+    const roleByOrganisation = new Map(
+      memberships.map((membership) => [membership.organisationId, membership.role]),
+    )
     const response = []
     for (const organisation of organisations) {
-      const membership = await membershipRepository.find(organisation._id, access.session.user.id)
-      if (membership) response.push(serializeOrganisation(organisation, membership.role))
+      const role = roleByOrganisation.get(organisation._id)
+      if (role) response.push(serializeOrganisation(organisation, role))
     }
     return { organisations: response }
   })

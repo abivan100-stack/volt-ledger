@@ -18,7 +18,7 @@ import { decryptDeliveryUrl } from '../email/outbox.js'
 import { EmailDeliveryError, sendOrganisationInvitationEmail } from '../email/resend.js'
 import {
   MONTE_CARLO_MODEL_VERSION,
-  digestSimulationInput,
+  digestParsedSimulationInput,
   parseMonteCarloInput,
   runMonteCarlo,
 } from './monteCarlo.js'
@@ -141,7 +141,7 @@ function isPermanentSimulationError(error: unknown): error is Error {
 function buildCompletionInput(run: SimulationRunDocument): CompleteSimulationRunInput {
   if (run.modelVersion !== MONTE_CARLO_MODEL_VERSION) throw new Error('UNSUPPORTED_MODEL_VERSION')
   const parsedInput = parseMonteCarloInput(run.inputSnapshot)
-  if (digestSimulationInput(parsedInput) !== run.inputDigest) {
+  if (digestParsedSimulationInput(parsedInput) !== run.inputDigest) {
     throw new Error('SIMULATION_INPUT_DIGEST_MISMATCH')
   }
   const result = runMonteCarlo(parsedInput, run.seed)

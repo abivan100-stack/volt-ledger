@@ -177,6 +177,17 @@ export function digestSimulationInput(value: unknown): string {
   return sha256(stableSerialize(parseMonteCarloInput(value)))
 }
 
+/**
+ * Digests an input that has already been parsed.
+ *
+ * The worker parses a stored run's snapshot once to run the model; digesting
+ * it again would re-parse the same snapshot. The public entry point keeps
+ * parsing, so callers can never digest a shape the model would not accept.
+ */
+export function digestParsedSimulationInput(input: MonteCarloInput): string {
+  return sha256(stableSerialize(input))
+}
+
 function seededUnit(seed: string, ...keys: Array<string | number>): number {
   const value = `${seed}|${keys.join('|')}`
   let hash = FNV_OFFSET_BASIS
