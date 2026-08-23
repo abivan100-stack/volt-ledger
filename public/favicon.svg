@@ -1,22 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">Volt</title>
-  <desc id="desc">A connected energy network with a central lightning bolt.</desc>
-  <rect width="64" height="64" rx="16" fill="#17140F"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="volt-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="volt-border" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2D333F"/>
+      <stop offset="100%" stop-color="#1F232B"/>
+    </linearGradient>
+  </defs>
 
-  <circle cx="32" cy="32" r="22" fill="#245C43"/>
-  <circle cx="32" cy="32" r="19" fill="none" stroke="#F2EEE4" stroke-width="1.5" opacity=".42"/>
+  <!-- Background tile with subtle dark ledger border -->
+  <rect width="64" height="64" rx="14" fill="#0E1015"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="url(#volt-border)" stroke-width="1.5"/>
 
-  <g fill="none" stroke="#F2EEE4" stroke-linecap="round" stroke-width="1.5" opacity=".78">
-    <path d="M32 13v10M49 23l-9 6M49 41l-10-5M32 51V41M15 41l10-5M15 23l9 6"/>
-  </g>
-  <g fill="#F2EEE4">
-    <circle cx="32" cy="13" r="2.6"/>
-    <circle cx="49" cy="23" r="2.6"/>
-    <circle cx="49" cy="41" r="2.6"/>
-    <circle cx="32" cy="51" r="2.6"/>
-    <circle cx="15" cy="41" r="2.6"/>
-    <circle cx="15" cy="23" r="2.6"/>
-  </g>
+  <!-- Crisp, iconic geometric lightning bolt -->
+  <path
+    d="M36.5 9 L18 34.5 H31.5 L27.5 55 L46 29.5 H32.5 Z"
+    fill="url(#volt-amber)"
+    stroke="#FBBF24"
+    stroke-width="0.5"
+    stroke-linejoin="round"
+  />
 
-  <path d="M35.2 14.2 21.6 35.1h10.1l-2.4 14.7 13.3-22.2H32.4Z" fill="#B26A12" stroke="#F2EEE4" stroke-linejoin="round" stroke-width="1.5"/>
+  <!-- Subtle cryptographic node accent -->
+  <circle cx="48" cy="14" r="2.5" fill="#10B981"/>
 </svg>
