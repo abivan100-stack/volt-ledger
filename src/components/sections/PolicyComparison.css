@@ -1,0 +1,140 @@
+.policy-section {
+  padding: 5rem 0;
+  border-top: 1px solid var(--rule-2);
+  background: var(--paper);
+}
+
+.policy-container {
+  max-width: 1040px;
+}
+
+.policy-heading {
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.15;
+  margin: 0.75rem 0 1rem;
+}
+
+.policy-heading em {
+  font-style: italic;
+  color: var(--sun);
+}
+
+.policy-intro {
+  font-size: 1rem;
+  color: var(--ink-soft);
+  max-width: 680px;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+.policy-table {
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--card);
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+}
+
+.policy-row {
+  display: grid;
+  grid-template-columns: 240px 1fr 1fr;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--rule-2);
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.policy-row:last-child {
+  border-bottom: none;
+}
+
+.policy-header-row {
+  background: var(--card-soft, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.policy-col-volt {
+  color: var(--sun);
+  font-weight: 600;
+}
+
+.policy-cell-dim {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.policy-cell-tangedco {
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.policy-cell-volt {
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.policy-row-highlight .policy-cell-volt {
+  color: var(--sun);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .policy-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .policy-header-row {
+    display: none;
+  }
+}
+
+.policy-citations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .policy-citations {
+    grid-template-columns: 1fr;
+  }
+}
+
+.policy-citation-card {
+  border: 1px solid var(--rule);
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.policy-citation-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--settle);
+}
+
+.policy-citation-title {
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 0;
+}
+
+.policy-citation-text {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
