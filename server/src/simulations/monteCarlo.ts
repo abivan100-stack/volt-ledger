@@ -323,12 +323,22 @@ export function runMonteCarlo(value: unknown, seed: string): MonteCarloResult {
     }
   }
 
+  const intervalsByHouseholdAndOutcome = new Map<string, SimulationIntervalResult[]>()
+  for (const interval of intervals) {
+    const key = `${interval.householdId}\u0000${interval.outcome}`
+    let list = intervalsByHouseholdAndOutcome.get(key)
+    if (!list) {
+      list = []
+      intervalsByHouseholdAndOutcome.set(key, list)
+    }
+    list.push(interval)
+  }
+
   const summaries: SimulationSummaryResult[] = []
   for (const household of input.households) {
     for (const outcome of SIMULATION_OUTCOMES) {
-      const householdIntervals = intervals.filter(
-        (interval) => interval.householdId === household.id && interval.outcome === outcome,
-      )
+      const key = `${household.id}\u0000${outcome}`
+      const householdIntervals = intervalsByHouseholdAndOutcome.get(key) ?? []
       summaries.push({
         householdId: household.id,
         outcome,
