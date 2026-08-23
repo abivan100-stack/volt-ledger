@@ -11,7 +11,7 @@ describe('CommunityRoiCalculator component', () => {
   it('renders section headings and default prosumer calculations', () => {
     render(<CommunityRoiCalculator />)
 
-    expect(screen.getByText(/What if/i).textContent).toBeTruthy()
+    expect(screen.getByText(/Model your roof/i).textContent).toBeTruthy()
     expect(screen.getByText(/YOUR HOUSEHOLD PROFILE/i).textContent).toBeTruthy()
     expect(screen.getByText(/RECOMMENDED SYSTEM/i).textContent).toBeTruthy()
     expect(screen.getByText(/ESTIMATED PAYBACK/i).textContent).toBeTruthy()
@@ -45,6 +45,6 @@ describe('CommunityRoiCalculator component', () => {
 
     fireEvent.change(roofSlider, { target: { value: '45' } })
     expect(screen.getByText(/RECOMMENDED SYSTEM/i).textContent).toBeTruthy()
-    expect(screen.getByText(/PM Surya Ghar Subsidy/i).textContent).toBeTruthy()
+    expect(screen.getByText('PM Surya Ghar Subsidy').textContent).toBeTruthy()
   })
 })

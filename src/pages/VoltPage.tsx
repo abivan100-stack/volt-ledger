@@ -36,9 +36,9 @@ function VoltPage() {
         <Spread />
         <HowItWorks />
         <CommunityRoiCalculator />
-        <LedgerCta />
-        <ComparisonTable />
         <PolicyComparison />
+        <ComparisonTable />
+        <LedgerCta />
       </main>
       <Footer />
     </>

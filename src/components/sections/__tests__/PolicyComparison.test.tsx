@@ -11,7 +11,7 @@ describe('PolicyComparison component', () => {
   it('renders regulatory comparison table and citations', () => {
     render(<PolicyComparison />)
 
-    expect(screen.getByText(/Why Volt\?/i).textContent).toBeTruthy()
+    expect(screen.getByText(/Bridging the/i).textContent).toBeTruthy()
     expect(screen.getByText(/TANGEDCO NET-FEED TARIFF/i).textContent).toBeTruthy()
     expect(screen.getByText(/VOLT P2P MICROGRID/i).textContent).toBeTruthy()
     expect(screen.getByText(/PROSUMER EXPORT TARIFF/i).textContent).toBeTruthy()

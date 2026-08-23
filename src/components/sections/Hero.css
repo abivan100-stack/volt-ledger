@@ -75,17 +75,18 @@
   transform: translateY(1px);
 }
 
-.hero-live-link {
+.hero-live-badge {
   margin-top: 34px;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   color: var(--ink-soft);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-.hero-live-link:hover {
-  color: var(--sun);
+  gap: 9px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 7px 13px;
 }
 
 .hero-live-dot {
@@ -93,6 +94,7 @@
   height: 6px;
   border-radius: 50%;
   background: var(--settle);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--settle) 60%, transparent);
 }
 
 .hero-visual {

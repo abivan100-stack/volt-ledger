@@ -47,14 +47,14 @@ function PolicyComparison() {
   return (
     <section ref={sectionRef} id="policy-context" className="policy-section">
       <div className="container policy-container">
-        <SectionHeading kicker="05" label="Regulatory Context" />
+        <SectionHeading kicker="04" label="Regulatory Context" />
         <h2 data-reveal className="serif policy-heading">
-          Why Volt? The <em>Tamil Nadu</em> solar gap.
+          Bridging the <em>Tamil Nadu</em> DISCOM spread.
         </h2>
         <p data-reveal className="policy-intro">
-          Under current DISCOM rules, rooftop solar owners sell excess energy for pennies while neighbours
-          down the street pay peak tariffs for coal-heavy power. Volt bridges this regulatory gap through
-          peer-to-peer microgrid accounting.
+          Under current utility rules, rooftop solar owners sell surplus for ₹3.10/kWh while neighbours next door
+          pay up to ₹9.00/kWh for peak grid power. Volt bridges this regulatory gap through local peer-to-peer
+          microgrid settlement under CERC guidelines.
         </p>
 
         <div data-reveal role="table" className="policy-table" aria-label="TANGEDCO vs Volt Comparison">

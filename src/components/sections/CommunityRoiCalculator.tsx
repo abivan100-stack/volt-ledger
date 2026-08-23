@@ -21,11 +21,11 @@ function CommunityRoiCalculator() {
       <div className="container roi-calculator-container">
         <SectionHeading kicker="03" label="Economics" />
         <h2 className="serif roi-calculator-heading">
-          What if <em>your</em> house joined?
+          Model your roof. See <em>your numbers.</em>
         </h2>
         <p className="roi-calculator-intro">
-          Estimate your household's solar payback and peer-to-peer trading revenue under the PM Surya Ghar
-          rooftop subsidy and Tamil Nadu residential microgrid rates.
+          Calculate rooftop solar payback, avoided grid draw, and peer export revenue under the PM Surya Ghar
+          subsidy and Tamil Nadu LT-1A residential tariffs.
         </p>
 
         <div className="roi-calculator-grid">

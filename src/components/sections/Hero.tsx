@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { scrollToId } from '../../utils/scrollToId'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import PrimaryLinkButton from '../ui/PrimaryLinkButton'
@@ -32,10 +31,10 @@ function Hero() {
               HOW IT WORKS
             </button>
           </div>
-          <Link to="/ledger" className="mono hero-live-link">
+          <div className="mono hero-live-badge">
             <span className="hero-live-dot" />
-            LIVE — SETTLING NOW ON THE NOLAMBUR LEDGER →
-          </Link>
+            <span>NOLAMBUR 400V MICROGRID · 10 HOUSES BALANCING LIVE</span>
+          </div>
         </div>
         <div className="hero-visual">
           <EnergyNetwork />
