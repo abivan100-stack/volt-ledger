@@ -24,6 +24,7 @@
   border: 1px solid var(--rule-2);
   border-radius: 2px;
   padding: 9px 16px;
+  cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
@@ -32,8 +33,16 @@
   color: var(--ink);
 }
 
-.day-type-option-active {
+.day-type-option-active,
+.day-type-option[aria-pressed="true"] {
   background: var(--ink);
   border-color: var(--ink);
+  color: var(--paper);
+}
+
+.day-type-option-active:hover,
+.day-type-option[aria-pressed="true"]:hover {
+  background: var(--ink);
+  border-color: var(--sun);
   color: var(--paper);
 }

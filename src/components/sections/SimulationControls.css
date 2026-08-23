@@ -85,6 +85,12 @@
   border-color: var(--settle);
 }
 
+.simulation-speed-button-active:hover {
+  color: var(--paper);
+  background: var(--settle);
+  border-color: var(--sun);
+}
+
 .simulation-controls-primary:hover,
 .simulation-controls-reset:hover,
 .simulation-speed-button:hover {
