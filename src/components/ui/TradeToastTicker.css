@@ -9,6 +9,11 @@
   max-width: 340px;
   width: calc(100vw - 3rem);
   pointer-events: none;
+  transition: bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.trade-toast-container-tour-offset {
+  bottom: 275px;
 }
 
 .trade-toast-card {

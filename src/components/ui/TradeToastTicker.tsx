@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Zap, X } from 'lucide-react'
 import { useEnergyStore } from '../../store/useEnergyStore'
+import { useTourStore } from '../../store/useTourStore'
 import { shortHash } from '../../lib/format'
 import { scrollToId } from '../../utils/scrollToId'
 import type { ChainBlock } from '../../lib/hashChain'
@@ -18,6 +19,7 @@ const MAX_TOASTS = 2
 
 function TradeToastTicker() {
   const chain = useEnergyStore((state) => state.chain)
+  const isTourOpen = useTourStore((state) => state.isOpen)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const lastBlockIdRef = useRef<number | null>(chain[chain.length - 1]?.id ?? null)
   const isInitialMount = useRef(true)
@@ -76,7 +78,10 @@ function TradeToastTicker() {
   if (toasts.length === 0) return null
 
   return (
-    <aside aria-label="Live settlement notifications" className="trade-toast-container">
+    <aside
+      aria-label="Live settlement notifications"
+      className={`trade-toast-container ${isTourOpen ? 'trade-toast-container-tour-offset' : ''}`}
+    >
       {toasts.map(({ id, block }) => (
         <div key={id} role="status" className="trade-toast-card">
           <div className="trade-toast-header">
