@@ -15,7 +15,7 @@
 
 .header-logo {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 9px;
 }
 
@@ -38,12 +38,12 @@
 }
 
 .header-logo-bolt {
-  width: 13px;
-  height: 13px;
+  width: 22px;
+  height: 38px;
   fill: var(--bolt);
   stroke: var(--paper);
   stroke-linejoin: round;
-  stroke-width: 1.5;
+  stroke-width: 2;
   align-self: center;
   flex: none;
 }
