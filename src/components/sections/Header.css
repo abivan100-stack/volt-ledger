@@ -37,12 +37,15 @@
   color: var(--sun);
 }
 
-.header-logo-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--volt);
+.header-logo-bolt {
+  width: 13px;
+  height: 13px;
+  fill: var(--bolt);
+  stroke: var(--paper);
+  stroke-linejoin: round;
+  stroke-width: 1.5;
   align-self: center;
+  flex: none;
 }
 
 /* No explicit color here on purpose: it inherits `--ink` from the global

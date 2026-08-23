@@ -21,7 +21,9 @@ function Header() {
 
   const logo = (
     <>
-      <span className="header-logo-dot" />
+      <svg className="header-logo-bolt" viewBox="0 0 64 64" focusable="false" aria-hidden="true">
+        <path d="M35.2 14.2 21.6 35.1h10.1l-2.4 14.7 13.3-22.2H32.4Z" />
+      </svg>
       <span className="header-logo-word">VOLT</span>
       <span className="serif header-logo-suffix">Ledger</span>
     </>

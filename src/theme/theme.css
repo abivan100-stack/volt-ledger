@@ -21,6 +21,7 @@
   --sun: #B26A12;
   --settle: #245C43;
   --volt: #0d6625;
+  --bolt: #0d6625;
   --void: #A31E17;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --container-max: 1200px;
@@ -43,6 +44,7 @@
     --sun: #D9902B;
     --settle: #66B58D;
     --volt: #6CCB8D;
+    --bolt: #FFD34D;
     --void: #F07B70;
   }
 }
@@ -63,6 +65,7 @@
   --sun: #D9902B;
   --settle: #66B58D;
   --volt: #6CCB8D;
+  --bolt: #FFD34D;
   --void: #F07B70;
 }
 
