@@ -18,14 +18,17 @@ afterEach(() => {
 })
 
 describe('JudgeTour component', () => {
-  it('renders nothing when isOpen is false', () => {
+  it('renders subtle bottom-left launcher button when isOpen is false and opens tour on click', () => {
     useTourStore.setState({ isOpen: false })
-    const { container } = render(
+    render(
       <MemoryRouter initialEntries={['/']}>
         <JudgeTour />
       </MemoryRouter>,
     )
-    expect(container.firstChild).toBeNull()
+    const launcher = screen.getByRole('button', { name: /Start 60-Second Guided Tour for Evaluators/i })
+    expect(launcher.textContent).toContain('JUDGE TOUR')
+    fireEvent.click(launcher)
+    expect(useTourStore.getState().isOpen).toBe(true)
   })
 
   it('renders Step 1 and sets solar noon conditions when opened', () => {

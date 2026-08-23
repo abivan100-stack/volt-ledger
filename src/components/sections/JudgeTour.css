@@ -1,8 +1,46 @@
-/*
- * Floating bottom-docked tour controller.
- * Designed specifically for judges and competition evaluators.
- * Non-blocking floating card docked at the bottom right/center with high z-index.
- */
+.judge-tour-launcher {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 75;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 8px 14px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--ink) 35%, transparent);
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.judge-tour-launcher:hover {
+  border-color: var(--sun);
+  color: var(--ink);
+  background: var(--paper-2);
+}
+
+.judge-tour-launcher:active {
+  transform: translateY(1px);
+}
+
+.judge-tour-launcher-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sun);
+}
+
+.judge-tour-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sun);
+}
 
 .judge-tour-dock {
   position: fixed;

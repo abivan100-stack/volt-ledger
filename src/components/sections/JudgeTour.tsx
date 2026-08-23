@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Sparkles, Play, Pause, X, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
+import { Play, Pause, X, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { useTourStore } from '../../store/useTourStore'
 import { scrollToId } from '../../utils/scrollToId'
@@ -21,6 +21,7 @@ const AUTO_ADVANCE_MS = 10000
 
 export function JudgeTour() {
   const isOpen = useTourStore((state) => state.isOpen)
+  const openTour = useTourStore((state) => state.openTour)
   const closeTour = useTourStore((state) => state.closeTour)
   const navigate = useNavigate()
   const location = useLocation()
@@ -187,7 +188,19 @@ export function JudgeTour() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, handleNext, handlePrev, closeTour])
 
-  if (!isOpen) return null
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        className="mono judge-tour-launcher"
+        onClick={openTour}
+        aria-label="Start 60-Second Guided Tour for Evaluators"
+      >
+        <span className="judge-tour-launcher-dot" />
+        <span>JUDGE TOUR · 60s</span>
+      </button>
+    )
+  }
 
   const step = steps[currentStep]
 
@@ -202,7 +215,7 @@ export function JudgeTour() {
         <header className="judge-tour-header">
           <div className="judge-tour-badge-row">
             <span className="mono judge-tour-badge">
-              <Sparkles className="judge-tour-bolt" aria-hidden="true" />
+              <span className="judge-tour-badge-dot" />
               {step.badge}
             </span>
             <span className="mono judge-tour-counter">
