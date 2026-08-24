@@ -25,6 +25,11 @@ const demoPersistenceEnabled = z.preprocess(
   z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
 )
 
+const serveWeb = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+  z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+)
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -52,6 +57,12 @@ export const envSchema = z
     DEMO_PERSISTENCE_ENABLED: demoPersistenceEnabled,
     // Days a demo session's data survives before its TTL indexes remove it.
     DEMO_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+
+    // Serve the built browser bundle from this process, putting the site and
+    // the API on one origin. Off by default: the two-origin deployment is still
+    // the normal one, and an API that quietly started serving HTML would be a
+    // surprise rather than a feature.
+    SERVE_WEB: serveWeb,
 
     GOOGLE_CLIENT_ID: optionalString,
     GOOGLE_CLIENT_SECRET: optionalString,
@@ -124,10 +135,71 @@ function describeEnvironmentFailure(error: z.ZodError): string {
   ].join('\n')
 }
 
+/** The origin settings a hosting platform can answer on a deployment's behalf. */
+const PLATFORM_DEFAULTED = ['BETTER_AUTH_URL', 'WEB_ORIGIN'] as const
+
+export interface PlatformDefaults {
+  values: unknown
+  /** Which settings the platform supplied, for reporting at startup. */
+  defaulted: string[]
+  /** The origin they were taken from. */
+  origin: string | null
+}
+
+/**
+ * Fills the two origin settings in from the platform, when it publishes one.
+ *
+ * Render exports `RENDER_EXTERNAL_URL` — the address the service is actually
+ * reachable at. When one service serves both the site and the API, that address
+ * is by definition the answer to both "where does this API live" and "where does
+ * the browser load the site from", and requiring somebody to copy it into two
+ * more variables only creates two more chances to mistype it.
+ *
+ * An explicit value always wins, because a deployment whose site is on another
+ * origin needs to say so and the platform cannot know that.
+ */
+export function withPlatformDefaults(input: unknown): PlatformDefaults {
+  if (typeof input !== 'object' || input === null) {
+    return { values: input, defaulted: [], origin: null }
+  }
+
+  const values = input as Record<string, unknown>
+  const external = values.RENDER_EXTERNAL_URL
+  if (typeof external !== 'string' || external.trim() === '') {
+    return { values: input, defaulted: [], origin: null }
+  }
+
+  const origin = external.trim().replace(/\/+$/, '')
+  const filled: Record<string, unknown> = { ...values }
+  const defaulted: string[] = []
+
+  for (const key of PLATFORM_DEFAULTED) {
+    const current = filled[key]
+    if (typeof current === 'string' && current.trim() !== '') continue
+    filled[key] = origin
+    defaulted.push(key)
+  }
+
+  return { values: filled, defaulted, origin }
+}
+
 export function parseEnvironment(input: unknown): Env {
-  const result = envSchema.safeParse(input)
-  if (result.success) return result.data
-  throw new Error(describeEnvironmentFailure(result.error))
+  const platform = withPlatformDefaults(input)
+  const result = envSchema.safeParse(platform.values)
+  if (!result.success) {
+    throw new Error(describeEnvironmentFailure(result.error))
+  }
+
+  if (platform.defaulted.length > 0) {
+    // Said out loud rather than left implicit: a setting nobody configured is
+    // the first thing to suspect when requests start being refused.
+    console.info(
+      `Volt: ${platform.defaulted.join(' and ')} defaulted to this service's own address ` +
+        `(${platform.origin}). Set them explicitly if the site is served from another origin.`,
+    )
+  }
+
+  return result.data
 }
 
 export const env = parseEnvironment(process.env)

@@ -1,24 +1,36 @@
 import { ApiError } from './errors'
 
 /**
- * The Volt API runs on its own origin (`API_HOST`/`API_PORT`) while the client is
- * served by Vite, so requests must be absolute. `VITE_API_BASE_URL` is the only
- * server address the browser bundle ever learns; MongoDB, Better Auth, and Resend
- * credentials stay in `server/.env`.
+ * The Volt API usually runs on its own origin (`API_HOST`/`API_PORT`) while the
+ * client is served by Vite, so requests must be absolute. `VITE_API_BASE_URL` is
+ * the only server address the browser bundle ever learns; MongoDB, Better Auth,
+ * and Resend credentials stay in `server/.env`.
  *
- * Leaving the variable unset is legitimate: the browser-only demo needs no API.
+ * Two other values are legitimate:
+ *
+ * - unset — the browser-only demo, which needs no API at all;
+ * - `/` — one deployment serving both the site and the API, where the right
+ *   address is whatever origin served the page. Vite bakes this variable into
+ *   the bundle at build time, so naming an origin there is a promise about a URL
+ *   that a rename or a custom domain can quietly break; `/` cannot go stale.
  */
+
+/** The value of `VITE_API_BASE_URL` that means "wherever this page came from". */
+export const SAME_ORIGIN = '/'
 
 /**
  * Normalises a raw `VITE_API_BASE_URL` value.
  *
- * Returns `null` when unset or blank (demo-only build). Throws when a value is
- * present but unusable, so a deployment typo fails loudly instead of silently
- * sending requests nowhere.
+ * Returns `null` when unset or blank (demo-only build), and the empty string for
+ * a same-origin build — empty because every request path is already absolute, so
+ * prefixing nothing yields a relative URL the browser resolves against the page.
+ * Throws when a value is present but unusable, so a deployment typo fails loudly
+ * instead of silently sending requests nowhere.
  */
 export function resolveApiBaseUrl(raw: string | undefined): string | null {
   const trimmed = raw?.trim()
   if (!trimmed) return null
+  if (trimmed === SAME_ORIGIN) return ''
 
   let parsed: URL
   try {

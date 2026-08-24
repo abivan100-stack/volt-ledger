@@ -51,6 +51,7 @@ import type {
 import { encryptDeliveryUrl } from './email/outbox.js'
 import { sendVerificationCodeEmailWithRetry } from './email/verificationDelivery.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
+import { loadStaticSite, type StaticSite } from './http/staticSite.js'
 import { isBlockedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
 import { purgeCutoff, recoverableUntil } from './retention/policy.js'
@@ -128,6 +129,33 @@ export interface AppOptions {
   databasePing?: () => Promise<void>
   auth?: AuthService
   repositories?: OrganisationRouteRepositories
+  /** Serve the built browser bundle from this process; defaults to `SERVE_WEB`. */
+  serveWeb?: boolean
+  /** Directory the bundle was built into; defaults to the repository's `dist/`. */
+  webDistDir?: string
+}
+
+/**
+ * The page's own Content-Security-Policy, when this process serves the page.
+ *
+ * Helmet's defaults are kept and one directive is widened: `script-src` gains a
+ * hash for each script written into the HTML itself. Nothing else is loosened,
+ * and in particular `'unsafe-inline'` is never used — a hash authorises one
+ * exact script, an allowance authorises every script an injection can write.
+ */
+function contentSecurityPolicyFor(site: StaticSite): { directives: Record<string, string[]> } {
+  // Reached through the namespace: the package's own typings hang this static
+  // off `fastifyHelmet` rather than off the function they export by default.
+  const directives = helmet.fastifyHelmet.contentSecurityPolicy.getDefaultDirectives() as Record<
+    string,
+    string[]
+  >
+  return {
+    directives: {
+      ...directives,
+      'script-src': [...(directives['script-src'] ?? ["'self'"]), ...site.scriptHashes],
+    },
+  }
 }
 
 function serializeOrganisation(organisation: OrganisationDocument, role: MembershipRole) {
@@ -436,7 +464,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     trustProxy: options.trustProxy ?? env.TRUST_PROXY,
   })
 
-  await app.register(helmet)
+  // Read before helmet is registered: the policy has to name the hashes of the
+  // scripts in the very document this process is about to serve.
+  const site = (options.serveWeb ?? env.SERVE_WEB) ? await loadStaticSite(options.webDistDir) : null
+
+  await app.register(helmet, site ? { contentSecurityPolicy: contentSecurityPolicyFor(site) } : {})
   await app.register(cors, {
     origin: env.WEB_ORIGIN,
     credentials: true,
@@ -1736,6 +1768,12 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       })
     }
   })
+
+  // Last, so that every API route above is matched on its own terms and only
+  // what is left over is offered to the site.
+  if (site) {
+    await site.register(app)
+  }
 
   return app
 }

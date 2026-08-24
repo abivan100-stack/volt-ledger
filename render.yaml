@@ -1,25 +1,47 @@
+# Volt on Render.
+#
+# One web service serves both the browser bundle and the API. That is not only
+# cheaper than two: it puts the site and its API on a single origin, so session
+# cookies are first-party, CORS never enters the picture, and neither side has to
+# be told the other's address. RENDER_EXTERNAL_URL supplies BETTER_AUTH_URL and
+# WEB_ORIGIN automatically, and VITE_API_BASE_URL is the literal "/".
+#
+# To run them apart instead, set SERVE_WEB=false, deploy the bundle wherever you
+# like with VITE_API_BASE_URL pointing at this service, and set WEB_ORIGIN here
+# to that site's origin.
 services:
   - type: web
-    name: volt-api
+    name: volt
     runtime: node
     plan: free
-    buildCommand: npm ci --include=dev && npm run build:api
+    # Both builds, in one command: the browser bundle into dist/, the API into
+    # server/dist/. VITE_API_BASE_URL is read here, at build time, because Vite
+    # inlines it into the bundle.
+    buildCommand: npm ci --include=dev && npm run build && npm run build:api
     startCommand: node server/dist/api.js
     healthCheckPath: /health
     envVars:
       - fromGroup: volt-production-runtime
+      - key: SERVE_WEB
+        value: "true"
+      - key: VITE_API_BASE_URL
+        value: "/"
+      - key: TRUST_PROXY
+        value: "true"
+      # Needs a replica set; Atlas is one, a standalone mongod is not.
       - key: MONGODB_URI
         sync: false
       - key: VOLT_DNS_SERVERS
         sync: false
-      - key: TRUST_PROXY
-        value: "true"
-      - key: WEB_ORIGIN
-        sync: false
       - key: BETTER_AUTH_SECRET
         sync: false
-      - key: BETTER_AUTH_URL
-        sync: false
+      # Left unset on purpose. Both default to RENDER_EXTERNAL_URL, which is
+      # this service's own address and therefore correct while it serves the
+      # site. Set them only when the site moves to another origin.
+      # - key: BETTER_AUTH_URL
+      #   sync: false
+      # - key: WEB_ORIGIN
+      #   sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
@@ -33,6 +55,8 @@ services:
       - key: SMTP_PASSWORD
         sync: false
 
+  # Runs queued simulations for signed-in organisations. The public demo does not
+  # need it; drop this service if you are only deploying the demo.
   - type: worker
     name: volt-worker
     runtime: node
@@ -45,6 +69,8 @@ services:
         sync: false
       - key: VOLT_DNS_SERVERS
         sync: false
+      # A worker gets no RENDER_EXTERNAL_URL of its own, so these are explicit.
+      # Both should match the web service's address.
       - key: WEB_ORIGIN
         sync: false
       - key: BETTER_AUTH_SECRET
@@ -65,20 +91,6 @@ services:
         sync: false
       - key: WORKER_ID
         value: volt-worker-production
-
-  - type: web
-    name: volt-web
-    runtime: static
-    plan: free
-    buildCommand: npm ci --include=dev && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        sync: false
 
 envVarGroups:
   - name: volt-production-runtime

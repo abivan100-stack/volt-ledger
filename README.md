@@ -131,6 +131,10 @@ VITE_API_BASE_URL=http://localhost:4000
 
 Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
 
+Set it to `/` when one deployment serves both the site and the API: requests
+then go to whatever origin served the page, and no address is compiled into the
+bundle at all. Leaving it unset builds the browser-only demo.
+
 Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out; any route answering `401` triggers that centrally, so no caller has to remember to handle it.
 
 ### Demo persistence
@@ -274,23 +278,25 @@ Before retiring any future branch, prove that it is an ancestor of the branch th
 
 ## Deployment
 
-The repository includes a Render Blueprint in `render.yaml` for the complete
-runtime: the static Vite site, the public Fastify API, and the private
-simulation worker. The Blueprint uses the existing MongoDB Atlas replica set;
-it does not create or migrate a database. Apply it from the Render Dashboard
-after pushing the file to the connected Git repository.
+The repository includes a Render Blueprint in `render.yaml`. One web service
+serves both halves: the built Vite bundle and the Fastify API on a single
+origin. That is not only cheaper than two services — it makes the session cookie
+first-party, takes CORS out of the picture entirely, and means neither half has
+to be told the other's address. The private simulation worker is a second
+service, needed only for the authenticated simulation queue.
+
+The Blueprint uses the existing MongoDB Atlas replica set; it does not create or
+migrate a database. Apply it from the Render Dashboard after pushing the file to
+the connected Git repository.
 
 The worker uses Render's `starter` plan because Render does not offer free
-background-worker instances; the static site and API remain on the free plan.
+background-worker instances; the web service remains on the free plan.
 
 Fill these Dashboard values before deploying:
 
 - `MONGODB_URI`: the existing Atlas replica-set connection string.
 - `MONGODB_DB_NAME`: the production database name (the Blueprint defaults to `volt`).
 - `BETTER_AUTH_SECRET`: a new random secret of at least 32 characters.
-- `BETTER_AUTH_URL`: the deployed API HTTPS origin.
-- `WEB_ORIGIN`: the deployed static-site HTTPS origin.
-- `VITE_API_BASE_URL`: the same deployed API HTTPS origin.
 - Email delivery: use either Resend (`RESEND_API_KEY` plus `EMAIL_FROM`) or
   Gmail SMTP (`SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER`,
   `SMTP_PASSWORD`, plus `EMAIL_FROM`). Gmail requires a Google App Password,
@@ -301,16 +307,31 @@ Fill these Dashboard values before deploying:
   to the Resend account owner.
 - `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
 
+The two origin settings are deliberately **not** on that list. `BETTER_AUTH_URL`
+and `WEB_ORIGIN` both default to `RENDER_EXTERNAL_URL`, the address the service
+is actually reachable at, which is the right answer for both while one service
+serves the site. Startup logs which ones it filled in. Set them by hand only
+when the site moves to another origin. `VITE_API_BASE_URL` is the literal `/`,
+so no origin is compiled into the bundle at all and a rename or custom domain
+cannot leave a stale URL baked inside it.
+
+To run the two apart instead, set `SERVE_WEB=false`, host the bundle wherever
+you like with `VITE_API_BASE_URL` pointing at the API's origin, and set
+`WEB_ORIGIN` on the API to the site's origin. CORS is pinned to that exact
+value, so it must match character for character.
+
 Demo persistence needs nothing filled in — `DEMO_PERSISTENCE_ENABLED` (`true`)
 and `DEMO_RETENTION_DAYS` (`30`) ship as Blueprint defaults. It does require the
 Atlas replica set the Blueprint already expects: each demo write spans several
 collections that must agree, so against a standalone server the routes answer
 `503 DEMO_PERSISTENCE_UNAVAILABLE` and the browser simulates without storing.
-Nothing else breaks in that case. The demo needs only the static site and the
-API — the worker plays no part in it, so a deployment that wants the public demo
-and not the authenticated simulation queue can skip the paid worker entirely.
+Nothing else breaks in that case. The demo needs only the web service — the
+worker plays no part in it, so a deployment that wants the public demo and not
+the authenticated simulation queue can skip the paid worker entirely.
 
-Production startup rejects HTTP values for `BETTER_AUTH_URL` and `WEB_ORIGIN`.
+Production startup rejects HTTP values for `BETTER_AUTH_URL` and `WEB_ORIGIN`,
+and reports every missing or invalid setting at once with an example of a
+correct value, rather than failing on whichever it happened to read first.
 Use the local HTTP defaults in `server/.env.example` only for development or
 test environments.
 
@@ -331,15 +352,19 @@ The API uses a 300-request general budget per client per minute, with separate
 `TRUST_PROXY=true` so those budgets key on the original client IP; local
 development keeps proxy trust disabled.
 
-Render does not apply repo-level security headers, so configure these on the static site (or in your serving layer) before going live:
+When `SERVE_WEB` is on, the API sets the site's security headers itself through
+`@fastify/helmet`, so there is no separate serving layer to configure. The
+policy is helmet's default with one addition: a SHA-256 hash for the one script
+written into `index.html`, which applies the stored theme before first paint so
+a dark-mode reader never gets a white flash. The hash is computed at startup
+from the file being served, so editing that script cannot leave the policy
+behind refusing to run it — and `script-src` never needs `'unsafe-inline'`.
+Inline `style` attributes, which the app uses for runtime CSS custom
+properties, are already allowed by helmet's default `style-src`.
 
-```text
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-X-Content-Type-Options: nosniff
-Referrer-Policy: strict-origin-when-cross-origin
-```
-
-`style-src 'unsafe-inline'` is required — the app sets runtime CSS custom properties via inline `style` attributes. The `vercel.json` at the repo root is retained as the canonical definition of these headers (used if the project is ever hosted on Vercel); it is not read by a Render deployment.
+The `vercel.json` at the repo root defines the equivalent headers for a
+statically hosted bundle (`SERVE_WEB=false`); it is not read by a Render
+deployment.
 
 ### Known dependency advisory
 

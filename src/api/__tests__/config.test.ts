@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { resolveApiBaseUrl } from '../config'
+import { isApiConfigured, requireApiBaseUrl, resolveApiBaseUrl } from '../config'
 import { ApiError } from '../errors'
 
 describe('resolveApiBaseUrl', () => {
@@ -33,6 +33,47 @@ describe('resolveApiBaseUrl', () => {
 
   it('rejects a non-http protocol', () => {
     expect(() => resolveApiBaseUrl('ftp://api.example.com')).toThrow(/VITE_API_BASE_URL/)
+  })
+})
+
+/**
+ * One deployment serving both the site and the API.
+ *
+ * Vite inlines this variable at build time, so naming an origin there is a
+ * promise about a URL that a rename or a custom domain can quietly break. The
+ * literal "/" makes no such promise: requests go wherever the page came from.
+ */
+describe('a same-origin build', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('resolves to an empty prefix, which leaves request paths relative', () => {
+    expect(resolveApiBaseUrl('/')).toBe('')
+  })
+
+  it('is not mistaken for an unconfigured build', () => {
+    // The difference matters: unconfigured means the demo runs in memory and
+    // the account UI is hidden, which is not what a same-origin deploy wants.
+    vi.stubEnv('VITE_API_BASE_URL', '/')
+
+    expect(isApiConfigured()).toBe(true)
+    expect(requireApiBaseUrl()).toBe('')
+  })
+
+  it('is still distinct from unset', () => {
+    expect(resolveApiBaseUrl('')).toBeNull()
+    expect(resolveApiBaseUrl('/')).not.toBeNull()
+  })
+
+  it('tolerates surrounding whitespace', () => {
+    expect(resolveApiBaseUrl('  /  ')).toBe('')
+  })
+
+  it('does not treat a deeper path as same-origin', () => {
+    // "/volt" is not an origin and cannot be resolved as one; saying so beats
+    // silently building requests against a prefix nobody meant.
+    expect(() => resolveApiBaseUrl('/volt')).toThrow(/VITE_API_BASE_URL/)
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { envSchema, parseEnvironment } from './env.js'
+import { envSchema, parseEnvironment, withPlatformDefaults } from './env.js'
 
 const baseEnvironment = {
   NODE_ENV: 'development',
@@ -134,5 +134,88 @@ describe('when the environment is wrong', () => {
 
   it('returns the parsed environment when everything is right', () => {
     expect(parseEnvironment(baseEnvironment).MONGODB_DB_NAME).toBe('volt')
+  })
+})
+
+/**
+ * The two settings that are hardest to get right are the two the platform
+ * already knows: a service's own address is not something anybody should have to
+ * retype into a dashboard, and the deploy that fails because they did not is the
+ * most common way a first deploy fails.
+ */
+describe('taking the origin from the platform', () => {
+  const render = {
+    ...baseEnvironment,
+    NODE_ENV: 'production',
+    RENDER_EXTERNAL_URL: 'https://volt.onrender.com',
+    BETTER_AUTH_URL: undefined,
+    WEB_ORIGIN: undefined,
+  }
+
+  it('fills both origins in from the service address', () => {
+    const parsed = parseEnvironment(render)
+
+    expect(parsed.BETTER_AUTH_URL).toBe('https://volt.onrender.com')
+    expect(parsed.WEB_ORIGIN).toBe('https://volt.onrender.com')
+  })
+
+  it('never overrides a value somebody set', () => {
+    // A site on another origin is something only the deployment knows.
+    const parsed = parseEnvironment({ ...render, WEB_ORIGIN: 'https://volt.example' })
+
+    expect(parsed.WEB_ORIGIN).toBe('https://volt.example')
+    expect(parsed.BETTER_AUTH_URL).toBe('https://volt.onrender.com')
+  })
+
+  it('treats a blank value as unset', () => {
+    const parsed = parseEnvironment({ ...render, WEB_ORIGIN: '   ' })
+
+    expect(parsed.WEB_ORIGIN).toBe('https://volt.onrender.com')
+  })
+
+  it('drops a trailing slash, since the origin is compared exactly', () => {
+    // CORS and the CSRF check both compare origins as strings.
+    const parsed = parseEnvironment({ ...render, RENDER_EXTERNAL_URL: 'https://volt.onrender.com/' })
+
+    expect(parsed.WEB_ORIGIN).toBe('https://volt.onrender.com')
+  })
+
+  it('reports what it filled in', () => {
+    const filled = withPlatformDefaults(render)
+
+    expect(filled.defaulted).toEqual(['BETTER_AUTH_URL', 'WEB_ORIGIN'])
+    expect(filled.origin).toBe('https://volt.onrender.com')
+  })
+
+  it('changes nothing anywhere else', () => {
+    const filled = withPlatformDefaults({ ...baseEnvironment })
+
+    expect(filled.defaulted).toEqual([])
+    expect(filled.values).toEqual(baseEnvironment)
+  })
+
+  it('still fails when the platform offers nothing', () => {
+    expect(() => parseEnvironment({ NODE_ENV: 'production', MONGODB_DB_NAME: 'volt' })).toThrow(
+      /BETTER_AUTH_URL/,
+    )
+  })
+})
+
+describe('serving the site from the API process', () => {
+  it('stays off unless it is asked for', () => {
+    expect(parseEnvironment(baseEnvironment).SERVE_WEB).toBe(false)
+  })
+
+  it('turns on for SERVE_WEB=true', () => {
+    expect(parseEnvironment({ ...baseEnvironment, SERVE_WEB: 'true' }).SERVE_WEB).toBe(true)
+  })
+
+  it('is not fooled by casing or stray spaces', () => {
+    expect(parseEnvironment({ ...baseEnvironment, SERVE_WEB: ' TRUE ' }).SERVE_WEB).toBe(true)
+  })
+
+  it('refuses a value that is neither', () => {
+    // "yes" quietly meaning false is how a site fails to appear with no error.
+    expect(() => parseEnvironment({ ...baseEnvironment, SERVE_WEB: 'yes' })).toThrow(/SERVE_WEB/)
   })
 })
