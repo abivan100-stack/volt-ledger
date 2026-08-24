@@ -20,10 +20,12 @@ export const CAR_EMISSIONS_KG_PER_KM = 0.12
 
 /** kg CO2 avoided by trading `kwhTradedLocally` kWh locally instead of via the grid. */
 export function carbonAvoidedKg(kwhTradedLocally: number): number {
+  if (!Number.isFinite(kwhTradedLocally)) return 0
   return kwhTradedLocally * GRID_EMISSIONS_FACTOR_KG_PER_KWH
 }
 
 /** Km of petrol-car driving `kgCo2Avoided` kg of CO2 is roughly equivalent to. */
 export function carAvoidedKm(kgCo2Avoided: number): number {
+  if (!Number.isFinite(kgCo2Avoided)) return 0
   return kgCo2Avoided / CAR_EMISSIONS_KG_PER_KM
 }

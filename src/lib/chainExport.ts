@@ -3,7 +3,7 @@ import type { ChainBlock } from './hashChain'
 const CSV_HEADER = ['id', 'time', 'from', 'to', 'kwh', 'credit', 'hash', 'prevHash']
 
 function escapeCsvField(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
 }
 

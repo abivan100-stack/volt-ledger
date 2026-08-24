@@ -18,7 +18,9 @@ export interface ChainPdfMeta {
 type RgbTuple = [number, number, number]
 
 function hexToRgb(hex: string): RgbTuple {
-  const value = hex.replace('#', '')
+  const raw = hex.replace(/^#/, '')
+  const value = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw
+  if (value.length !== 6 || /[^0-9a-fA-F]/.test(value)) return [0, 0, 0]
   return [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)]
 }
 
@@ -36,6 +38,7 @@ const VOID_TINT: RgbTuple = [252, 235, 233]
 // The 14 standard PDF fonts only cover WinAnsiEncoding, which has no glyph
 // for "₹" — spell out "Rs" instead rather than embedding a custom font.
 function formatRupees(amount: number): string {
+  if (!Number.isFinite(amount)) return 'Rs —'
   const sign = amount < 0 ? '-' : ''
   return `${sign}Rs ${Math.abs(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
