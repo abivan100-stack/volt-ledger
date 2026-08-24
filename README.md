@@ -83,7 +83,7 @@ npm run dev            # http://localhost:5173
 npm run build          # type-check + production build
 npm run preview        # preview production build locally
 npm run lint           # lint with oxlint
-npm test               # run the client test suite once (663 tests)
+npm test               # run the client test suite once
 npm run test:watch     # test suite in watch mode
 npm run test:coverage  # test suite with coverage report
 ```
@@ -95,6 +95,15 @@ The backend uses the `server/.env` values for MongoDB, Better Auth, and Resend. 
 ```bash
 npm run dev:api       # REST API on API_HOST/API_PORT
 npm run dev:worker    # claims queued runs and persists completed outcomes
+```
+
+Run the server checks from the repository root as well:
+
+```bash
+npm run test:api       # server unit and API-contract tests
+npm run typecheck:api  # server TypeScript check without emitting files
+npm run openapi:check  # verify generated docs/openapi.json matches the runtime contract
+npm run test:integration # requires MONGODB_TEST_URI and MONGODB_TEST_DB_NAME
 ```
 
 The API queues a run with `POST /api/v1/organisations/:organisationId/simulations`, exposes status through the corresponding `GET` route, and serves completed interval and summary results from `/results`. Each organisation has a UTC daily run quota configured with `SIMULATION_DAILY_RUN_LIMIT` (default `100`); members can inspect usage through `/simulations/quota`, and exhausted queues receive `429` with `Retry-After`. The current owner can transfer ownership to an existing active member through `/ownership/transfer`; the change atomically demotes the previous owner to admin and is audited. The owner can archive an organisation with `DELETE /api/v1/organisations/:organisationId`; active access and working simulation data are soft-deleted in one transaction while ledger and audit history remain retained. Owners and admins can inspect the bounded organisation audit stream through `/audit-events`, optionally filtering by `action` and following its opaque `cursor`/`nextCursor` pagination. An owner or admin can accept one completed outcome through `/simulations/:runId/settlement`; the server then appends one immutable, hash-linked event per household. Members can inspect those events through `/ledger`, while owners/admins can append signed correction deltas through `/ledger/adjustments` without editing history. Settlement energy is the accepted outcome's synthetic `exportedKwh`, and retries are idempotent. A run that keeps failing is not retried forever: every claim, including a stale-lease reclaim, increments the run's attempt counter, and a run that exceeds `SIMULATION_MAX_ATTEMPTS` (default `5`) is failed with `SIMULATION_MAX_ATTEMPTS_EXCEEDED` before any work is attempted, which frees the queue behind it and makes the problem visible. The simulation worker also revokes expired pending invitations every 60 seconds by default while retaining their records. All run inputs are frozen and replayable from their seed, model version, and input digest; data remains synthetic and is not meter-backed.
@@ -226,6 +235,19 @@ It is generated, never hand-edited. Request schemas come from `server/src/http/s
 Each operation states its authentication, the roles permitted, and every error code that status can carry. Rules JSON Schema cannot express are written out on the operations they govern: settlement and adjustment idempotency, that a correction never modifies its target, how the opaque audit cursor behaves, and that a queued run is not a computed one. Simulation and ledger examples are included and are themselves parsed by the schemas they illustrate, so they cannot rot.
 
 Runtime validation stays in the handlers rather than moving to Fastify route schemas — see [ADR 0009](docs/adr/0009-generated-openapi-contract.md) for why that trade was made.
+
+## Backend branch workflow
+
+`main` is the default branch. `backend` is the single integration line for the current API and worker work; it contains the full history that previously lived on `codex/backend-foundation`, which has been retired.
+
+Start scoped backend work from the current remote integration branch rather than recreating the retired branch:
+
+```bash
+git fetch origin
+git switch -c codex/<topic> origin/backend
+```
+
+Before retiring any future branch, prove that it is an ancestor of the branch that will remain, check that no open pull request uses it, and preserve any uncommitted work before switching or deleting local branches. A contained branch needs no merge: a fast-forward preserves its complete history.
 
 ## Deployment
 
