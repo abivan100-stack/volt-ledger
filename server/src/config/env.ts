@@ -20,6 +20,11 @@ const trustProxy = z.preprocess(
   z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 )
 
+const demoPersistenceEnabled = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+  z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+)
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -39,6 +44,14 @@ export const envSchema = z
     SIMULATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
     WORKER_ID: z.string().min(1).default('volt-worker'),
     RETENTION_WINDOW_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
+
+    // The public demo writes without a session, so it needs a switch that does
+    // not depend on shipping new client code: setting this to false makes the
+    // ingest routes refuse politely and the browser fall back to running purely
+    // in memory, exactly as it does with no API configured at all.
+    DEMO_PERSISTENCE_ENABLED: demoPersistenceEnabled,
+    // Days a demo session's data survives before its TTL indexes remove it.
+    DEMO_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
     GOOGLE_CLIENT_ID: optionalString,
     GOOGLE_CLIENT_SECRET: optionalString,

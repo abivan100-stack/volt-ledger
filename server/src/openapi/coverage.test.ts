@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import { buildApp, type OrganisationRouteRepositories } from '../app.js'
 import type { AuthService } from '../auth/auth.js'
-import { DOCUMENTED_ROUTES } from './document.js'
+import { DOCUMENTED_ROUTES, PUBLIC_ROUTES } from './document.js'
 
 /**
  * Keeps the OpenAPI document and the running app in step, in both directions:
@@ -118,6 +118,38 @@ const VALID_BODIES: Record<string, object> = {
     role: 'operator',
   },
   'post /api/v1/invitations/accept': { token: 'token-abc' },
+  'post /api/v1/demo/sessions/:sessionId/trades': {
+    runId: '33333333-3333-4333-8333-333333333333',
+    dayType: 'sunny-weekday',
+    startHour: 8,
+    simSpeed: 4,
+    simDay: 1,
+    trades: [
+      {
+        blockId: 1,
+        clock: '14:20',
+        fromName: 'Pranav P',
+        toName: 'Abivan',
+        kwh: 1.05,
+        credit: 5.67,
+        rate: 5.4,
+        clientSeal: 'seal',
+        clientPreviousSeal: 'GENESIS',
+      },
+    ],
+  },
+  'post /api/v1/demo/sessions/:sessionId/days': {
+    runId: '33333333-3333-4333-8333-333333333333',
+    simDay: 1,
+    dayType: 'sunny-weekday',
+    totalKwh: 1.05,
+    totalCredit: 5.67,
+    tradeCount: 1,
+    closingRate: 5.4,
+    compromised: false,
+    invalidCount: 0,
+    households: [],
+  },
 }
 
 /** Concrete values so a documented path can actually be requested. */
@@ -127,6 +159,7 @@ function concretePath(path: string): string {
     .replace(':userId', 'user-1')
     .replace(':invitationId', 'invitation-1')
     .replace(':runId', 'run-1')
+    .replace(':sessionId', '22222222-2222-4222-8222-222222222222')
 }
 
 describe('parseRouteTree', () => {
@@ -206,11 +239,28 @@ describe('document coverage', () => {
     }
   })
 
+  it('publishes exactly the public routes we intend', () => {
+    // Pinned deliberately. Every entry here is a route anyone on the internet
+    // can reach, so the list growing must be a decision somebody made on
+    // purpose, not a side effect of a route being added with the wrong flag.
+    expect(PUBLIC_ROUTES.map((route) => `${route.method} ${route.path}`).sort()).toEqual([
+      'get /api/v1/demo/sessions/:sessionId/ledger',
+      'get /health',
+      'get /openapi.json',
+      'post /api/v1/demo/sessions/:sessionId/days',
+      'post /api/v1/demo/sessions/:sessionId/trades',
+    ])
+  })
+
   it('answers 401 rather than 404 on every authenticated documented route', async () => {
     const app = await startApp()
+    const isPublic = new Set(PUBLIC_ROUTES.map((route) => `${route.method} ${route.path}`))
 
     for (const route of DOCUMENTED_ROUTES) {
       if (!route.path.startsWith('/api/v1')) continue
+      // The demo routes are unauthenticated by design; they are covered by
+      // their own tests rather than this one.
+      if (isPublic.has(`${route.method} ${route.path}`)) continue
       const response = await app.inject({
         method: route.method.toUpperCase() as 'GET',
         url: concretePath(route.path),

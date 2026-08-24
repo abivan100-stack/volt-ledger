@@ -293,6 +293,252 @@
         ],
         "additionalProperties": false
       },
+      "RecordDemoTradesRequest": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "dayType": {
+            "type": "string",
+            "enum": [
+              "sunny-weekday",
+              "cloudy",
+              "weekend",
+              "heatwave"
+            ]
+          },
+          "startHour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23
+          },
+          "simSpeed": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "simDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "trades": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "blockId": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                },
+                "clock": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "fromName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "toName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "kwh": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "credit": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10000000
+                },
+                "rate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "clientSeal": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "clientPreviousSeal": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "blockId",
+                "clock",
+                "fromName",
+                "toName",
+                "kwh",
+                "credit",
+                "rate",
+                "clientSeal",
+                "clientPreviousSeal"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "dayType",
+          "startHour",
+          "simSpeed",
+          "simDay",
+          "trades"
+        ],
+        "additionalProperties": false
+      },
+      "RecordDemoDayRequest": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "simDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "dayType": {
+            "type": "string",
+            "enum": [
+              "sunny-weekday",
+              "cloudy",
+              "weekend",
+              "heatwave"
+            ]
+          },
+          "totalKwh": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "totalCredit": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "tradeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "closingRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "compromised": {
+            "type": "boolean"
+          },
+          "invalidCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "households": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "householdId": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "householdName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "generatedKwh": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "consumedKwh": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "exportedKwh": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "importedKwh": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "earnedInr": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "spentInr": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "tradeCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "balanceInr": {
+                  "type": "number",
+                  "minimum": -100000000,
+                  "maximum": 100000000
+                }
+              },
+              "required": [
+                "householdId",
+                "householdName",
+                "generatedKwh",
+                "consumedKwh",
+                "exportedKwh",
+                "importedKwh",
+                "earnedInr",
+                "spentInr",
+                "tradeCount",
+                "balanceInr"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "simDay",
+          "dayType",
+          "totalKwh",
+          "totalCredit",
+          "tradeCount",
+          "closingRate",
+          "compromised",
+          "invalidCount",
+          "households"
+        ],
+        "additionalProperties": false
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -1588,6 +1834,286 @@
         "required": [
           "events",
           "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "DemoIngestResponse": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Trades newly stored"
+          },
+          "duplicates": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Trades the store already held"
+          },
+          "rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Trades refused because storing them would leave a hole in the chain"
+          },
+          "sealMismatches": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Trades whose recomputed seal differed from the browser's"
+          }
+        },
+        "required": [
+          "recorded",
+          "duplicates",
+          "rejected",
+          "sealMismatches"
+        ],
+        "additionalProperties": false
+      },
+      "DemoDayResponse": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "boolean",
+            "description": "False when this simulated day was already closed"
+          },
+          "households": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Household rows newly stored"
+          },
+          "totalsMatchClient": {
+            "type": "boolean",
+            "description": "False when the reported totals differed from the stored trades"
+          }
+        },
+        "required": [
+          "recorded",
+          "households",
+          "totalsMatchClient"
+        ],
+        "additionalProperties": false
+      },
+      "DemoTrade": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "simDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "blockId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "clock": {
+            "type": "string",
+            "description": "Simulated 24-hour clock, HH:MM"
+          },
+          "fromName": {
+            "type": "string"
+          },
+          "toName": {
+            "type": "string"
+          },
+          "kwh": {
+            "type": "number"
+          },
+          "credit": {
+            "type": "number",
+            "description": "Illustrative rupee value; not a payment obligation"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "seal": {
+            "type": "string",
+            "description": "Recomputed by the server from the payload"
+          },
+          "previousSeal": {
+            "type": "string"
+          },
+          "sealMatchesClient": {
+            "type": "boolean"
+          },
+          "recordedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "runId",
+          "simDay",
+          "blockId",
+          "clock",
+          "fromName",
+          "toName",
+          "kwh",
+          "credit",
+          "rate",
+          "seal",
+          "previousSeal",
+          "sealMatchesClient",
+          "recordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DemoLedgerDay": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "simDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "dayType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "sunny-weekday",
+                  "cloudy",
+                  "weekend",
+                  "heatwave"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null while the day is still open"
+          },
+          "totalKwh": {
+            "type": "number"
+          },
+          "totalCredit": {
+            "type": "number"
+          },
+          "tradeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "closingRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compromised": {
+            "type": "boolean",
+            "description": "The visitor ran the tamper demo on this day"
+          },
+          "invalidCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "open": {
+            "type": "boolean",
+            "description": "The simulated day is still running and has no rollup"
+          },
+          "firstRecordedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          },
+          "lastRecordedAt": {
+            "type": "string",
+            "description": "ISO-8601 timestamp"
+          }
+        },
+        "required": [
+          "runId",
+          "simDay",
+          "dayType",
+          "totalKwh",
+          "totalCredit",
+          "tradeCount",
+          "closingRate",
+          "compromised",
+          "invalidCount",
+          "open",
+          "firstRecordedAt",
+          "lastRecordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DemoLedgerResponse": {
+        "type": "object",
+        "properties": {
+          "timeframe": {
+            "type": "string",
+            "enum": [
+              "today",
+              "7d",
+              "30d",
+              "all"
+            ]
+          },
+          "trades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DemoTrade"
+            },
+            "description": "Oldest first"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DemoLedgerDay"
+            },
+            "description": "Oldest first"
+          },
+          "totalKwh": {
+            "type": "number"
+          },
+          "totalCredit": {
+            "type": "number"
+          },
+          "tradeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Trades in the timeframe, before any limit"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "The timeframe held more trades than one export may read"
+          },
+          "sealMismatches": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "timeframe",
+          "trades",
+          "days",
+          "totalKwh",
+          "totalCredit",
+          "tradeCount",
+          "truncated",
+          "sealMismatches"
         ],
         "additionalProperties": false
       }
@@ -4108,6 +4634,257 @@
           },
           "404": {
             "description": "- `ORGANISATION_NOT_FOUND` — No such organisation, or it has been archived.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo/sessions/{sessionId}/trades": {
+      "post": {
+        "operationId": "recordDemoTrades",
+        "summary": "Record a batch of browser-demo trades",
+        "description": "Unauthenticated by design: the public demo has no session and no organisation. The seal stored for each trade is recomputed by the server from the payload; the seal the caller supplied is kept only for comparison and reported back as a mismatch count. The seal covers the clock, both names, the energy and the credit, matching the browser chain exactly; rate is not hashed but must be the rate that turns that energy into that credit, so it cannot be altered on its own. Trades are insert-only, so replaying a batch records nothing new, and a batch that would leave a gap in the chain, or arrive after the simulated day was closed, is refused rather than stored. Answers 503 when DEMO_PERSISTENCE_ENABLED is off.",
+        "tags": [
+          "Demo"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Demo session UUID, generated by the browser and kept in localStorage.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDemoTradesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The batch was processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoIngestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_DEMO_SESSION_ID` — The session identifier is not a UUID.\n- `INVALID_REQUEST` — The batch failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `DEMO_RUN_CONFLICT` — The run belongs to a different demo session.\n- `DEMO_DAY_CLOSED` — The simulated day has already been closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `DEMO_INGEST_FAILED` — The batch could not be recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `DEMO_PERSISTENCE_DISABLED` — Demo persistence is switched off.\n- `DEMO_PERSISTENCE_UNAVAILABLE` — The database cannot run the transaction these writes require; a replica set is needed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo/sessions/{sessionId}/days": {
+      "post": {
+        "operationId": "recordDemoDay",
+        "summary": "Close a simulated day in the browser demo",
+        "description": "Unauthenticated by design. The totals stored are summed by the server from the trades it already holds; the totals in the request are kept beside them and any disagreement is reported as totalsMatchClient false. A simulated day is closed once: repeating the call stores nothing further but never strands household rows. households must not name the same householdId twice — a rule JSON Schema cannot express, enforced at runtime and answered as 400 INVALID_REQUEST. Answers 503 when DEMO_PERSISTENCE_ENABLED is off.",
+        "tags": [
+          "Demo"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Demo session UUID, generated by the browser and kept in localStorage.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDemoDayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The day close was processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoDayResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_DEMO_SESSION_ID` — The session identifier is not a UUID.\n- `INVALID_REQUEST` — The day close failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `DEMO_RUN_CONFLICT` — The run belongs to a different demo session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `DEMO_DAY_CLOSE_FAILED` — The day could not be recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `DEMO_PERSISTENCE_DISABLED` — Demo persistence is switched off.\n- `DEMO_PERSISTENCE_UNAVAILABLE` — The database cannot run the transaction these writes require; a replica set is needed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo/sessions/{sessionId}/ledger": {
+      "get": {
+        "operationId": "readDemoLedger",
+        "summary": "Read one demo session ledger over a timeframe",
+        "description": "Unauthenticated by design, and scoped to the session identifier in the path — a caller sees only what that session stored. A day here means a simulated day, not a calendar one: the demo completes a day in about three real minutes, so wall-clock filtering would put a whole session inside today. Remains available when DEMO_PERSISTENCE_ENABLED is off, so an export can still read what was stored.",
+        "tags": [
+          "Demo"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "description": "Demo session UUID, generated by the browser and kept in localStorage.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "timeframe",
+            "in": "query",
+            "required": false,
+            "description": "Simulated days to cover, counted back from the most recent.",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "today",
+                "7d",
+                "30d",
+                "all"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ledger for the timeframe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoLedgerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `INVALID_DEMO_SESSION_ID` — The session identifier is not a UUID.\n- `INVALID_REQUEST` — The timeframe is not one of the published values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `DEMO_LEDGER_READ_FAILED` — The ledger could not be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `DEMO_PERSISTENCE_DISABLED` — Demo persistence is not configured.\n- `DEMO_PERSISTENCE_UNAVAILABLE` — The database cannot run the transaction these writes require; a replica set is needed.",
             "content": {
               "application/json": {
                 "schema": {

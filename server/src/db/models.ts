@@ -200,3 +200,145 @@ export interface WorkerHeartbeatDocument {
   processedCount: number
   lastErrorCode: string | null
 }
+
+// ----------------------------------------------------------- demo persistence
+
+/**
+ * Storage for the public browser demo — the live ticking neighbourhood on the
+ * landing page, not the authenticated Monte Carlo runs above.
+ *
+ * These documents are deliberately kept in their own collections rather than
+ * folded into `simulation_*` and `ledger_events`. Two reasons: the demo has no
+ * organisation and no signed-in actor, so it cannot satisfy the tenancy those
+ * collections are keyed by; and `ledger_events` is a tamper-evident settlement
+ * record whose value depends on every row having been written by an authorised
+ * member. Anonymous demo traffic belongs beside it, never inside it.
+ *
+ * Ownership is a `sessionId` the browser generates and keeps in `localStorage`,
+ * so a visitor sees their own history across reloads and nobody else's. Every
+ * document carries `expiresAt` for a TTL index; demo data is disposable by
+ * design and must not accumulate.
+ */
+
+/** Kept in step with `SIMULATION_DAY_TYPES` by `demoDayTypes.test.ts`. */
+export const demoDayTypes = ['sunny-weekday', 'cloudy', 'weekend', 'heatwave'] as const
+export type DemoDayType = (typeof demoDayTypes)[number]
+
+export interface DemoSessionDocument {
+  /** Client-generated UUID, held in the browser's `localStorage`. */
+  _id: string
+  createdAt: Date
+  lastSeenAt: Date
+  runCount: number
+  dayCount: number
+  tradeCount: number
+  expiresAt: Date
+}
+
+/** One scenario. A new run starts whenever the visitor resets the simulation. */
+export interface DemoRunDocument {
+  _id: string
+  sessionId: string
+  dayType: DemoDayType
+  startHour: number
+  simSpeed: number
+  startedAt: Date
+  lastSeenAt: Date
+  expiresAt: Date
+}
+
+/**
+ * One settled trade, written once and never updated.
+ *
+ * `serverSeal` is recomputed by the API from the payload; `clientSeal` is what
+ * the browser claimed. `sealMatchesClient` records whether they agreed, which is
+ * what makes the stored chain evidence rather than hearsay.
+ */
+export interface DemoTradeDocument {
+  _id: string
+  sessionId: string
+  runId: string
+  simDay: number
+  /** Position within (runId, simDay); the browser's chain restarts each day. */
+  blockId: number
+  clock: string
+  fromName: string
+  toName: string
+  kwh: number
+  credit: number
+  rate: number
+  clientSeal: string
+  clientPreviousSeal: string
+  serverSeal: string
+  serverPreviousSeal: string
+  sealMatchesClient: boolean
+  recordedAt: Date
+  expiresAt: Date
+}
+
+/**
+ * Per-sim-day rollup, written when the simulated day rolls over.
+ *
+ * Holds only what cannot be worked out from the trades themselves. A day's
+ * energy and credit totals are deliberately *not* among them: they are summed
+ * from `demo_trades` whenever the ledger is read, so there is no second copy
+ * that could disagree with the first. Storing derived figures would mean
+ * defending them against every ordering in which a late trade and a day close
+ * can interleave — a defence that has to be perfect to be worth anything.
+ *
+ * What is stored is either an immutable input (the day type, the closing rate)
+ * or a record of something observed once, at close, and never recomputed.
+ */
+export interface DemoDayDocument {
+  _id: string
+  sessionId: string
+  runId: string
+  simDay: number
+  dayType: DemoDayType
+  /**
+   * The figures the browser reported, and whether they matched the trades the
+   * server held at the moment the day was closed. A record of an observation,
+   * not a running total: it is never revised, and exports never read it as one.
+   */
+  clientTotalKwh: number
+  clientTotalCredit: number
+  clientTradeCount: number
+  totalsMatchedClientAtClose: boolean
+  /**
+   * Client-reported, and unverifiable by design. The community rate and the
+   * tamper flags describe what happened in the visitor's own copy of the chain
+   * after the trades were stored, so the server has no independent view of them.
+   * The stored trades remain intact either way.
+   */
+  closingRate: number
+  compromised: boolean
+  invalidCount: number
+  closedAt: Date
+  expiresAt: Date
+}
+
+/**
+ * Per-household daily energy totals.
+ *
+ * Only the accumulated figures are stored. Instantaneous per-tick output is a
+ * pure function of (dayType, hour, householdId) and can be recomputed exactly,
+ * so persisting it would be redundant volume for no recoverable information.
+ */
+export interface DemoHouseholdDayDocument {
+  _id: string
+  sessionId: string
+  runId: string
+  simDay: number
+  householdId: number
+  householdName: string
+  generatedKwh: number
+  consumedKwh: number
+  exportedKwh: number
+  importedKwh: number
+  earnedInr: number
+  spentInr: number
+  tradeCount: number
+  balanceInr: number
+  recordedAt: Date
+  expiresAt: Date
+}
