@@ -31,24 +31,32 @@ export const SIMULATION_OUTCOMES = ['p10', 'p50', 'p90', 'selected'] as const
 
 // ---------------------------------------------------------------- path params
 
-export const organisationIdSchema = z.object({
-  organisationId: z.string().uuid(),
-})
+export const organisationIdSchema = z
+  .object({
+    organisationId: z.string().uuid(),
+  })
+  .strict()
 
-export const membershipParamsSchema = z.object({
-  organisationId: z.string().uuid(),
-  userId: z.string().min(1).max(200),
-})
+export const membershipParamsSchema = z
+  .object({
+    organisationId: z.string().uuid(),
+    userId: z.string().min(1).max(200),
+  })
+  .strict()
 
-export const invitationParamsSchema = z.object({
-  organisationId: z.string().uuid(),
-  invitationId: z.string().min(1).max(200),
-})
+export const invitationParamsSchema = z
+  .object({
+    organisationId: z.string().uuid(),
+    invitationId: z.string().min(1).max(200),
+  })
+  .strict()
 
-export const simulationParamsSchema = z.object({
-  organisationId: z.string().uuid(),
-  runId: z.string().min(1).max(200),
-})
+export const simulationParamsSchema = z
+  .object({
+    organisationId: z.string().uuid(),
+    runId: z.string().min(1).max(200),
+  })
+  .strict()
 
 // ------------------------------------------------------------------- requests
 
@@ -118,20 +126,28 @@ export const acceptInvitationBodySchema = z.object({
 
 // -------------------------------------------------------------- query strings
 
-export const simulationListQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-})
+export const simulationListQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strict()
 
-export const simulationResultsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(10_000).default(1_000),
-})
+export const simulationResultsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(10_000).default(1_000),
+  })
+  .strict()
 
-export const ledgerQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(100),
-})
+export const ledgerQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+  })
+  .strict()
 
-export const auditEventQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(100),
-  action: z.string().trim().min(1).max(120).optional(),
-  cursor: z.string().trim().min(1).max(512).optional(),
-})
+export const auditEventQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+    action: z.string().trim().min(1).max(120).optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+  })
+  .strict()
