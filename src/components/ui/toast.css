@@ -1,0 +1,83 @@
+.volt-toast-viewport {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  max-height: 100vh;
+  width: 100%;
+  max-width: 420px;
+  flex-direction: column-reverse;
+  padding: 16px;
+  gap: 8px;
+  outline: none;
+}
+
+@media (min-width: 640px) {
+  .volt-toast-viewport {
+    bottom: 0;
+    right: 0;
+    top: auto;
+    flex-direction: column;
+  }
+}
+
+.volt-toast {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--color-rule-2, #beb49b);
+  padding: 14px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 200ms ease;
+  background-color: var(--color-card, #fcfaf3);
+  color: var(--color-ink, #17140f);
+}
+
+.volt-toast-default {
+  border-left: 4px solid var(--color-volt, #0d6625);
+}
+
+.volt-toast-volt {
+  border-left: 4px solid var(--color-volt, #0d6625);
+  background-color: var(--color-card, #fcfaf3);
+}
+
+.volt-toast-destructive {
+  border-left: 4px solid var(--color-void, #a31e17);
+  background-color: #fff6f6;
+}
+
+.volt-toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink, #17140f);
+}
+
+.volt-toast-description {
+  font-size: 12px;
+  color: var(--color-ink-soft, #6b6454);
+  line-height: 1.4;
+}
+
+.volt-toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border-radius: 4px;
+  padding: 4px;
+  color: var(--color-ink-soft, #6b6454);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.volt-toast-close:hover {
+  opacity: 1;
+}

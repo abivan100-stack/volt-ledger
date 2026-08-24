@@ -1,0 +1,16 @@
+.volt-progress {
+  position: relative;
+  height: 8px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background-color: var(--color-paper-2, #e9e2d2);
+}
+
+.volt-progress-indicator {
+  height: 100%;
+  width: 100%;
+  flex: 1;
+  background-color: var(--color-volt, #0d6625);
+  transition: transform 300ms ease-out;
+}
