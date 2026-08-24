@@ -1,10 +1,15 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from 'node:crypto'
 import { env } from '../config/env.js'
 
 const algorithm = 'aes-256-gcm'
 const ivLength = 12
 
 function encryptionKey(): Buffer {
+  // HKDF with distinct info for key separation from Better Auth HMAC usage
+  return Buffer.from(hkdfSync('sha256', Buffer.from(env.BETTER_AUTH_SECRET, 'utf8'), Buffer.alloc(0), 'volt:email:outbox', 32))
+}
+
+function legacyEncryptionKey(): Buffer {
   return createHash('sha256').update(env.BETTER_AUTH_SECRET).digest()
 }
 
@@ -22,14 +27,22 @@ export function decryptDeliveryUrl(payload: string): string {
   const [ivValue, tagValue, ciphertextValue] = payload.split('.')
   if (!ivValue || !tagValue || !ciphertextValue) throw new Error('EMAIL_DELIVERY_PAYLOAD_INVALID')
 
-  try {
-    const decipher = createDecipheriv(algorithm, encryptionKey(), Buffer.from(ivValue, 'base64url'))
+  const tryDecrypt = (key: Buffer): string => {
+    const decipher = createDecipheriv(algorithm, key, Buffer.from(ivValue, 'base64url'))
     decipher.setAuthTag(Buffer.from(tagValue, 'base64url'))
     return Buffer.concat([
       decipher.update(Buffer.from(ciphertextValue, 'base64url')),
       decipher.final(),
     ]).toString('utf8')
+  }
+
+  try {
+    return tryDecrypt(encryptionKey())
   } catch {
-    throw new Error('EMAIL_DELIVERY_PAYLOAD_INVALID')
+    try {
+      return tryDecrypt(legacyEncryptionKey())
+    } catch {
+      throw new Error('EMAIL_DELIVERY_PAYLOAD_INVALID')
+    }
   }
 }
