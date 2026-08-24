@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -16,7 +16,7 @@ import {
   TOTAL_TOUR_SECONDS,
 } from '../../store/useTourStore'
 import { useEnergyStore } from '../../store/useEnergyStore'
-import { scrollToId } from '../../utils/scrollToId'
+import { appendBlock } from '../../lib/hashChain'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
 import './JudgeTour.css'
@@ -40,11 +40,45 @@ export function JudgeTour() {
   const goToStep = useTourStore((s) => s.goToStep)
   const tickSecond = useTourStore((s) => s.tickSecond)
 
-  const runTamperTest = useEnergyStore((s) => s.runTamperTest)
-
   const currentStep = TOUR_STEPS[currentStepIndex] || TOUR_STEPS[0]
   const elapsedTotal = TOTAL_TOUR_SECONDS - totalRemainingSec
   const totalProgressPercent = (elapsedTotal / TOTAL_TOUR_SECONDS) * 100
+
+  // Trigger tamper demonstration with block guarantee
+  const handleTamperDemo = useCallback(() => {
+    if (location.pathname !== '/ledger/settlement') {
+      navigate('/ledger/settlement')
+    }
+
+    const storeState = useEnergyStore.getState()
+    if (storeState.chain.length === 0) {
+      const b1 = appendBlock([], 1, {
+        t: '13:00',
+        from: 'Prem Ramesh',
+        to: 'Ananya Iyer',
+        kwh: 1.45,
+        credit: 7.25,
+      })
+      const b2 = appendBlock([b1], 2, {
+        t: '13:15',
+        from: 'Nikil Sundaram',
+        to: 'Vikram Mehta',
+        kwh: 0.95,
+        credit: 4.75,
+      })
+      useEnergyStore.setState({ chain: [b1, b2] })
+    }
+
+    useEnergyStore.getState().runTamperTest()
+
+    // Scroll to the ledger
+    setTimeout(() => {
+      const target = document.getElementById('chain-ledger')
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+  }, [location.pathname, navigate])
 
   // 1-second interval timer when active
   useEffect(() => {
@@ -55,16 +89,30 @@ export function JudgeTour() {
     return () => clearInterval(timer)
   }, [isActive, tickSecond])
 
-  // Navigate and scroll to target section when step changes
+  // Auto-navigate and scroll smoothly to target DOM element on step change
   useEffect(() => {
     if (!isActive) return
+
+    // 1. Change route if necessary
     if (location.pathname !== currentStep.route) {
       navigate(currentStep.route)
     }
-    const timeout = setTimeout(() => {
-      scrollToId(currentStep.sectionId)
-    }, 150)
-    return () => clearTimeout(timeout)
+
+    // 2. Poll for DOM element mounting across lazy loaded routes
+    let attempts = 0
+    const maxAttempts = 25
+    const interval = setInterval(() => {
+      attempts++
+      const target = document.getElementById(currentStep.sectionId)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        clearInterval(interval)
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval)
+      }
+    }, 80)
+
+    return () => clearInterval(interval)
   }, [isActive, currentStepIndex, currentStep, location.pathname, navigate])
 
   if (!isActive) return null
@@ -137,8 +185,8 @@ export function JudgeTour() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={runTamperTest}
-                className="gap-1 text-xs py-0 h-6"
+                onClick={handleTamperDemo}
+                className="gap-1 text-xs py-0 h-6 font-mono"
               >
                 <ShieldAlert size={12} />
                 {currentStep.actionLabel}

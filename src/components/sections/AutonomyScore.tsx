@@ -13,7 +13,7 @@ function AutonomyScore() {
   const displayPct = useAnimatedNumber(targetPct, TWEEN_DURATION_SECONDS)
 
   return (
-    <div data-reveal className="autonomy-score">
+    <div id="autonomy-score" data-reveal className="autonomy-score">
       <div className="eyebrow autonomy-score-label">Neighbourhood Autonomy</div>
       <div className="mono autonomy-score-value">
         {displayPct.toFixed(0)}

@@ -12,7 +12,7 @@ function Hero() {
   useScrollReveal(sectionRef, 0.12)
 
   return (
-    <section ref={sectionRef} className="hero">
+    <section id="hero" ref={sectionRef} className="hero">
       <div className="container hero-row">
         <div className="hero-copy" data-reveal>
           <div className="hero-kicker">

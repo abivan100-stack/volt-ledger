@@ -34,7 +34,7 @@ function ProofInspector() {
   const format = (hash: string) => (showFull ? hash : shortHash(hash))
 
   return (
-    <div className="proof-inspector">
+    <div id="proof-inspector" className="proof-inspector">
       <div className="proof-inspector-header">
         <h2 className="serif proof-inspector-title">
           Proof inspector <span className="proof-inspector-title-sub">· live hash recomputation</span>

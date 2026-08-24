@@ -12,7 +12,7 @@ function AccountPage() {
   return (
     <>
       <Header />
-      <main className="account-page" id="main">
+      <main className="account-page" id="account-page">
         <div className="container account-page-inner">
           <div className="account-page-card">
             <p className="mono account-page-kicker">VOLT / ACCOUNT</p>
