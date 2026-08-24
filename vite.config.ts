@@ -16,7 +16,7 @@ export default defineConfig({
     setupFiles: ['src/test/setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/lib/**'],
+      include: ['src/lib/**', 'src/hooks/**', 'src/utils/**', 'src/api/**', 'src/store/**'],
       reporter: ['text', 'html'],
       thresholds: {
         statements: 90,

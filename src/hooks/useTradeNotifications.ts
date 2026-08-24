@@ -42,6 +42,11 @@ export function useTradeNotifications() {
   const restoredFlash = useEnergyStore((s) => s.restoredFlash)
 
   const dismiss = useCallback((id: string) => {
+    const t = timeoutsRef.current.get(id)
+    if (t) {
+      clearTimeout(t)
+      timeoutsRef.current.delete(id)
+    }
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }, [])
 
@@ -59,14 +64,25 @@ export function useTradeNotifications() {
     })
   }, [])
 
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
   const addNotification = useCallback((item: Omit<TradeNotification, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const notif: TradeNotification = { ...item, id }
     setNotifications((prev) => [notif, ...prev].slice(0, MAX_ACTIVE_NOTIFICATIONS))
 
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       setNotifications((current) => current.filter((n) => n.id !== id))
+      timeoutsRef.current.delete(id)
     }, AUTO_DISMISS_MS)
+    timeoutsRef.current.set(id, timeout)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      for (const t of timeoutsRef.current.values()) clearTimeout(t)
+      timeoutsRef.current.clear()
+    }
   }, [])
 
   // Listen to new trades appended to chain

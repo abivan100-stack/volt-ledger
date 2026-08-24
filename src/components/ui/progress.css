@@ -13,4 +13,5 @@
   flex: 1;
   background-color: var(--color-volt, #0d6625);
   transition: transform 300ms ease-out;
+  transform: translateX(calc(-100% + var(--volt-progress, 0) * 1%));
 }

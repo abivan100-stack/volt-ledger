@@ -14,7 +14,7 @@ export const Progress = forwardRef<
   >
     <ProgressPrimitive.Indicator
       className="volt-progress-indicator"
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+      style={{ '--volt-progress': String(value ?? 0) } as React.CSSProperties}
     />
   </ProgressPrimitive.Root>
 ))

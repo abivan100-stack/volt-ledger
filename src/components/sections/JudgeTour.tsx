@@ -122,6 +122,7 @@ export function JudgeTour() {
       <motion.aside
         role="dialog"
         aria-label="60-Second Judge Tour"
+        aria-modal="true"
         initial={{ opacity: 0, y: 20, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 15, scale: 0.97 }}

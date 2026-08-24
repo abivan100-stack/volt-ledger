@@ -346,6 +346,7 @@ export function startNeighbourhoodMap(
 
   let rafHandle: number | undefined
   let intervalHandle: ReturnType<typeof setInterval> | undefined
+  let warmTimeout: ReturnType<typeof setTimeout> | undefined
   let visibilityHandler: (() => void) | undefined
   let isPaused = false
   let dead = false
@@ -383,7 +384,7 @@ export function startNeighbourhoodMap(
     let warmTries = 0
     const warm = () => {
       if (dead || isPaused || paintOnce()) return
-      if (warmTries++ < 240) setTimeout(warm, 60)
+      if (warmTries++ < 240) warmTimeout = setTimeout(warm, 60)
     }
     warm()
     const loop = (t: number) => {
@@ -411,12 +412,33 @@ export function startNeighbourhoodMap(
     setPaused: (paused: boolean) => {
       if (paused === isPaused || dead) return
       isPaused = paused
-      if (!paused && !options.reducedMotion && !document.hidden) startLoop?.()
+      if (paused) {
+        if (intervalHandle !== undefined) {
+          clearInterval(intervalHandle)
+          intervalHandle = undefined
+        }
+        if (warmTimeout !== undefined) {
+          clearTimeout(warmTimeout)
+          warmTimeout = undefined
+        }
+      } else {
+        if (options.reducedMotion) {
+          const once = () => {
+            if (isPaused) return
+            if (refresh()) draw(performance.now())
+          }
+          once()
+          intervalHandle = setInterval(once, 1400)
+        } else if (!document.hidden) {
+          startLoop?.()
+        }
+      }
     },
     stop: () => {
       dead = true
       if (rafHandle !== undefined) cancelAnimationFrame(rafHandle)
       if (intervalHandle !== undefined) clearInterval(intervalHandle)
+      if (warmTimeout !== undefined) clearTimeout(warmTimeout)
       if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
       themeMedia?.removeEventListener?.('change', themeChangeHandler)
       themeObserver.disconnect()
