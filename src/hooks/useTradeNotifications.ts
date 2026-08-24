@@ -41,6 +41,8 @@ export function useTradeNotifications() {
   const invalidCount = useEnergyStore((s) => s.invalidCount)
   const restoredFlash = useEnergyStore((s) => s.restoredFlash)
 
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
   const dismiss = useCallback((id: string) => {
     const t = timeoutsRef.current.get(id)
     if (t) {
@@ -64,8 +66,6 @@ export function useTradeNotifications() {
     })
   }, [])
 
-  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-
   const addNotification = useCallback((item: Omit<TradeNotification, 'id'>) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const notif: TradeNotification = { ...item, id }
@@ -79,9 +79,10 @@ export function useTradeNotifications() {
   }, [])
 
   useEffect(() => {
+    const map = timeoutsRef.current
     return () => {
-      for (const t of timeoutsRef.current.values()) clearTimeout(t)
-      timeoutsRef.current.clear()
+      for (const t of map.values()) clearTimeout(t)
+      map.clear()
     }
   }, [])
 
