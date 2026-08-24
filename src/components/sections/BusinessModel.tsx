@@ -55,7 +55,7 @@ function BusinessModel() {
                 <span className="serif business-model-metric-value">−₹2.5</span>
                 <span className="mono business-model-metric-sub">₹5.5 vs ₹8 retail / kWh</span>
               </div>
-              <div className="business-model-metric business-model-metric-accent">
+              <div className="business-model-metric">
                 <span className="mono business-model-metric-label">Volt margin</span>
                 <span className="serif business-model-metric-value">6–8%</span>
                 <span className="mono business-model-metric-sub">capped / month · street keeps ~92%</span>
