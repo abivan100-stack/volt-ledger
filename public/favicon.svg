@@ -1,22 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">Volt</title>
-  <desc id="desc">A connected energy network with a central lightning bolt.</desc>
-  <rect width="64" height="64" rx="16" fill="#17140F"/>
-
-  <circle cx="32" cy="32" r="22" fill="#245C43"/>
-  <circle cx="32" cy="32" r="19" fill="none" stroke="#F2EEE4" stroke-width="1.5" opacity=".42"/>
-
-  <g fill="none" stroke="#F2EEE4" stroke-linecap="round" stroke-width="1.5" opacity=".78">
-    <path d="M32 13v10M49 23l-9 6M49 41l-10-5M32 51V41M15 41l10-5M15 23l9 6"/>
-  </g>
-  <g fill="#F2EEE4">
-    <circle cx="32" cy="13" r="2.6"/>
-    <circle cx="49" cy="23" r="2.6"/>
-    <circle cx="49" cy="41" r="2.6"/>
-    <circle cx="32" cy="51" r="2.6"/>
-    <circle cx="15" cy="41" r="2.6"/>
-    <circle cx="15" cy="23" r="2.6"/>
-  </g>
-
-  <path d="M35.2 14.2 21.6 35.1h10.1l-2.4 14.7 13.3-22.2H32.4Z" fill="#B26A12" stroke="#F2EEE4" stroke-linejoin="round" stroke-width="1.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="16" fill="#14161A"/>
+  <!-- Subtle circular halo -->
+  <circle cx="32" cy="32" r="23" fill="#FACC15" fill-opacity="0.12"/>
+  
+  <!-- Outer glow/shadow facet -->
+  <path d="M36 10L18 34H32L28 54L46 30H32L36 10Z" fill="#EAB308" stroke="#FDE047" stroke-width="1.2" stroke-linejoin="round"/>
+  
+  <!-- Bright electric yellow lightning bolt core -->
+  <path d="M35 12L20 33H33L29 51L44 31H31L35 12Z" fill="#FACC15"/>
 </svg>
