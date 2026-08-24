@@ -126,15 +126,21 @@ export function buildDossier(
     genPoints.push([minute, household.pv * solarCurve(hour, dayType) * CHART_GEN_FACTOR])
     conPoints.push([minute, consumption])
   }
-  const scale = Math.max(household.pv, peakConsumption, 1.2) * 1.12
-  const yFor = (value: number) => CHART_Y_BASE - Math.min(1, Math.max(0, value / scale)) * (CHART_Y_BASE - CHART_PAD_TOP)
+  const safePv = Number.isFinite(household.pv) ? household.pv : 0
+  const safePeak = Number.isFinite(peakConsumption) ? peakConsumption : 0
+  const scale = Math.max(safePv, safePeak, 1.2) * 1.12
+  const yFor = (value: number) => {
+    if (!Number.isFinite(value) || !Number.isFinite(scale) || scale === 0) return CHART_Y_BASE
+    return CHART_Y_BASE - Math.min(1, Math.max(0, value / scale)) * (CHART_Y_BASE - CHART_PAD_TOP)
+  }
 
   const genLine = genPoints.map(([m, v]) => `${xFor(m).toFixed(1)},${yFor(v).toFixed(1)}`).join(' ')
   const conLine = conPoints.map(([m, v]) => `${xFor(m).toFixed(1)},${yFor(v).toFixed(1)}`).join(' ')
   let areaPath = `M${xFor(CHART_MIN_MINUTE).toFixed(1)},${CHART_Y_BASE}`
   for (const [m, v] of genPoints) areaPath += ` L${xFor(m).toFixed(1)},${yFor(v).toFixed(1)}`
   areaPath += ` L${xFor(CHART_MAX_MINUTE).toFixed(1)},${CHART_Y_BASE} Z`
-  const nowX = xFor(Math.max(CHART_MIN_MINUTE, Math.min(CHART_MAX_MINUTE, simMinute))).toFixed(1)
+  const clampedMinute = Number.isFinite(simMinute) ? Math.max(CHART_MIN_MINUTE, Math.min(CHART_MAX_MINUTE, simMinute)) : CHART_MIN_MINUTE
+  const nowX = xFor(clampedMinute).toFixed(1)
 
   const activities: DossierActivity[] = chain
     .filter((block) => block.payload.from === household.name || block.payload.to === household.name)
