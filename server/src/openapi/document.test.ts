@@ -139,13 +139,24 @@ describe('authentication and roles', () => {
     }
   })
 
-  it('leaves only the two descriptive routes public', () => {
+  it('leaves public only the descriptive routes and the browser demo', () => {
     const publicPaths = operations()
       .filter(([, , operation]) => (operation.security as unknown[]).length === 0)
       .map(([path]) => path)
       .sort()
-    // Both describe the service rather than exposing any organisation's data.
-    expect(publicPaths).toEqual(['/health', '/openapi.json'])
+    // /health and /openapi.json describe the service rather than exposing any
+    // organisation's data. The demo routes carry data, but only the public
+    // simulation's own: they are scoped to a session identifier the caller
+    // supplies, write to collections no authenticated route reads, and cannot
+    // reach an organisation, a membership, or the settlement ledger. Nothing
+    // else may join this list without the same being true of it.
+    expect(publicPaths).toEqual([
+      '/api/v1/demo/sessions/{sessionId}/days',
+      '/api/v1/demo/sessions/{sessionId}/ledger',
+      '/api/v1/demo/sessions/{sessionId}/trades',
+      '/health',
+      '/openapi.json',
+    ])
   })
 
   it('documents a 401 on every authenticated route', () => {

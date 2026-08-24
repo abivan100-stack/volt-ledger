@@ -5,6 +5,7 @@ import { chainToCsv } from '../../lib/chainExport'
 import { DAY_TYPE_LABELS } from '../../lib/simulation'
 import { downloadTextFile, downloadBlob } from '../../utils/downloadFile'
 import ChainLedgerRow from './ChainLedgerRow'
+import LedgerExport from './LedgerExport'
 import './ChainLedger.css'
 
 function ChainLedger() {
@@ -85,7 +86,10 @@ function ChainLedger() {
           The chain <span className="chain-title-sub">· sha-256 sealed</span>
         </h2>
         <div className="mono chain-tamper-hint">INTEGRITY TEST — RUN THE DEMO, OR EDIT ANY kWh</div>
-        <div className="chain-export-actions">
+        <div className="mono chain-export-scope" id="chain-export-scope">
+          THIS DAY
+        </div>
+        <div className="chain-export-actions" role="group" aria-labelledby="chain-export-scope">
           {isCurrent && (
             <button
               type="button"
@@ -130,6 +134,8 @@ function ChainLedger() {
             DAY {String(simDay).padStart(2, '0')} LIVE
           </button>
         </div>
+
+        <LedgerExport />
       </div>
 
       {pdfError && <div className="mono chain-export-error" role="alert">{pdfError}</div>}

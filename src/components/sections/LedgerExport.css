@@ -1,0 +1,84 @@
+.ledger-export {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-2);
+}
+
+.ledger-export-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+
+.ledger-export-timeframes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ledger-export-timeframe {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ledger-export-timeframe:hover {
+  border-color: var(--ink-soft);
+}
+
+.ledger-export-timeframe[aria-pressed='true'] {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+  background: var(--paper-2);
+}
+
+.ledger-export-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ledger-export-button {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s, border-color 0.15s;
+}
+
+.ledger-export-button:hover {
+  border-color: var(--ink-soft);
+}
+
+.ledger-export-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ledger-export-button:active {
+  transform: translateY(1px);
+}
+
+.ledger-export-message {
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.ledger-export-message-error {
+  color: var(--void);
+}

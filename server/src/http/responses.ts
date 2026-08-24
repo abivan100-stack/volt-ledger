@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import {
+  demoDayTypes,
   invitationStatuses,
   ledgerEventTypes,
   membershipRoles,
   simulationOutcomes,
   simulationStatuses,
 } from '../db/models.js'
+import { DEMO_TIMEFRAMES } from '../demo/limits.js'
 import { ASSIGNABLE_ROLES } from './schemas.js'
 
 /**
@@ -346,4 +348,86 @@ export const auditEventPageResponseSchema = z.object({
     .string()
     .nullable()
     .describe('Opaque position marker; null on the last page'),
+}).strict()
+
+// ---------------------------------------------------------------- public demo
+
+/**
+ * What an ingest call reports back.
+ *
+ * The counts are the point: a browser that flushed ten trades and is told nine
+ * were recorded and one rejected has learned that its chain and the stored one
+ * have diverged, which is exactly the condition the demo exists to make visible.
+ */
+export const demoIngestResponseSchema = z.object({
+  recorded: z.number().int().min(0).describe('Trades newly stored'),
+  duplicates: z.number().int().min(0).describe('Trades the store already held'),
+  rejected: z
+    .number()
+    .int()
+    .min(0)
+    .describe('Trades refused because storing them would leave a hole in the chain'),
+  sealMismatches: z
+    .number()
+    .int()
+    .min(0)
+    .describe("Trades whose recomputed seal differed from the browser's"),
+}).strict()
+
+export const demoDayResponseSchema = z.object({
+  recorded: z.boolean().describe('False when this simulated day was already closed'),
+  households: z.number().int().min(0).describe('Household rows newly stored'),
+  totalsMatchClient: z
+    .boolean()
+    .describe('False when the reported totals differed from the stored trades'),
+}).strict()
+
+/** One stored trade. The seals are the server's own, not the ones posted. */
+export const demoTradeSchema = z.object({
+  id: z.string(),
+  runId: z.string(),
+  simDay: z.number().int().min(1),
+  blockId: z.number().int().min(1),
+  clock: z.string().describe('Simulated 24-hour clock, HH:MM'),
+  fromName: z.string(),
+  toName: z.string(),
+  kwh: z.number(),
+  credit: z.number().describe('Illustrative rupee value; not a payment obligation'),
+  rate: z.number(),
+  seal: z.string().describe('Recomputed by the server from the payload'),
+  previousSeal: z.string(),
+  sealMatchesClient: z.boolean(),
+  recordedAt: isoDateTime,
+}).strict()
+
+export const demoLedgerDaySchema = z.object({
+  runId: z.string(),
+  simDay: z.number().int().min(1),
+  dayType: z.enum(demoDayTypes).nullable().describe('Null while the day is still open'),
+  totalKwh: z.number(),
+  totalCredit: z.number(),
+  tradeCount: z.number().int().min(0),
+  closingRate: z.number().nullable(),
+  compromised: z.boolean().describe('The visitor ran the tamper demo on this day'),
+  invalidCount: z.number().int().min(0),
+  open: z.boolean().describe('The simulated day is still running and has no rollup'),
+  firstRecordedAt: isoDateTime,
+  lastRecordedAt: isoDateTime,
+}).strict()
+
+export const demoLedgerResponseSchema = z.object({
+  timeframe: z.enum(DEMO_TIMEFRAMES),
+  trades: z.array(demoTradeSchema).describe('Oldest first'),
+  days: z.array(demoLedgerDaySchema).describe('Oldest first'),
+  totalKwh: z.number(),
+  totalCredit: z.number(),
+  tradeCount: z.number().int().min(0).describe('Trades in the timeframe, before any limit'),
+  truncated: z.boolean().describe('The timeframe held more trades than one export may read'),
+  sealMismatches: z.number().int().min(0),
+}).strict()
+
+/** Returned when DEMO_PERSISTENCE_ENABLED is off. */
+export const demoDisabledResponseSchema = z.object({
+  error: z.string(),
+  code: z.literal('DEMO_PERSISTENCE_DISABLED'),
 }).strict()

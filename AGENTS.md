@@ -12,20 +12,20 @@
 ## Project Structure
 - `src/api/` — Typed REST client for the Volt API (fetch, cookies, ApiError); the only layer that talks to the backend
 - `src/lib/` — Pure logic (no React, no DOM, no store imports)
-- `src/store/` — Zustand stores (`useEnergyStore` simulation, `useSessionStore` authentication, `useOrganisationStore` organisation selection, `useMembershipStore` members of the selected organisation)
+- `src/store/` — Zustand stores (`useEnergyStore` simulation, `useSessionStore` authentication, `useOrganisationStore` organisation selection, `useMembershipStore` members of the selected organisation), plus `demoSync.ts`, which streams the running demo into the ledger store
 - `src/components/account/` — Account/session components with co-located CSS
 - `src/components/sections/` — Page-section components with co-located CSS
 - `src/components/ui/` — Reusable UI primitives (ErrorBoundary, etc.)
 - `src/pages/` — VoltPage.tsx (landing), LedgerPage.tsx (live ledger), AccountPage.tsx (sign in/up), InvitationAcceptPage.tsx (`/invite/accept`)
 - `src/theme/` — Design tokens + global stylesheet
-- `src/utils/` — Framework-free helpers (animateProgress, etc.)
+- `src/utils/` — Framework-free helpers (animateProgress, demoIdentity, etc.)
 
 ## Commands
 - `npm run dev` — Start dev server
 - `npm run build` — Type-check + production build
 - `npm run lint` — oxlint
 - `npm test` — Vitest (tests co-located under `src/lib/__tests__/`, `src/api/__tests__/`, `src/store/__tests__/`, `src/hooks/__tests__/`)
-- `npm run test:integration` — integration suite against a real MongoDB replica set; needs `MONGODB_TEST_URI` and `MONGODB_TEST_DB_NAME` and fails without them
+- `npm run test:integration` — integration suite against a real MongoDB replica set; needs `MONGODB_TEST_URI` and `MONGODB_TEST_DB_NAME` and fails without them. The demo ledger's guarantees (unique indexes refusing a replay, a transaction aborting a raced flush, aggregations summing what was really stored) are behaviour of the database and are covered here, not by collection doubles
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:coverage` — Vitest with coverage
 
@@ -40,7 +40,11 @@
 - Simulation is deterministic: every value is a pure function of (dayType, hour, householdId), and stochastic variation flows only through `seededUnit` (an FNV-1a hash folded into [0,1)) — never `Math.random()` or `performance.now()`
 - `lib/permissions.ts` decides what the UI offers; it never replaces the API's own role checks, so keep the two in step
 - Zustand selectors must not build a new object/array (`state.runs.filter(...)`) — the changed identity re-renders forever; select the value and derive in the body
-- hashChain.ts is load-bearing — do not modify unless explicitly planned
+- hashChain.ts is load-bearing — do not modify unless explicitly planned. `server/src/demo/seal.ts` is a deliberate port of it; `seal.test.ts` pins the two together, so changing either without the other fails
+- Demo persistence is additive and must stay that way: with no `VITE_API_BASE_URL` the simulation runs exactly as it did before it existed. Nothing in `store/demoSync.ts` may throw, and no store test may need a network fake
+- The demo's timeframes count **simulated** days, not calendar days — a simulated day completes in about three real minutes, so wall-clock filtering would put a whole visit inside "today"
+- The demo ledger derives what it can: day totals are summed from `demo_trades` on every read and never stored, so no stored figure can drift from the trades beneath it
+- `/api/v1/demo/*` are the only unauthenticated routes that carry data. `openapi/coverage.test.ts` pins the public set — adding to it must be deliberate
 
 ## State Shape
 - `useEnergyStore` holds all simulation state: households, chain, dayType, simMinute, metrics

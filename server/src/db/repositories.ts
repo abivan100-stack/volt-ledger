@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { ClientSession, Db, Filter, MongoClient } from 'mongodb'
 import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
+import { createDemoRepository, type DemoRepository } from './demoRepository.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
 import { isRoleManagementAllowed } from '../memberships/permissions.js'
 import {
@@ -342,6 +343,19 @@ export interface AccountRepository {
   close(userId: string): Promise<CloseAccountResult>
 }
 
+export type { DemoRepository } from './demoRepository.js'
+export {
+  DemoDayClosedError,
+  DemoRunOwnershipError,
+  DemoTransactionsUnavailableError,
+} from './demoRepository.js'
+export type {
+  DemoLedgerDay,
+  DemoLedgerSnapshot,
+  RecordDemoDayInput,
+  RecordDemoTradesInput,
+} from './demoRepository.js'
+
 export interface VoltRepositories {
   organisations: OrganisationRepository
   memberships: MembershipRepository
@@ -353,6 +367,7 @@ export interface VoltRepositories {
   workers: WorkerRepository
   accounts: AccountRepository
   retention: RetentionRepository
+  demo: DemoRepository
 }
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
@@ -2161,5 +2176,6 @@ export function createVoltRepositories(db: Db, client: MongoClient = getMongoCli
     workers: createWorkerRepository(collections),
     accounts: createAccountRepository(collections, db, client),
     retention: createRetentionRepository(collections),
+    demo: createDemoRepository(collections, client),
   }
 }

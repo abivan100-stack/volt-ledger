@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   auditEventQuerySchema,
+  demoLedgerQuerySchema,
   ledgerQuerySchema,
   simulationListQuerySchema,
   simulationResultsQuerySchema,
@@ -805,6 +806,97 @@ const ROUTES: RouteDoc[] = [
       ORGANISATION_NOT_FOUND,
     ],
   },
+  {
+    method: 'post',
+    path: '/api/v1/demo/sessions/:sessionId/trades',
+    operationId: 'recordDemoTrades',
+    summary: 'Record a batch of browser-demo trades',
+    description:
+      'Unauthenticated by design: the public demo has no session and no organisation. ' +
+      'The seal stored for each trade is recomputed by the server from the payload; the ' +
+      'seal the caller supplied is kept only for comparison and reported back as a ' +
+      'mismatch count. The seal covers the clock, both names, the energy and the credit, ' +
+      'matching the browser chain exactly; rate is not hashed but must be the rate that ' +
+      'turns that energy into that credit, so it cannot be altered on its own. ' +
+      'Trades are insert-only, so replaying a batch records nothing new, ' +
+      'and a batch that would leave a gap in the chain, or arrive after the simulated ' +
+      'day was closed, is refused rather than stored. ' +
+      'Answers 503 when DEMO_PERSISTENCE_ENABLED is off.',
+    tags: ['Demo'],
+    authenticated: false,
+    requestBody: { schema: 'RecordDemoTradesRequest', required: true },
+    success: [
+      { status: 201, description: 'The batch was processed.', schema: 'DemoIngestResponse' },
+    ],
+    errors: [
+      { status: 400, code: 'INVALID_DEMO_SESSION_ID', description: 'The session identifier is not a UUID.' },
+      { status: 400, code: 'INVALID_REQUEST', description: 'The batch failed validation.' },
+      { status: 409, code: 'DEMO_RUN_CONFLICT', description: 'The run belongs to a different demo session.' },
+      { status: 409, code: 'DEMO_DAY_CLOSED', description: 'The simulated day has already been closed.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_DISABLED', description: 'Demo persistence is switched off.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_UNAVAILABLE', description: 'The database cannot run the transaction these writes require; a replica set is needed.' },
+      { status: 500, code: 'DEMO_INGEST_FAILED', description: 'The batch could not be recorded.' },
+    ],
+  },
+  {
+    method: 'post',
+    path: '/api/v1/demo/sessions/:sessionId/days',
+    operationId: 'recordDemoDay',
+    summary: 'Close a simulated day in the browser demo',
+    description:
+      'Unauthenticated by design. The totals stored are summed by the server from the ' +
+      'trades it already holds; the totals in the request are kept beside them and any ' +
+      'disagreement is reported as totalsMatchClient false. A simulated day is closed ' +
+      'once: repeating the call stores nothing further but never strands household rows. ' +
+      'households must not name the same householdId twice — a rule JSON Schema cannot ' +
+      'express, enforced at runtime and answered as 400 INVALID_REQUEST. ' +
+      'Answers 503 when DEMO_PERSISTENCE_ENABLED is off.',
+    tags: ['Demo'],
+    authenticated: false,
+    requestBody: { schema: 'RecordDemoDayRequest', required: true },
+    success: [
+      { status: 201, description: 'The day close was processed.', schema: 'DemoDayResponse' },
+    ],
+    errors: [
+      { status: 400, code: 'INVALID_DEMO_SESSION_ID', description: 'The session identifier is not a UUID.' },
+      { status: 400, code: 'INVALID_REQUEST', description: 'The day close failed validation.' },
+      { status: 409, code: 'DEMO_RUN_CONFLICT', description: 'The run belongs to a different demo session.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_DISABLED', description: 'Demo persistence is switched off.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_UNAVAILABLE', description: 'The database cannot run the transaction these writes require; a replica set is needed.' },
+      { status: 500, code: 'DEMO_DAY_CLOSE_FAILED', description: 'The day could not be recorded.' },
+    ],
+  },
+  {
+    method: 'get',
+    path: '/api/v1/demo/sessions/:sessionId/ledger',
+    operationId: 'readDemoLedger',
+    summary: 'Read one demo session ledger over a timeframe',
+    description:
+      'Unauthenticated by design, and scoped to the session identifier in the path — a ' +
+      'caller sees only what that session stored. A day here means a simulated day, not ' +
+      'a calendar one: the demo completes a day in about three real minutes, so ' +
+      'wall-clock filtering would put a whole session inside today. Remains available ' +
+      'when DEMO_PERSISTENCE_ENABLED is off, so an export can still read what was stored.',
+    tags: ['Demo'],
+    authenticated: false,
+    query: [
+      {
+        from: demoLedgerQuerySchema,
+        name: 'timeframe',
+        description: 'Simulated days to cover, counted back from the most recent.',
+      },
+    ],
+    success: [
+      { status: 200, description: 'The ledger for the timeframe.', schema: 'DemoLedgerResponse' },
+    ],
+    errors: [
+      { status: 400, code: 'INVALID_DEMO_SESSION_ID', description: 'The session identifier is not a UUID.' },
+      { status: 400, code: 'INVALID_REQUEST', description: 'The timeframe is not one of the published values.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_DISABLED', description: 'Demo persistence is not configured.' },
+      { status: 503, code: 'DEMO_PERSISTENCE_UNAVAILABLE', description: 'The database cannot run the transaction these writes require; a replica set is needed.' },
+      { status: 500, code: 'DEMO_LEDGER_READ_FAILED', description: 'The ledger could not be read.' },
+    ],
+  },
 ]
 
 /** `/organisations/:organisationId` -> `/organisations/{organisationId}` */
@@ -821,6 +913,10 @@ const PATH_PARAMETER_DESCRIPTIONS: Record<string, { description: string; schema:
   userId: { description: 'The member\'s user identifier.', schema: { type: 'string', minLength: 1, maxLength: 200 } },
   invitationId: { description: 'Invitation identifier.', schema: { type: 'string', minLength: 1, maxLength: 200 } },
   runId: { description: 'Simulation run identifier.', schema: { type: 'string', minLength: 1, maxLength: 200 } },
+  sessionId: {
+    description: 'Demo session UUID, generated by the browser and kept in localStorage.',
+    schema: { type: 'string', format: 'uuid' },
+  },
 }
 
 /** Pulls one property's JSON Schema out of a query object schema. */
@@ -990,3 +1086,15 @@ export function buildOpenApiDocument(options: BuildDocumentOptions = {}): JsonSc
 export const DOCUMENTED_ROUTES: ReadonlyArray<{ method: HttpMethod; path: string }> = ROUTES.map(
   (route) => ({ method: route.method, path: route.path }),
 )
+
+/**
+ * Routes that answer without a session cookie.
+ *
+ * Derived from the same table the contract is generated from, so a route cannot
+ * be public in the app and authenticated in the document. `coverage.test.ts`
+ * exempts these from its "everything answers 401" rule and separately pins the
+ * list, so widening it is a visible change rather than a quiet one.
+ */
+export const PUBLIC_ROUTES: ReadonlyArray<{ method: HttpMethod; path: string }> = ROUTES.filter(
+  (route) => !route.authenticated,
+).map((route) => ({ method: route.method, path: route.path }))

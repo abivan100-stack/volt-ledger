@@ -21,6 +21,8 @@ export const REQUEST_SCHEMAS = {
   UpdateMembershipRoleRequest: requests.updateMembershipRoleSchema,
   CreateInvitationRequest: requests.createInvitationBodySchema,
   AcceptInvitationRequest: requests.acceptInvitationBodySchema,
+  RecordDemoTradesRequest: requests.recordDemoTradesSchema,
+  RecordDemoDayRequest: requests.recordDemoDaySchema,
 } as const
 
 export const RESPONSE_SCHEMAS = {
@@ -63,6 +65,11 @@ export const RESPONSE_SCHEMAS = {
   AdjustmentResponse: responses.adjustmentResponseSchema,
   AuditEvent: responses.auditEventSchema,
   AuditEventPageResponse: responses.auditEventPageResponseSchema,
+  DemoIngestResponse: responses.demoIngestResponseSchema,
+  DemoDayResponse: responses.demoDayResponseSchema,
+  DemoTrade: responses.demoTradeSchema,
+  DemoLedgerDay: responses.demoLedgerDaySchema,
+  DemoLedgerResponse: responses.demoLedgerResponseSchema,
 } as const
 
 export type RequestSchemaName = keyof typeof REQUEST_SCHEMAS

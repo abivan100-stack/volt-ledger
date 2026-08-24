@@ -11,6 +11,14 @@ import {
 import { appendBlock, type ChainBlock } from '../lib/hashChain'
 import { dailyGridDependence } from '../lib/gridDependence'
 import { clearRestoredFlashTimer } from './ledgerSlice'
+import {
+  beginDemoRun,
+  closeDemoDay,
+  pauseDemoSync,
+  recordDemoTrade,
+  resumeDemoSync,
+} from './demoSync'
+import { newDemoRunId } from '../utils/demoIdentity'
 import type { EnergyStoreState, Household, SimSlice } from './types'
 
 const TICK_INTERVAL_MS = 1000
@@ -158,6 +166,58 @@ function initialScenario(dayType: DayType, startHour: number) {
   }
 }
 
+/**
+ * Queues one sealed block for the ledger store.
+ *
+ * The rate is derived from the block rather than read from the store. It is the
+ * price this trade actually settled at, which is not always the community rate
+ * at the moment it is queued: the scenario's opening chain is priced per seeded
+ * trade, so passing the live rate would describe those blocks wrongly. Deriving
+ * it also keeps the arithmetic the server checks — credit is rate applied to
+ * energy — true by construction.
+ */
+function queueBlock(block: ChainBlock, simDay: number): void {
+  recordDemoTrade({
+    simDay,
+    blockId: block.id,
+    clock: block.payload.t,
+    fromName: block.payload.from,
+    toName: block.payload.to,
+    kwh: block.payload.kwh,
+    credit: block.payload.credit,
+    rate: block.payload.credit / block.payload.kwh,
+    clientSeal: block.hash,
+    clientPreviousSeal: block.prevHash,
+  })
+}
+
+/**
+ * Opens a run in the ledger store and hands it the scenario's opening chain.
+ *
+ * The seeded blocks are not optional extras. The store refuses a batch that does
+ * not continue the chain it already holds, so a run whose first stored block was
+ * the first *live* trade would have every later one refused for starting past
+ * block one. The opening chain is the beginning of this day's ledger and is
+ * recorded as such.
+ *
+ * Inert with no API configured, which is what keeps the browser-only build — and
+ * every store test — behaving exactly as it did before any of this existed.
+ */
+function openDemoRun(
+  scenario: { chain: ChainBlock[]; simDay?: number },
+  dayType: DayType,
+  config: { startHour: number; simSpeed: number },
+): void {
+  beginDemoRun({
+    runId: newDemoRunId(),
+    dayType,
+    startHour: config.startHour,
+    simSpeed: config.simSpeed,
+  })
+  const simDay = scenario.simDay ?? 1
+  for (const block of scenario.chain) queueBlock(block, simDay)
+}
+
 let tickHandle: ReturnType<typeof setInterval> | undefined
 let tradeHandle: ReturnType<typeof setInterval> | undefined
 
@@ -219,17 +279,18 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       editingBlockId: null,
       editValue: '',
     })
+    openDemoRun(scenario, state.dayType, state.config)
     if (wasRunning) get().start()
   },
 
   start: () => {
     const state = get()
     if (!state.initialized) {
-      set({
-        ...initialScenario(state.dayType, state.config.startHour),
-        initialized: true,
-      })
+      const scenario = initialScenario(state.dayType, state.config.startHour)
+      set({ ...scenario, initialized: true })
+      openDemoRun(scenario, state.dayType, state.config)
     }
+    resumeDemoSync()
     if (!get().running) {
       tickHandle = setInterval(() => get().tick(), TICK_INTERVAL_MS)
       tradeHandle = setInterval(() => get().tryTrade(), TRADE_INTERVAL_MS)
@@ -241,6 +302,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     if (tickHandle !== undefined) clearInterval(tickHandle)
     if (tradeHandle !== undefined) clearInterval(tradeHandle)
     clearRestoredFlashTimer()
+    pauseDemoSync()
     tickHandle = undefined
     tradeHandle = undefined
     set({ running: false })
@@ -267,6 +329,10 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       return { ...h, out, draw, net, gen: h.gen + out * dtHours, con: h.con + draw * dtHours }
     })
 
+    // Captured before the rollover resets them: these are the closing day's
+    // accumulated figures, and the next statement is where they are cleared.
+    const closingHouseholds = households
+
     const tickCount = state.tickCount + 1
     const rate = nextCommunityRate(state.rate, supply, demand, tickCount)
     const prevRate = state.rateHistory[state.rateHistory.length - PREV_RATE_OFFSET] ?? state.rate
@@ -276,6 +342,29 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     let totalCreditToday = state.totalCreditToday
 
     if (rolled) {
+      void closeDemoDay({
+        simDay: state.simDay,
+        dayType: state.dayType,
+        totalKwh: state.totalKwhToday,
+        totalCredit: state.totalCreditToday,
+        tradeCount: state.chain.length,
+        closingRate: state.rate,
+        compromised: state.compromised,
+        invalidCount: state.invalidCount,
+        households: closingHouseholds.map((h) => ({
+          householdId: h.id,
+          householdName: h.name,
+          generatedKwh: h.gen,
+          consumedKwh: h.con,
+          exportedKwh: h.exp,
+          importedKwh: h.imp,
+          earnedInr: h.earned,
+          spentInr: h.spent,
+          tradeCount: h.trades,
+          balanceInr: h.balance,
+        })),
+      })
+
       households = households.map((h) => ({
         ...h,
         ...integrateGenerationAndConsumption(h.pv, h.base, h.id, dayType, simMinute),
@@ -355,6 +444,8 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       kwh,
       credit,
     })
+
+    queueBlock(block, state.simDay)
 
     set({
       households,

@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -15,6 +15,9 @@ import {
   createVoltRepositories,
   createLedgerSeal,
   createInvitationToken,
+  DemoDayClosedError,
+  DemoRunOwnershipError,
+  DemoTransactionsUnavailableError,
   type AuditRepository,
   type InvitationRepository,
   type LedgerRepository,
@@ -27,6 +30,8 @@ import {
   type AccountRepository,
   type AuditEventCursor,
   type AuditEventPageOptions,
+  type DemoRepository,
+  type DemoLedgerDay,
 } from './db/repositories.js'
 import type {
   AuditEventDocument,
@@ -36,6 +41,7 @@ import type {
   MembershipRole,
   OrganisationDocument,
   OrganisationInvitationDocument,
+  DemoTradeDocument,
   LedgerEventDocument,
   SimulationIntervalDocument,
   SimulationRunDocument,
@@ -57,7 +63,11 @@ import {
   createInvitationBodySchema,
   createOrganisationSchema,
   createSimulationSchema,
+  demoLedgerQuerySchema,
+  demoSessionParamsSchema,
   invitationParamsSchema,
+  recordDemoDaySchema,
+  recordDemoTradesSchema,
   ledgerQuerySchema,
   membershipParamsSchema,
   organisationIdSchema,
@@ -102,6 +112,14 @@ export interface OrganisationRouteRepositories {
   audit: Pick<AuditRepository, 'listForOrganisation' | 'listPageForOrganisation'>
   workers: Pick<WorkerRepository, 'findMostRecentHeartbeat'>
   accounts: Pick<AccountRepository, 'close'>
+  /**
+   * Backs the public demo routes. Optional because those routes are not
+   * organisation-scoped and most callers of `buildApp` — every route test in
+   * this directory — have no interest in them. `createVoltRepositories` always
+   * provides it, so a real deployment always has it; an app built without one
+   * simply answers the demo routes the same way switching persistence off does.
+   */
+  demo?: Pick<DemoRepository, 'recordTrades' | 'recordDay' | 'readLedger'>
 }
 
 export interface AppOptions {
@@ -253,6 +271,43 @@ function serializeSimulationSummary(summary: SimulationSummaryDocument) {
     exportedKwh: summary.exportedKwh,
     estimatedCreditInr: summary.estimatedCreditInr,
     createdAt: summary.createdAt.toISOString(),
+  }
+}
+
+function serializeDemoTrade(trade: DemoTradeDocument) {
+  return {
+    id: trade._id,
+    runId: trade.runId,
+    simDay: trade.simDay,
+    blockId: trade.blockId,
+    clock: trade.clock,
+    fromName: trade.fromName,
+    toName: trade.toName,
+    kwh: trade.kwh,
+    credit: trade.credit,
+    rate: trade.rate,
+    // The server's own seal, never the one the browser posted.
+    seal: trade.serverSeal,
+    previousSeal: trade.serverPreviousSeal,
+    sealMatchesClient: trade.sealMatchesClient,
+    recordedAt: trade.recordedAt.toISOString(),
+  }
+}
+
+function serializeDemoLedgerDay(day: DemoLedgerDay) {
+  return {
+    runId: day.runId,
+    simDay: day.simDay,
+    dayType: day.dayType,
+    totalKwh: day.totalKwh,
+    totalCredit: day.totalCredit,
+    tradeCount: day.tradeCount,
+    closingRate: day.closingRate,
+    compromised: day.compromised,
+    invalidCount: day.invalidCount,
+    open: day.open,
+    firstRecordedAt: day.firstRecordedAt.toISOString(),
+    lastRecordedAt: day.lastRecordedAt.toISOString(),
   }
 }
 
@@ -471,6 +526,182 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       }
     },
   })
+
+  // ------------------------------------------------------------- public demo
+  //
+  // The only unauthenticated writes in the API. The browser demo has no session
+  // and no organisation, so these routes are reachable by anyone. What bounds
+  // them is that they can only ever write demo rows, under a session id the
+  // caller supplies, into collections nothing authenticated reads. Their request
+  // schemas are their whole validation, and openapi/coverage.test.ts names them
+  // explicitly so that being public stays a decision rather than an oversight.
+
+  /** Refuses every demo write when the operator has switched persistence off. */
+  const demoDisabled = (reply: FastifyReply) =>
+    reply.code(503).send({
+      error: 'Demo persistence is disabled',
+      code: 'DEMO_PERSISTENCE_DISABLED',
+    })
+
+  /**
+   * Refuses when the database cannot run the transaction these writes need.
+   *
+   * A 503 rather than a 500: nothing is wrong with the request, and the same
+   * request would succeed against a replica set. The browser treats it exactly
+   * as it treats persistence being switched off and carries on in memory.
+   */
+  const demoNeedsTransactions = (reply: FastifyReply) =>
+    reply.code(503).send({
+      error: 'Demo persistence requires a MongoDB replica set',
+      code: 'DEMO_PERSISTENCE_UNAVAILABLE',
+    })
+
+  app.post(
+    '/api/v1/demo/sessions/:sessionId/trades',
+    // A tab flushes roughly every five seconds; this leaves generous headroom
+    // for several tabs while still bounding what one address can write.
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const demo = repositories().demo
+      if (!env.DEMO_PERSISTENCE_ENABLED || !demo) return demoDisabled(reply)
+
+      const parsedParams = demoSessionParamsSchema.safeParse(request.params)
+      if (!parsedParams.success) {
+        return reply
+          .code(400)
+          .send({ error: 'Invalid demo session identifier', code: 'INVALID_DEMO_SESSION_ID' })
+      }
+      const parsedBody = recordDemoTradesSchema.safeParse(request.body)
+      if (!parsedBody.success) {
+        return reply.code(400).send({
+          error: 'Invalid demo trade batch',
+          code: 'INVALID_REQUEST',
+          issues: parsedBody.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        })
+      }
+
+      try {
+        const result = await demo.recordTrades({
+          sessionId: parsedParams.data.sessionId,
+          ...parsedBody.data,
+        })
+        return reply.code(201).send(result)
+      } catch (error) {
+        if (error instanceof DemoTransactionsUnavailableError) return demoNeedsTransactions(reply)
+        if (error instanceof DemoRunOwnershipError) {
+          return reply.code(409).send({
+            error: 'That run belongs to a different demo session',
+            code: 'DEMO_RUN_CONFLICT',
+          })
+        }
+        if (error instanceof DemoDayClosedError) {
+          return reply.code(409).send({
+            error: 'That simulated day has already been closed',
+            code: 'DEMO_DAY_CLOSED',
+          })
+        }
+        app.log.error({ err: error }, 'Demo trade ingest failed')
+        return reply
+          .code(500)
+          .send({ error: 'Demo trades could not be recorded', code: 'DEMO_INGEST_FAILED' })
+      }
+    },
+  )
+
+  app.post(
+    '/api/v1/demo/sessions/:sessionId/days',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const demo = repositories().demo
+      if (!env.DEMO_PERSISTENCE_ENABLED || !demo) return demoDisabled(reply)
+
+      const parsedParams = demoSessionParamsSchema.safeParse(request.params)
+      if (!parsedParams.success) {
+        return reply
+          .code(400)
+          .send({ error: 'Invalid demo session identifier', code: 'INVALID_DEMO_SESSION_ID' })
+      }
+      const parsedBody = recordDemoDaySchema.safeParse(request.body)
+      if (!parsedBody.success) {
+        return reply.code(400).send({
+          error: 'Invalid demo day close',
+          code: 'INVALID_REQUEST',
+          issues: parsedBody.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        })
+      }
+
+      try {
+        const result = await demo.recordDay({
+          sessionId: parsedParams.data.sessionId,
+          ...parsedBody.data,
+        })
+        return reply.code(201).send(result)
+      } catch (error) {
+        if (error instanceof DemoTransactionsUnavailableError) return demoNeedsTransactions(reply)
+        if (error instanceof DemoRunOwnershipError) {
+          return reply.code(409).send({
+            error: 'That run belongs to a different demo session',
+            code: 'DEMO_RUN_CONFLICT',
+          })
+        }
+        app.log.error({ err: error }, 'Demo day close failed')
+        return reply
+          .code(500)
+          .send({ error: 'Demo day could not be recorded', code: 'DEMO_DAY_CLOSE_FAILED' })
+      }
+    },
+  )
+
+  app.get(
+    '/api/v1/demo/sessions/:sessionId/ledger',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsedParams = demoSessionParamsSchema.safeParse(request.params)
+      if (!parsedParams.success) {
+        return reply
+          .code(400)
+          .send({ error: 'Invalid demo session identifier', code: 'INVALID_DEMO_SESSION_ID' })
+      }
+      const parsedQuery = demoLedgerQuerySchema.safeParse(request.query)
+      if (!parsedQuery.success) {
+        return reply
+          .code(400)
+          .send({ error: 'Invalid demo ledger options', code: 'INVALID_REQUEST' })
+      }
+
+      const demo = repositories().demo
+      if (!demo) return demoDisabled(reply)
+
+      try {
+        const snapshot = await demo.readLedger(
+          parsedParams.data.sessionId,
+          parsedQuery.data.timeframe,
+        )
+        return {
+          timeframe: snapshot.timeframe,
+          trades: snapshot.trades.map(serializeDemoTrade),
+          days: snapshot.days.map(serializeDemoLedgerDay),
+          totalKwh: snapshot.totalKwh,
+          totalCredit: snapshot.totalCredit,
+          tradeCount: snapshot.tradeCount,
+          truncated: snapshot.truncated,
+          sealMismatches: snapshot.sealMismatches,
+        }
+      } catch (error) {
+        if (error instanceof DemoTransactionsUnavailableError) return demoNeedsTransactions(reply)
+        app.log.error({ err: error }, 'Demo ledger read failed')
+        return reply
+          .code(500)
+          .send({ error: 'Demo ledger could not be read', code: 'DEMO_LEDGER_READ_FAILED' })
+      }
+    },
+  )
 
   app.get('/api/v1/me', async (request, reply) => {
     const access = await getAuthenticatedSession(fromNodeHeaders(request.headers), auth())

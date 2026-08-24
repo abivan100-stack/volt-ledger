@@ -2,6 +2,11 @@ import type { Collection, Db, IndexDescription } from 'mongodb'
 import type {
   AuditEventDocument,
   CounterDocument,
+  DemoDayDocument,
+  DemoHouseholdDayDocument,
+  DemoRunDocument,
+  DemoSessionDocument,
+  DemoTradeDocument,
   EmailDeliveryDocument,
   LedgerEventDocument,
   MembershipDocument,
@@ -27,6 +32,11 @@ export const collectionNames = {
   auditEvents: 'audit_events',
   workerHeartbeats: 'worker_heartbeats',
   emailDeliveries: 'email_deliveries',
+  demoSessions: 'demo_sessions',
+  demoRuns: 'demo_runs',
+  demoTrades: 'demo_trades',
+  demoDays: 'demo_days',
+  demoHouseholdDays: 'demo_household_days',
 } as const
 
 export interface VoltCollections {
@@ -42,6 +52,11 @@ export interface VoltCollections {
   auditEvents: Collection<AuditEventDocument>
   workerHeartbeats: Collection<WorkerHeartbeatDocument>
   emailDeliveries: Collection<EmailDeliveryDocument>
+  demoSessions: Collection<DemoSessionDocument>
+  demoRuns: Collection<DemoRunDocument>
+  demoTrades: Collection<DemoTradeDocument>
+  demoDays: Collection<DemoDayDocument>
+  demoHouseholdDays: Collection<DemoHouseholdDayDocument>
 }
 
 interface CollectionSpec {
@@ -254,6 +269,81 @@ const collectionSpecs: CollectionSpec[] = [
       },
     ],
   },
+  // The demo collections below hold anonymous public-demo traffic. Every one of
+  // them carries a TTL on \`expiresAt\` (\`expireAfterSeconds: 0\` deletes a document
+  // once that instant passes) because demo data is disposable by design and this
+  // database is shared — it must not grow without bound.
+  {
+    key: 'demoSessions',
+    name: collectionNames.demoSessions,
+    indexes: [
+      { key: { expiresAt: 1 }, name: 'demo_sessions_ttl', expireAfterSeconds: 0 },
+    ],
+  },
+  {
+    key: 'demoRuns',
+    name: collectionNames.demoRuns,
+    indexes: [
+      {
+        key: { sessionId: 1, startedAt: -1 },
+        name: 'demo_runs_session_started_at',
+      },
+      { key: { expiresAt: 1 }, name: 'demo_runs_ttl', expireAfterSeconds: 0 },
+    ],
+  },
+  {
+    key: 'demoTrades',
+    name: collectionNames.demoTrades,
+    indexes: [
+      {
+        // Trades are insert-only and a flush may be retried, so the same block
+        // can arrive twice. Uniqueness is what makes the retry a no-op instead
+        // of a duplicate row.
+        key: { runId: 1, simDay: 1, blockId: 1 },
+        name: 'demo_trades_run_day_block_unique',
+        unique: true,
+      },
+      {
+        // Serves the export query, which walks a session's trades newest-first
+        // to decide which simulated days fall inside the chosen timeframe.
+        key: { sessionId: 1, recordedAt: -1 },
+        name: 'demo_trades_session_recorded_at',
+      },
+      { key: { expiresAt: 1 }, name: 'demo_trades_ttl', expireAfterSeconds: 0 },
+    ],
+  },
+  {
+    key: 'demoDays',
+    name: collectionNames.demoDays,
+    indexes: [
+      {
+        key: { runId: 1, simDay: 1 },
+        name: 'demo_days_run_day_unique',
+        unique: true,
+      },
+      {
+        key: { sessionId: 1, closedAt: -1 },
+        name: 'demo_days_session_closed_at',
+      },
+      { key: { expiresAt: 1 }, name: 'demo_days_ttl', expireAfterSeconds: 0 },
+    ],
+  },
+  {
+    key: 'demoHouseholdDays',
+    name: collectionNames.demoHouseholdDays,
+    indexes: [
+      {
+        key: { runId: 1, simDay: 1, householdId: 1 },
+        name: 'demo_household_days_run_day_household_unique',
+        unique: true,
+      },
+      {
+        key: { sessionId: 1, recordedAt: -1 },
+        name: 'demo_household_days_session_recorded_at',
+      },
+      { key: { expiresAt: 1 }, name: 'demo_household_days_ttl', expireAfterSeconds: 0 },
+    ],
+  },
 ]
 
 export function getVoltCollections(db: Db): VoltCollections {
@@ -270,6 +360,11 @@ export function getVoltCollections(db: Db): VoltCollections {
     auditEvents: db.collection<AuditEventDocument>(collectionNames.auditEvents),
     workerHeartbeats: db.collection<WorkerHeartbeatDocument>(collectionNames.workerHeartbeats),
     emailDeliveries: db.collection<EmailDeliveryDocument>(collectionNames.emailDeliveries),
+    demoSessions: db.collection<DemoSessionDocument>(collectionNames.demoSessions),
+    demoRuns: db.collection<DemoRunDocument>(collectionNames.demoRuns),
+    demoTrades: db.collection<DemoTradeDocument>(collectionNames.demoTrades),
+    demoDays: db.collection<DemoDayDocument>(collectionNames.demoDays),
+    demoHouseholdDays: db.collection<DemoHouseholdDayDocument>(collectionNames.demoHouseholdDays),
   }
 }
 
