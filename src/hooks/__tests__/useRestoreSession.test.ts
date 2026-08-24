@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRestoreSession } from '../useRestoreSession'
 import { useSessionStore } from '../../store/useSessionStore'
 import type { Session } from '../../api/session'
@@ -21,6 +21,10 @@ const SESSION: Session = {
 }
 
 const pristine = useSessionStore.getState()
+
+afterEach(() => {
+  cleanup()
+})
 
 beforeEach(() => {
   useSessionStore.setState(pristine, true)

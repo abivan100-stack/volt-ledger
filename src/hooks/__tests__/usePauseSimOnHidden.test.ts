@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { usePauseSimOnHidden } from '../usePauseSimOnHidden'
 import { useEnergyStore } from '../../store/useEnergyStore'
@@ -12,6 +12,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useEnergyStore.getState().stop()
 })
 
