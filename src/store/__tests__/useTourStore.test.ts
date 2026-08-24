@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useTourStore, TOTAL_TOUR_SECONDS } from '../useTourStore'
+import { useTourStore, TOTAL_TOUR_SECONDS, TOUR_STEPS } from '../useTourStore'
 
 describe('useTourStore', () => {
   beforeEach(() => {
@@ -22,6 +22,21 @@ describe('useTourStore', () => {
     expect(useTourStore.getState().isActive).toBe(false)
   })
 
+  it('pauses and resumes tour countdown', () => {
+    useTourStore.getState().startTour()
+    expect(useTourStore.getState().isPaused).toBe(false)
+
+    useTourStore.getState().pauseTour()
+    expect(useTourStore.getState().isPaused).toBe(true)
+
+    const remBefore = useTourStore.getState().totalRemainingSec
+    useTourStore.getState().tickSecond()
+    expect(useTourStore.getState().totalRemainingSec).toBe(remBefore)
+
+    useTourStore.getState().resumeTour()
+    expect(useTourStore.getState().isPaused).toBe(false)
+  })
+
   it('navigates through steps with nextStep and prevStep', () => {
     useTourStore.getState().startTour()
     useTourStore.getState().nextStep()
@@ -29,6 +44,19 @@ describe('useTourStore', () => {
 
     useTourStore.getState().prevStep()
     expect(useTourStore.getState().currentStepIndex).toBe(0)
+
+    // Cannot go below 0
+    useTourStore.getState().prevStep()
+    expect(useTourStore.getState().currentStepIndex).toBe(0)
+  })
+
+  it('stops tour when nextStep is called on the last step', () => {
+    useTourStore.getState().startTour()
+    useTourStore.getState().goToStep(TOUR_STEPS.length - 1)
+    expect(useTourStore.getState().currentStepIndex).toBe(TOUR_STEPS.length - 1)
+
+    useTourStore.getState().nextStep()
+    expect(useTourStore.getState().isActive).toBe(false)
   })
 
   it('jumps directly to a specific step with goToStep', () => {
