@@ -8,6 +8,7 @@ import VoltPage from './pages/VoltPage'
 import NotFoundPage from './pages/NotFoundPage'
 import AppLoading from './components/ui/AppLoading'
 import { TradeNotificationFeed } from './components/sections/TradeNotificationFeed'
+import { JudgeTour } from './components/sections/JudgeTour'
 import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
@@ -71,6 +72,7 @@ function App() {
         </Routes>
       </Suspense>
       <TradeNotificationFeed />
+      <JudgeTour />
     </>
   )
 }
