@@ -1,0 +1,110 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEnergyStore } from '../store/useEnergyStore'
+
+export interface TradeNotification {
+  id: string
+  type: 'trade' | 'tamper' | 'restore'
+  title: string
+  timestamp: string
+  blockId?: number
+  from?: string
+  to?: string
+  kwh?: number
+  credit?: number
+  hash?: string
+  tamperedCount?: number
+}
+
+const MAX_ACTIVE_NOTIFICATIONS = 3
+const AUTO_DISMISS_MS = 6000
+
+export function useTradeNotifications() {
+  const [notifications, setNotifications] = useState<TradeNotification[]>([])
+  const [isMuted, setIsMuted] = useState(false)
+  const prevChainLenRef = useRef<number | null>(null)
+  const prevCompromisedRef = useRef<boolean>(false)
+  const prevRestoredRef = useRef<boolean>(false)
+
+  const chain = useEnergyStore((s) => s.chain)
+  const compromised = useEnergyStore((s) => s.compromised)
+  const invalidCount = useEnergyStore((s) => s.invalidCount)
+  const restoredFlash = useEnergyStore((s) => s.restoredFlash)
+
+  const dismiss = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }, [])
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => !prev)
+  }, [])
+
+  const addNotification = useCallback((item: Omit<TradeNotification, 'id'>) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const notif: TradeNotification = { ...item, id }
+    setNotifications((prev) => [notif, ...prev].slice(0, MAX_ACTIVE_NOTIFICATIONS))
+
+    setTimeout(() => {
+      setNotifications((current) => current.filter((n) => n.id !== id))
+    }, AUTO_DISMISS_MS)
+  }, [])
+
+  // Listen to new trades appended to chain
+  useEffect(() => {
+    if (prevChainLenRef.current === null) {
+      prevChainLenRef.current = chain.length
+      return
+    }
+
+    if (chain.length > prevChainLenRef.current) {
+      const newBlocks = chain.slice(prevChainLenRef.current)
+      for (const block of newBlocks) {
+        if (!isMuted) {
+          addNotification({
+            type: 'trade',
+            title: `P2P Energy Trade Executed`,
+            timestamp: block.payload.t,
+            blockId: block.id,
+            from: block.payload.from,
+            to: block.payload.to,
+            kwh: block.payload.kwh,
+            credit: block.payload.credit,
+            hash: block.hash,
+          })
+        }
+      }
+    }
+    prevChainLenRef.current = chain.length
+  }, [chain, isMuted, addNotification])
+
+  // Listen to tamper events
+  useEffect(() => {
+    if (!prevCompromisedRef.current && compromised && invalidCount > 0) {
+      addNotification({
+        type: 'tamper',
+        title: `🚨 Ledger Tamper Detected`,
+        timestamp: 'Just now',
+        tamperedCount: invalidCount,
+      })
+    }
+    prevCompromisedRef.current = compromised
+  }, [compromised, invalidCount, addNotification])
+
+  // Listen to restore events
+  useEffect(() => {
+    if (!prevRestoredRef.current && restoredFlash) {
+      addNotification({
+        type: 'restore',
+        title: `🛡️ Ledger Verified & Restored`,
+        timestamp: 'Just now',
+      })
+    }
+    prevRestoredRef.current = restoredFlash
+  }, [restoredFlash, addNotification])
+
+  return {
+    notifications,
+    dismiss,
+    isMuted,
+    toggleMute,
+  }
+}

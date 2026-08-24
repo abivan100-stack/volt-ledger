@@ -7,6 +7,7 @@ import { DAY_TYPES, type DayType } from './lib/simulation'
 import VoltPage from './pages/VoltPage'
 import NotFoundPage from './pages/NotFoundPage'
 import AppLoading from './components/ui/AppLoading'
+import { TradeNotificationFeed } from './components/sections/TradeNotificationFeed'
 import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
@@ -69,6 +70,7 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
+      <TradeNotificationFeed />
     </>
   )
 }
