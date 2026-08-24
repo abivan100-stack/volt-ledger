@@ -64,6 +64,14 @@ export const envSchema = z
         })
       }
     }
+
+    if (values.TRUST_PROXY !== true) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['TRUST_PROXY'],
+        message: 'TRUST_PROXY must be true in production (behind Render proxy)',
+      })
+    }
   })
 
 export type Env = z.infer<typeof envSchema>
