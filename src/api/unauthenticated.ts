@@ -9,22 +9,34 @@
 
 type UnauthenticatedHandler = () => void
 
-let handler: UnauthenticatedHandler | null = null
+const handlers = new Set<UnauthenticatedHandler>()
 
-/** Registers the sole handler, replacing any previous one. Returns an unsubscribe. */
+/** Registers a handler. Multiple subscribers are supported. Returns an unsubscribe. */
 export function setUnauthenticatedHandler(next: UnauthenticatedHandler | null): () => void {
-  handler = next
-  return () => {
-    if (handler === next) handler = null
+  if (next) {
+    if (handlers.has(next)) {
+      // Already registered
+    } else {
+      if (handlers.size > 0) {
+        console.warn('Multiple unauthenticated handlers registered')
+      }
+      handlers.add(next)
+    }
+    return () => {
+      handlers.delete(next)
+    }
   }
+  return () => {}
 }
 
 /** Announces that the server rejected the current session. */
 export function notifyUnauthenticated(): void {
-  try {
-    handler?.()
-  } catch {
-    // Session bookkeeping must never turn into a second failure for the caller,
-    // who is already handling the original 401.
+  for (const handler of [...handlers]) {
+    try {
+      handler()
+    } catch {
+      // Session bookkeeping must never turn into a second failure for the caller,
+      // who is already handling the original 401.
+    }
   }
 }
