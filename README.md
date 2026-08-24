@@ -301,6 +301,15 @@ Fill these Dashboard values before deploying:
   to the Resend account owner.
 - `VOLT_DNS_SERVERS`: leave blank when Render DNS works; set comma-separated resolvers only if Atlas SRV lookup times out.
 
+Demo persistence needs nothing filled in — `DEMO_PERSISTENCE_ENABLED` (`true`)
+and `DEMO_RETENTION_DAYS` (`30`) ship as Blueprint defaults. It does require the
+Atlas replica set the Blueprint already expects: each demo write spans several
+collections that must agree, so against a standalone server the routes answer
+`503 DEMO_PERSISTENCE_UNAVAILABLE` and the browser simulates without storing.
+Nothing else breaks in that case. The demo needs only the static site and the
+API — the worker plays no part in it, so a deployment that wants the public demo
+and not the authenticated simulation queue can skip the paid worker entirely.
+
 Production startup rejects HTTP values for `BETTER_AUTH_URL` and `WEB_ORIGIN`.
 Use the local HTTP defaults in `server/.env.example` only for development or
 test environments.

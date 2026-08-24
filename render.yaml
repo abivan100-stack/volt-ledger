@@ -91,3 +91,10 @@ envVarGroups:
         value: "100"
       - key: SIMULATION_MAX_ATTEMPTS
         value: "5"
+      # Public browser-demo persistence. Needs a replica set — every demo write
+      # spans several collections that must agree, so against a standalone
+      # server the routes answer 503 and the demo runs without storing.
+      - key: DEMO_PERSISTENCE_ENABLED
+        value: "true"
+      - key: DEMO_RETENTION_DAYS
+        value: "30"
