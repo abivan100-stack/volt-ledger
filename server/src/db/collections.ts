@@ -123,11 +123,11 @@ const collectionSpecs: CollectionSpec[] = [
       },
       {
         // The worker claims across every organisation at once; without this the
-        // claim query scans the whole collection. The leading `status` bounds
-        // both claim branches and the `startedAt` column serves the stale-lease
-        // branch, with `createdAt` covering the oldest-first sort.
-        key: { status: 1, startedAt: 1, createdAt: 1 },
+        // claim query scans the whole collection. The leading `deletedAt` allows
+        // the partial filter to be covered and `status` bounds both claim branches.
+        key: { deletedAt: 1, status: 1, startedAt: 1, createdAt: 1 },
         name: 'simulation_runs_claim_queue',
+        partialFilterExpression: { deletedAt: null },
       },
     ],
   },
@@ -221,6 +221,10 @@ const collectionSpecs: CollectionSpec[] = [
       {
         key: { organisationId: 1, createdAt: -1 },
         name: 'audit_events_organisation_created_at',
+      },
+      {
+        key: { organisationId: 1, action: 1, createdAt: -1, _id: -1 },
+        name: 'audit_events_organisation_action_created_at',
       },
       {
         key: { actorUserId: 1, createdAt: -1 },
