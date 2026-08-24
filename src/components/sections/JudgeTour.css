@@ -1,132 +1,138 @@
+/* Compact, elegant floating controller dock for 60s Judge Tour */
 .volt-judge-overlay {
   position: fixed;
-  bottom: 30px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 95;
+  z-index: 90;
   width: calc(100vw - 32px);
-  max-width: 640px;
-  background-color: var(--color-card, #fcfaf3);
-  border: 2px solid var(--color-volt, #0d6625);
-  border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
-  padding: 16px 20px;
+  max-width: 520px;
+  background-color: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  padding: 12px 16px;
   font-family: var(--font-sans, inherit);
-  color: var(--color-ink, #17140f);
+  color: var(--ink);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.volt-judge-progress-bar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--paper-2);
+}
+
+.volt-judge-progress-bar-wrap .volt-progress {
+  height: 3px;
+  border-radius: 0;
 }
 
 .volt-judge-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+  gap: 8px;
 }
 
 .volt-judge-step-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .volt-judge-badge {
-  background-color: var(--color-volt, #0d6625);
-  color: #ffffff;
+  background-color: rgba(13, 102, 37, 0.12);
+  color: var(--volt);
+  border: 1px solid rgba(13, 102, 37, 0.25);
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 3px;
-  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .volt-judge-timer {
   font-family: var(--font-mono, monospace);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--color-ink, #17140f);
-  background-color: var(--color-paper-2, #e9e2d2);
-  padding: 2px 8px;
-  border-radius: 3px;
+  color: var(--ink);
+  background-color: var(--paper-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .volt-judge-actions-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .volt-judge-icon-btn {
   background: transparent;
-  border: 1px solid var(--color-rule-2, #beb49b);
+  border: 1px solid var(--rule);
   border-radius: 4px;
-  color: var(--color-ink, #17140f);
+  color: var(--ink-soft);
   cursor: pointer;
-  padding: 5px;
+  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .volt-judge-icon-btn:hover {
-  background-color: var(--color-paper-2, #e9e2d2);
-}
-
-.volt-judge-progress-bar-wrap {
-  margin-bottom: 12px;
+  background-color: var(--paper-2);
+  color: var(--ink);
 }
 
 .volt-judge-content {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .volt-judge-title {
-  font-size: 16px;
+  font-size: 13.5px;
   font-weight: 700;
-  line-height: 1.3;
-  margin-bottom: 4px;
-  color: var(--color-ink, #17140f);
+  line-height: 1.25;
+  margin: 0 0 2px 0;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .volt-judge-subtitle {
-  font-size: 12px;
-  color: var(--color-ink-soft, #6b6454);
-  margin-bottom: 10px;
-}
-
-.volt-judge-points {
-  list-style: none;
-  padding: 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ink-soft);
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
-.volt-judge-point-item {
-  font-size: 12px;
-  line-height: 1.4;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  color: var(--color-ink, #17140f);
-}
-
-.volt-judge-point-bullet {
-  color: var(--color-volt, #0d6625);
-  font-weight: bold;
-  flex-shrink: 0;
+.volt-judge-interactive-row {
+  margin-top: 6px;
 }
 
 .volt-judge-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid var(--color-rule, #dad2bf);
-  padding-top: 12px;
-  margin-top: 6px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+  margin-top: 4px;
+  gap: 8px;
 }
 
 .volt-judge-dots {
@@ -136,10 +142,10 @@
 }
 
 .volt-judge-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background-color: var(--color-rule-2, #beb49b);
+  background-color: var(--rule-2);
   cursor: pointer;
   border: none;
   padding: 0;
@@ -147,12 +153,20 @@
 }
 
 .volt-judge-dot-active {
-  background-color: var(--color-volt, #0d6625);
+  background-color: var(--volt);
   transform: scale(1.3);
 }
 
 .volt-judge-nav-btns {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .volt-judge-overlay {
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    padding: 10px 12px;
+  }
 }

@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   X,
   RotateCcw,
-  Zap,
   ShieldAlert,
 } from 'lucide-react'
 import {
@@ -20,7 +19,6 @@ import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId } from '../../utils/scrollToId'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
-import { Badge } from '../ui/badge'
 import './JudgeTour.css'
 
 export function JudgeTour() {
@@ -73,22 +71,26 @@ export function JudgeTour() {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <motion.aside
         role="dialog"
         aria-label="60-Second Judge Tour"
-        initial={{ opacity: 0, y: 30, scale: 0.96 }}
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.95 }}
-        transition={{ duration: 0.2 }}
+        exit={{ opacity: 0, y: 15, scale: 0.97 }}
+        transition={{ duration: 0.15 }}
         className="volt-judge-overlay"
       >
+        <div className="volt-judge-progress-bar-wrap">
+          <Progress value={totalProgressPercent} />
+        </div>
+
         <div className="volt-judge-header">
           <div className="volt-judge-step-indicator">
-            <Badge variant="volt">
+            <span className="volt-judge-badge">
               {currentStep.badge}
-            </Badge>
+            </span>
             <span className="volt-judge-timer mono">
-              {Math.floor(totalRemainingSec / 60)}:{(totalRemainingSec % 60).toString().padStart(2, '0')} left
+              {Math.floor(totalRemainingSec / 60)}:{(totalRemainingSec % 60).toString().padStart(2, '0')}
             </span>
           </div>
 
@@ -100,7 +102,7 @@ export function JudgeTour() {
               title={isPaused ? 'Resume tour' : 'Pause tour'}
               aria-label={isPaused ? 'Resume tour' : 'Pause tour'}
             >
-              {isPaused ? <Play size={13} /> : <Pause size={13} />}
+              {isPaused ? <Play size={11} /> : <Pause size={11} />}
             </button>
             <button
               type="button"
@@ -109,7 +111,7 @@ export function JudgeTour() {
               title="Restart tour from beginning"
               aria-label="Restart tour"
             >
-              <RotateCcw size={13} />
+              <RotateCcw size={11} />
             </button>
             <button
               type="button"
@@ -118,39 +120,27 @@ export function JudgeTour() {
               title="Exit tour"
               aria-label="Exit tour"
             >
-              <X size={13} />
+              <X size={11} />
             </button>
           </div>
         </div>
 
-        <div className="volt-judge-progress-bar-wrap">
-          <Progress value={totalProgressPercent} className="h-1.5" />
-        </div>
-
         <div className="volt-judge-content">
           <h4 className="volt-judge-title">
-            {currentStep.number}. {currentStep.title}
+            <span>{currentStep.number}.</span>
+            <span>{currentStep.title}</span>
           </h4>
           <p className="volt-judge-subtitle">{currentStep.subtitle}</p>
 
-          <ul className="volt-judge-points">
-            {currentStep.keyPoints.map((pt, idx) => (
-              <li key={idx} className="volt-judge-point-item">
-                <span className="volt-judge-point-bullet">›</span>
-                <span>{pt}</span>
-              </li>
-            ))}
-          </ul>
-
           {currentStep.actionType === 'tamper' && (
-            <div className="mt-3">
+            <div className="volt-judge-interactive-row">
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={runTamperTest}
-                className="gap-1.5 text-xs"
+                className="gap-1 text-xs py-0 h-6"
               >
-                <ShieldAlert size={14} />
+                <ShieldAlert size={12} />
                 {currentStep.actionLabel}
               </Button>
             </div>
@@ -177,8 +167,9 @@ export function JudgeTour() {
               onClick={prevStep}
               disabled={currentStepIndex === 0}
               aria-label="Previous step"
+              className="h-7 text-xs px-2"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={12} />
               Prev
             </Button>
             <Button
@@ -186,19 +177,20 @@ export function JudgeTour() {
               size="sm"
               onClick={nextStep}
               aria-label={currentStepIndex === TOUR_STEPS.length - 1 ? 'Finish Tour' : 'Next step'}
+              className="h-7 text-xs px-2.5"
             >
               {currentStepIndex === TOUR_STEPS.length - 1 ? (
                 'Finish'
               ) : (
                 <>
                   Next ({stepRemainingSec}s)
-                  <ChevronRight size={14} />
+                  <ChevronRight size={12} />
                 </>
               )}
             </Button>
           </div>
         </div>
-      </motion.div>
+      </motion.aside>
     </AnimatePresence>
   )
 }
@@ -214,10 +206,10 @@ export function JudgeTourLaunchButton() {
       variant="volt"
       size="sm"
       onClick={startTour}
-      className="gap-1 shadow-sm font-mono text-xs"
+      className="gap-1 shadow-sm font-mono text-xs h-7 px-2.5"
       title="Start 60-second interactive judge tour"
     >
-      <Zap size={13} />
+      <span className="text-sun">⚡</span>
       <span>60s Tour</span>
     </Button>
   )
