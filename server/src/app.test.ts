@@ -1,3 +1,4 @@
+import net from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from './auth/auth.js'
@@ -100,6 +101,53 @@ describe('Volt API', () => {
       email: 'asha@example.com',
       password: 'correct-horse-battery-staple',
     })
+  })
+
+  it('refuses a blocked OTP route spelled with a traversal segment', async () => {
+    // Fastify's `/api/auth/*` matches the raw target verbatim, so `..` survives
+    // routing; the `new URL()` that builds the forwarded request then collapses
+    // it back to `/api/auth/sign-in/email-otp` — a route that mints an account
+    // from a code alone. Sent over a socket because an HTTP client would
+    // normalise the path before it ever left.
+    let forwardedPath: string | null = null
+    const auth: AuthService = {
+      createVerificationCode: async () => '123456',
+      getSession: async () => null,
+      handle: async (request) => {
+        forwardedPath = new URL(request.url).pathname
+        return new Response(null, { status: 200 })
+      },
+    }
+    const app = await buildApp({ logger: false, auth })
+    apps.push(app)
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    const address = app.server.address()
+    const port = typeof address === 'object' && address ? address.port : 0
+
+    const CRLF = '\r\n'
+    const statusLine = await new Promise<string>((resolve, reject) => {
+      const socket = net.connect(port, '127.0.0.1', () => {
+        socket.write(
+          [
+            'POST /api/auth/x/../sign-in/email-otp HTTP/1.1',
+            'Host: 127.0.0.1',
+            'Content-Length: 0',
+            'Connection: close',
+            '',
+            '',
+          ].join(CRLF),
+        )
+      })
+      let received = ''
+      socket.on('data', (chunk) => {
+        received += chunk.toString()
+      })
+      socket.on('end', () => resolve(received.split(CRLF)[0] ?? ''))
+      socket.on('error', reject)
+    })
+
+    expect(statusLine).toContain('404')
+    expect(forwardedPath).toBeNull()
   })
 
   it('returns the authenticated user without exposing a session token', async () => {

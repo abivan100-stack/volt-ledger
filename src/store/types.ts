@@ -65,6 +65,7 @@ export interface SimSlice {
   tick: () => void
   tryTrade: () => void
   setDayType: (dayType: DayType) => void
+  setStartHour: (startHour: number) => void
   setSimSpeed: (simSpeed: number) => void
   resetScenario: () => void
   start: () => void

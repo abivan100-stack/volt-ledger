@@ -229,6 +229,21 @@ describe('tryTrade', () => {
 })
 
 describe('start and stop', () => {
+  it('changes the start hour and rebuilds the scenario without losing its run state', () => {
+    useEnergyStore.getState().start()
+
+    useEnergyStore.getState().setStartHour(17)
+
+    const state = useEnergyStore.getState()
+    expect(state.config.startHour).toBe(17)
+    expect(state.simMinute).toBe(17 * 60)
+    expect(state.chain.length).toBeGreaterThan(0)
+    expect(state.running).toBe(true)
+
+    useEnergyStore.getState().setStartHour(24)
+    expect(useEnergyStore.getState().config.startHour).toBe(17)
+  })
+
   it('starts a midnight scenario without previous-day seed entries', () => {
     useEnergyStore.setState((state) => ({ config: { ...state.config, startHour: 0 } }))
     useEnergyStore.getState().start()

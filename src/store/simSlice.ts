@@ -183,6 +183,14 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     get().resetScenario()
   },
 
+  setStartHour: (startHour: number) => {
+    if (!Number.isInteger(startHour) || startHour < 0 || startHour > 23) return
+    const state = get()
+    if (state.config.startHour === startHour) return
+    set({ config: { ...state.config, startHour } })
+    get().resetScenario()
+  },
+
   setSimSpeed: (simSpeed: number) => {
     if (!(SIM_SPEEDS as readonly number[]).includes(simSpeed)) return
     set((state) => ({ config: { ...state.config, simSpeed } }))
