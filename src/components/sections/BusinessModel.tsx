@@ -55,6 +55,15 @@ function BusinessModel() {
                 <span className="serif business-model-metric-value">−₹2.5</span>
                 <span className="mono business-model-metric-sub">₹5.5 vs ₹8 retail / kWh</span>
               </div>
+              <div className="business-model-metric business-model-metric-accent">
+                <span className="mono business-model-metric-label">Volt margin</span>
+                <span className="serif business-model-metric-value">6–8%</span>
+                <span className="mono business-model-metric-sub">capped / month · street keeps ~92%</span>
+              </div>
+            </div>
+            <div className="business-model-profit-bar">
+              <span className="mono business-model-profit-label">Profit on spread</span>
+              <span className="business-model-profit-text">₹2.5 kept on-street per kWh traded — Volt takes only the facilitation share, rest is seller uplift + buyer saving.</span>
             </div>
             <p className="mono business-model-note">Nolambur demo figures — estimated credits, not bills.</p>
           </div>

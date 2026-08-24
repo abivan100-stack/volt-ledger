@@ -92,7 +92,7 @@
 
 .business-model-list li {
   position: relative;
-  padding-left: 16px;
+  padding-left: 18px;
   font-size: 14.25px;
   line-height: 1.6;
   color: var(--ink-soft);
@@ -100,10 +100,28 @@
 }
 
 .business-model-list li::before {
-  content: '—';
+  content: '';
   position: absolute;
   left: 0;
-  color: var(--rule-2);
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--sun);
+  opacity: 0.9;
+}
+
+.business-model-card:nth-child(2) .business-model-list li::before {
+  background: var(--settle);
+}
+
+.business-model-card:nth-child(3) .business-model-list li::before {
+  background: var(--ink);
+  opacity: 0.18;
+}
+
+.business-model-card:nth-child(4) .business-model-list li::before {
+  background: var(--sun);
 }
 
 .business-model-list li:last-child { margin-bottom: 0; }
@@ -111,9 +129,43 @@
 
 .business-model-metrics {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 14px;
   margin-bottom: 14px;
+}
+
+.business-model-metric-accent {
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+}
+
+.business-model-metric-accent .business-model-metric-label { color: rgba(242,238,228,0.6); }
+.business-model-metric-accent .business-model-metric-value { color: var(--paper); }
+.business-model-metric-accent .business-model-metric-sub { color: rgba(242,238,228,0.7); }
+
+.business-model-profit-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: rgba(36,92,67,0.08);
+  border: 1px solid rgba(36,92,67,0.18);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.business-model-profit-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--settle);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.business-model-profit-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
 
 .business-model-metric {
@@ -208,7 +260,11 @@
     font-size: 19px;
   }
   .business-model-metrics {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+  .business-model-profit-bar {
+    flex-direction: column;
+    gap: 6px;
   }
   .business-model-cta {
     flex-direction: column;
