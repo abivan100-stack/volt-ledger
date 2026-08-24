@@ -44,6 +44,17 @@ interface ParsedErrorBody {
  * `/api/v1`, and Better Auth's `{ message, code? }` on `/api/auth`. Read either
  * so a sign-in failure shows its real reason instead of a status number.
  */
+function isValidIssues(value: unknown): value is ApiErrorIssue[] {
+  if (!Array.isArray(value)) return false
+  return value.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      typeof (item as Record<string, unknown>).path === 'string' &&
+      typeof (item as Record<string, unknown>).message === 'string',
+  )
+}
+
 function parseErrorBody(value: unknown): ParsedErrorBody | null {
   if (typeof value !== 'object' || value === null) return null
   const candidate = value as Record<string, unknown>
@@ -52,7 +63,7 @@ function parseErrorBody(value: unknown): ParsedErrorBody | null {
     return {
       message: candidate.error,
       code: typeof candidate.code === 'string' ? candidate.code : null,
-      issues: candidate.issues as ApiErrorIssue[] | undefined,
+      issues: isValidIssues(candidate.issues) ? (candidate.issues as ApiErrorIssue[]) : undefined,
     }
   }
 
@@ -88,8 +99,12 @@ function parseRetryAfter(response: Response): number | null {
   const header = response.headers.get('retry-after')
   if (header === null) return null
   const seconds = Number(header)
-  // The header may also hold an HTTP date; only a plain second count is useful here.
-  return Number.isFinite(seconds) ? seconds : null
+  if (Number.isFinite(seconds)) return seconds
+  const date = Date.parse(header)
+  if (Number.isFinite(date)) {
+    return Math.max(0, Math.ceil((date - Date.now()) / 1000))
+  }
+  return null
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -99,6 +114,20 @@ async function readJson(response: Response): Promise<unknown> {
     return JSON.parse(text) as unknown
   } catch {
     return undefined
+  }
+}
+
+async function readJsonOrThrow(response: Response): Promise<unknown> {
+  const text = await response.text()
+  if (text.length === 0) return undefined
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    throw new ApiError({
+      message: 'Invalid JSON response from Volt API',
+      status: response.status,
+      code: 'UNEXPECTED_RESPONSE',
+    })
   }
 }
 
@@ -116,6 +145,12 @@ async function toApiError(response: Response): Promise<ApiError> {
   })
 }
 
+const DEFAULT_TIMEOUT_MS = 15_000
+
+function shouldNotifyUnauthenticated(path: string): boolean {
+  return !path.startsWith('/api/auth/')
+}
+
 export function createApiClient(config: ApiClientConfig): ApiClient {
   const fetchImpl = config.fetchImpl ?? ((input, init) => fetch(input, init))
 
@@ -128,6 +163,15 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       const headers: Record<string, string> = { accept: 'application/json' }
       if (hasBody) headers['content-type'] = 'application/json'
 
+      const timeoutSignal =
+        typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(DEFAULT_TIMEOUT_MS) : undefined
+      const signal =
+        timeoutSignal && options.signal
+          ? typeof AbortSignal.any === 'function'
+            ? AbortSignal.any([timeoutSignal, options.signal])
+            : options.signal
+          : (timeoutSignal ?? options.signal)
+
       let response: Response
       try {
         response = await fetchImpl(url, {
@@ -135,7 +179,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
           headers,
           credentials: 'include',
           body: hasBody ? JSON.stringify(options.body) : undefined,
-          signal: options.signal,
+          signal,
         })
       } catch (error) {
         // An aborted request is the caller's own doing, not a transport failure.
@@ -150,11 +194,11 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       if (!response.ok) {
         // Tell the session layer before the caller sees the rejection, so the UI
         // is already signed out by the time it renders the failure.
-        if (response.status === 401) notifyUnauthenticated()
+        if (response.status === 401 && shouldNotifyUnauthenticated(path)) notifyUnauthenticated()
         throw await toApiError(response)
       }
 
-      return (await readJson(response)) as T
+      return (await readJsonOrThrow(response)) as T
     },
   }
 }
