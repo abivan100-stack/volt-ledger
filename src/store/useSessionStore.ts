@@ -125,15 +125,20 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       }))
     } catch (error) {
       // Sign-out could not be confirmed, so the cookie may still be live.
-      set({ error: getApiErrorMessage(error, 'The session could not be restored') })
+      set((state) => ({
+        error: getApiErrorMessage(error, 'The session could not be restored'),
+        pendingRestore: null,
+        requestGeneration: state.requestGeneration + 1,
+      }))
     }
   },
 
   expire: () => {
     const wasAuthenticated = get().status === 'authenticated'
+    if (!wasAuthenticated) return
     set((state) => ({
       ...SIGNED_OUT,
-      expired: wasAuthenticated,
+      expired: true,
       pendingRestore: null,
       requestGeneration: state.requestGeneration + 1,
     }))

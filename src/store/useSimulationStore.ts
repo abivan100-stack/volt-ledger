@@ -109,9 +109,14 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
     const organisationId = get().organisationId
     if (!organisationId) return
     const requestGeneration = get().requestGeneration
-    const quota = await getSimulationQuota(organisationId)
-    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
-    set({ quota })
+    try {
+      const quota = await getSimulationQuota(organisationId)
+      if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
+      set({ quota })
+    } catch {
+      // Quota refresh is best-effort; run creation already succeeded
+      return
+    }
   },
 
   submit: async (input) => {
@@ -120,8 +125,12 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
     const run = await createSimulationRun(organisationId, input)
     if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return run
     set((state) => ({ runs: [run, ...state.runs], selectedRunId: run.id }))
-    // One unit of the daily allowance has just been spent.
-    await get().refreshQuota()
+    // One unit of the daily allowance has just been spent — best effort.
+    try {
+      await get().refreshQuota()
+    } catch {
+      // ignore
+    }
     return run
   },
 
