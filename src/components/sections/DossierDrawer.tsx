@@ -116,7 +116,7 @@ function DossierDrawer() {
           <div className="dossier-chart-frame">
             <svg viewBox="0 0 320 132" width="100%" className="dossier-chart-svg">
               <line x1="6" y1="112" x2="314" y2="112" stroke="var(--rule-2)" strokeWidth="1" />
-              <path d={dossier.areaPath} fill="rgba(178,106,18,0.13)" stroke="none" />
+              <path d={dossier.areaPath} fill="var(--sun-soft)" stroke="none" />
               <polyline points={dossier.conLine} fill="none" stroke="var(--settle)" strokeWidth="1.25" />
               <polyline points={dossier.genLine} fill="none" stroke="var(--sun)" strokeWidth="1.6" />
               <line

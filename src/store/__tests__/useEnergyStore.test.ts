@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useEnergyStore } from '../useEnergyStore'
+import { MAX_LEDGER_HISTORY_DAYS } from '../simSlice'
 import { formatClock } from '../../lib/format'
 import { tickHousehold } from '../../lib/simulation'
 
@@ -154,6 +155,30 @@ describe('tryTrade', () => {
     expect(to.trades).toBe(before.households[importerId].trades + 1)
   })
 
+  it('keeps only the most recent archived simulated days', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    const state = useEnergyStore.getState()
+    useEnergyStore.setState({
+      simMinute: TOTAL_DAILY_MINUTES - 2 * state.config.simSpeed,
+      ledgerHistory: Array.from({ length: MAX_LEDGER_HISTORY_DAYS }, (_, index) => ({
+        simDay: index + 1,
+        dayType: state.dayType,
+        chain: [],
+        totalKwh: 0,
+        totalCredit: 0,
+        rate: state.rate,
+        compromised: false,
+        invalidCount: 0,
+      })),
+    })
+
+    useEnergyStore.getState().tick()
+
+    expect(useEnergyStore.getState().ledgerHistory).toHaveLength(MAX_LEDGER_HISTORY_DAYS)
+    expect(useEnergyStore.getState().ledgerHistory[0]?.simDay).toBe(2)
+  })
+
   it('caps traded energy by both parties\' simulated interval capacity', () => {
     const state = useEnergyStore.getState()
     useEnergyStore.setState({
@@ -298,6 +323,35 @@ describe('commitEdit and restoreChain', () => {
     expect(state.compromised).toBe(true)
     expect(state.invalidCount).toBeGreaterThan(0)
     expect(state.restoredFlash).toBe(false)
+  })
+
+  it('runs a deterministic tamper test against the first visible ledger record', () => {
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    const before = useEnergyStore.getState()
+    const target = before.chain[Math.max(0, before.chain.length - 10)]
+
+    useEnergyStore.getState().runTamperTest()
+
+    const after = useEnergyStore.getState()
+    const changed = after.chain.find((block) => block.id === target.id)
+    expect(changed?.tampered).toBe(true)
+    expect(changed?.payload.kwh).toBeCloseTo(target.payload.kwh + 0.01, 8)
+    expect(after.compromised).toBe(true)
+    expect(after.invalidCount).toBeGreaterThan(0)
+  })
+
+  it('does not run a tamper test against an empty or already compromised chain', () => {
+    useEnergyStore.setState({ chain: [] })
+    useEnergyStore.getState().runTamperTest()
+    expect(useEnergyStore.getState().compromised).toBe(false)
+
+    useEnergyStore.getState().start()
+    useEnergyStore.getState().stop()
+    useEnergyStore.setState({ compromised: true })
+    const before = useEnergyStore.getState().chain
+    useEnergyStore.getState().runTamperTest()
+    expect(useEnergyStore.getState().chain).toBe(before)
   })
 
   it('restoring the chain clears the compromise', () => {

@@ -123,6 +123,36 @@ describe('load', () => {
     expect(useLedgerStore.getState().organisationId).toBe(ORG_B)
     expect(useLedgerStore.getState().events[0]?.sequence).toBe(5)
   })
+
+  it('ignores an earlier response after returning to the same organisation', async () => {
+    let releaseFirstA: (value: LedgerPage) => void = () => {}
+    listMock.mockReturnValueOnce(
+      new Promise<LedgerPage>((resolve) => {
+        releaseFirstA = resolve
+      }),
+    )
+    const firstA = useLedgerStore.getState().load(ORG_A)
+
+    listMock.mockResolvedValueOnce(page([event(5)]))
+    await useLedgerStore.getState().load(ORG_B)
+
+    let releaseSecondA: (value: LedgerPage) => void = () => {}
+    listMock.mockReturnValueOnce(
+      new Promise<LedgerPage>((resolve) => {
+        releaseSecondA = resolve
+      }),
+    )
+    const secondA = useLedgerStore.getState().load(ORG_A)
+
+    releaseSecondA(page([event(2)]))
+    await secondA
+
+    releaseFirstA(page([event(1)]))
+    await firstA
+
+    expect(useLedgerStore.getState().organisationId).toBe(ORG_A)
+    expect(useLedgerStore.getState().events[0]?.sequence).toBe(2)
+  })
 })
 
 describe('settle', () => {
@@ -163,6 +193,93 @@ describe('settle', () => {
 
     const result = await useLedgerStore.getState().settle('run-1', 'p50')
     expect(result.alreadySettled).toBe(true)
+  })
+
+  it('ignores an older settlement refresh when a newer load refreshes the same organisation', async () => {
+    listMock.mockResolvedValue(page([event(1)]))
+    await useLedgerStore.getState().load(ORG_A)
+
+    settleMock.mockResolvedValue({
+      runId: 'run-1',
+      resultDigest: 'result-digest',
+      outcome: 'p50',
+      alreadySettled: false,
+      events: [event(2)],
+    })
+    let releaseSettlementRefresh: (value: LedgerPage) => void = () => {}
+    listMock.mockReturnValueOnce(
+      new Promise<LedgerPage>((resolve) => {
+        releaseSettlementRefresh = resolve
+      }),
+    )
+    const settling = useLedgerStore.getState().settle('run-1', 'p50')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(listMock).toHaveBeenCalledTimes(2)
+
+    listMock.mockResolvedValueOnce(page([event(3)]))
+    const loading = useLedgerStore.getState().load(ORG_A)
+    releaseSettlementRefresh(page([event(2)]))
+    await loading
+    await settling
+
+    expect(useLedgerStore.getState().events[0]?.sequence).toBe(3)
+  })
+
+  it('does not leave the ledger loading when settlement fails during a refresh', async () => {
+    listMock.mockResolvedValue(page([event(1)]))
+    await useLedgerStore.getState().load(ORG_A)
+
+    let releaseLoad: (value: LedgerPage) => void = () => {}
+    listMock.mockReturnValueOnce(
+      new Promise<LedgerPage>((resolve) => {
+        releaseLoad = resolve
+      }),
+    )
+    const loading = useLedgerStore.getState().load(ORG_A)
+    listMock.mockResolvedValueOnce(page([event(1)]))
+    settleMock.mockRejectedValue(
+      new ApiError({ message: 'Settlement refused', status: 409, code: 'SETTLEMENT_REFUSED' }),
+    )
+
+    await expect(useLedgerStore.getState().settle('run-1', 'p50')).rejects.toThrow('Settlement refused')
+    expect(useLedgerStore.getState().status).toBe('ready')
+
+    releaseLoad(page([event(1)]))
+    await loading
+  })
+
+  it('refreshes again when the organisation is reselected during settlement', async () => {
+    listMock.mockResolvedValue(page([event(1)]))
+    await useLedgerStore.getState().load(ORG_A)
+
+    settleMock.mockResolvedValue({
+      runId: 'run-1',
+      resultDigest: 'result-digest',
+      outcome: 'p50',
+      alreadySettled: false,
+      events: [event(2)],
+    })
+    let releaseSettlementRefresh: (value: LedgerPage) => void = () => {}
+    listMock.mockReturnValueOnce(
+      new Promise<LedgerPage>((resolve) => {
+        releaseSettlementRefresh = resolve
+      }),
+    )
+    const settling = useLedgerStore.getState().settle('run-1', 'p50')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(listMock).toHaveBeenCalledTimes(2)
+
+    useLedgerStore.getState().reset()
+    listMock.mockResolvedValueOnce(page([event(1)]))
+    await useLedgerStore.getState().load(ORG_A)
+
+    listMock.mockResolvedValueOnce(page([event(2)]))
+    releaseSettlementRefresh(page([event(2)]))
+    await settling
+
+    expect(useLedgerStore.getState().events[0]?.sequence).toBe(2)
   })
 
   it('propagates a refused outcome change without touching the chain', async () => {

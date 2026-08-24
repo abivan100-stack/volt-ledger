@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import type { LedgerEvent, LedgerIntegrity } from '../../api/ledger'
 import { SIMULATION_OUTCOMES, type SimulationOutcome } from '../../api/simulations'
 import { canSettleAndAdjustLedger } from '../../lib/permissions'
@@ -25,11 +25,6 @@ function LedgerPanel() {
       canSettle={canSettleAndAdjustLedger(organisation.role)}
     />
   )
-}
-
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
 }
 
 interface OrganisationLedgerProps {
@@ -152,7 +147,7 @@ function SettleRunForm() {
           : `Accepted ${settlement.events.length} settlement events.`,
       )
     } catch (caught) {
-      setError(messageFor(caught, 'The settlement could not be accepted.'))
+      setError(getApiErrorMessage(caught, 'The settlement could not be accepted.'))
     } finally {
       setSubmitting(false)
     }
@@ -297,7 +292,7 @@ function AdjustmentForm({
       })
       onDone()
     } catch (caught) {
-      setError(messageFor(caught, 'The correction could not be appended.'))
+      setError(getApiErrorMessage(caught, 'The correction could not be appended.'))
       setSubmitting(false)
     }
   }

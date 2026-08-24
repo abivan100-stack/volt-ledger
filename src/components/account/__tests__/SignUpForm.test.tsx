@@ -118,7 +118,7 @@ describe('SignUpForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /send a new code/i }))
 
     await waitFor(() => expect(resendMock).toHaveBeenCalledWith({ email: 'asha@example.com' }))
-    expect(screen.getByText(/new code has been sent/i)).toBeTruthy()
+    expect(screen.getByText(/new code was requested\. if it does not arrive shortly, try again\./i)).toBeTruthy()
   })
 
   it('marks account fields as required for browser and assistive technology', () => {

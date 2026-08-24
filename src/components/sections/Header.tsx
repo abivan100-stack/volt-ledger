@@ -1,9 +1,11 @@
 import type { MouseEvent } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Zap } from 'lucide-react'
 import { isApiConfigured } from '../../api/config'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import ThemeToggle from '../ui/ThemeToggle'
+import { JudgeTourLaunchButton } from './JudgeTour'
 import './Header.css'
 
 function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -13,6 +15,7 @@ function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
 
 function Header() {
   const location = useLocation()
+  const isHomePage = location.pathname === '/'
   const isLedgerPage = location.pathname.startsWith('/ledger')
   const rate = useEnergyStore((state) => state.rate)
   // The demo needs no account, so the link only appears where one can be used.
@@ -20,7 +23,7 @@ function Header() {
 
   const logo = (
     <>
-      <span className="header-logo-dot" />
+      <Zap className="header-logo-bolt" aria-hidden="true" />
       <span className="header-logo-word">VOLT</span>
       <span className="serif header-logo-suffix">Ledger</span>
     </>
@@ -29,11 +32,7 @@ function Header() {
   return (
     <header className="header">
       <div className="container header-bar">
-        {isLedgerPage ? (
-          <Link to="/" className="header-logo" aria-label="Volt — back to home">
-            {logo}
-          </Link>
-        ) : (
+        {isHomePage ? (
           <button
             type="button"
             className="header-logo header-logo-btn"
@@ -42,6 +41,13 @@ function Header() {
           >
             {logo}
           </button>
+        ) : (
+          // Anywhere that is not the home page — the ledger, the account page,
+          // invitation acceptance, the 404 — "back to top" would only scroll
+          // whatever page is already showing. The logo has to actually navigate.
+          <Link to="/" className="header-logo" aria-label="Volt — back to home">
+            {logo}
+          </Link>
         )}
         <nav className="header-nav">
           {isLedgerPage ? (
@@ -55,7 +61,15 @@ function Header() {
             </>
           ) : (
             <>
-              <a href="#how" className="mono header-link" onClick={handleHowItWorksClick}>HOW IT WORKS</a>
+              {isHomePage ? (
+                <a href="#how" className="mono header-link" onClick={handleHowItWorksClick}>HOW IT WORKS</a>
+              ) : (
+                // "How it works" lives only on the home page. Off it — the
+                // account page, invitation acceptance, 404 — there is no `#how`
+                // element for an in-place scroll to find, so this has to
+                // navigate home first; VoltPage scrolls to it once there.
+                <Link to="/#how" className="mono header-link">HOW IT WORKS</Link>
+              )}
               <Link to="/ledger" className="mono header-link">LIVE LEDGER →</Link>
             </>
           )}
@@ -66,6 +80,7 @@ function Header() {
             <span className="header-rate-dot" />
             ₹{rate.toFixed(2)}/kWh
           </span>
+          <JudgeTourLaunchButton />
           <ThemeToggle />
         </nav>
       </div>

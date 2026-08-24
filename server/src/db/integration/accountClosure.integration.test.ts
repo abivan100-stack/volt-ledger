@@ -61,12 +61,55 @@ describeIntegration('Account closure', (suite) => {
       email: 'asha@example.com',
       role: 'operator',
     })
+    const now = new Date()
+    await suite.collections().organisationInvitations.insertOne({
+      _id: 'invite_closure',
+      organisationId: organisation._id,
+      email: 'asha@example.com',
+      role: 'operator',
+      tokenHash: 'closure-token-hash',
+      status: 'accepted',
+      invitedByUserId: OTHER,
+      expiresAt: new Date(now.getTime() + 60_000),
+      acceptedByUserId: USER,
+      acceptedAt: now,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    await suite.collections().emailDeliveries.insertOne({
+      _id: 'delivery_closure',
+      idempotencyKey: 'organisation-invitation:invite_closure',
+      kind: 'organisation_invitation',
+      to: 'asha@example.com',
+      organisationName: organisation.name,
+      role: 'operator',
+      encryptedUrl: 'ciphertext',
+      status: 'sent',
+      attemptCount: 1,
+      nextAttemptAt: now,
+      lockedUntil: null,
+      lastErrorCode: null,
+      createdAt: now,
+      updatedAt: now,
+      sentAt: now,
+    })
 
     const result = await repositories.accounts.close(USER)
     expect(result.closed).toBe(true)
     expect(result.releasedMemberships).toBe(1)
 
     expect(await repositories.memberships.find(organisation._id, USER)).toBeNull()
+    const releasedMembership = await suite.collections().memberships.findOne({
+      organisationId: organisation._id,
+      userId: USER,
+    })
+    expect(releasedMembership?.email).toBeNull()
+    const acceptedInvitation = await suite.collections().organisationInvitations.findOne({ _id: 'invite_closure' })
+    expect(acceptedInvitation?.email).toBe(anonymisedEmail(USER))
+    const delivery = await suite.collections().emailDeliveries.findOne({ _id: 'delivery_closure' })
+    expect(delivery?.to).toBe(anonymisedEmail(USER))
 
     const user = await suite.db().collection('user').findOne({ _id: USER as never })
     expect(user?.name).toBe('')

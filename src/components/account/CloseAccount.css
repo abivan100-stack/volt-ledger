@@ -8,21 +8,12 @@
   border-top: 1px solid var(--rule-2);
 }
 
-.close-account-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.close-account-warning {
+  color: var(--ink);
 }
 
-.close-account-warning {
-  margin: 0;
-  padding: 11px 13px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--void) 7%, transparent);
-  border-left: 2px solid var(--void);
-  border-radius: 0 4px 4px 0;
+.close-account-actions {
+  padding: 0 22px 22px;
 }
 
 .close-account-action {
@@ -53,4 +44,10 @@
 .close-account-action:disabled {
   opacity: 0.55;
   cursor: progress;
+}
+
+@media (max-width: 540px) {
+  .close-account-actions {
+    padding: 0 17px 18px;
+  }
 }

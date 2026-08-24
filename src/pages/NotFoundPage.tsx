@@ -11,7 +11,7 @@ function NotFoundPage() {
   return (
     <>
       <Header />
-      <main className="not-found">
+      <main className="not-found" id="main">
         <div className="container not-found-grid">
           <div className="not-found-copy">
             <p className="mono not-found-kicker">VOLT / LEDGER / 404</p>

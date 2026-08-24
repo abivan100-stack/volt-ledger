@@ -15,7 +15,7 @@
 
 .header-logo {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 9px;
 }
 
@@ -37,12 +37,13 @@
   color: var(--sun);
 }
 
-.header-logo-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--volt);
+.header-logo-bolt {
+  width: 26px;
+  height: 26px;
+  fill: var(--bolt);
+  stroke: none;
   align-self: center;
+  flex: none;
 }
 
 /* No explicit color here on purpose: it inherits `--ink` from the global

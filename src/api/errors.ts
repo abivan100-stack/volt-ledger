@@ -38,6 +38,11 @@ export class ApiError extends Error {
   }
 }
 
+/** Returns the server message when available, otherwise a stable UI fallback. */
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback
+}
+
 /** The session is missing or expired — the caller should return to a signed-out state. */
 export function isUnauthenticatedError(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 401

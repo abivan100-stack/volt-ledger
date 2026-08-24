@@ -12,6 +12,10 @@
   position: fixed;
   inset: 0;
   z-index: 50;
+  /* The chart's generation-area fill. Token-driven so it follows the theme
+     (13% of --sun, matching the original fixed rgba) instead of baking in
+     the light-mode amber. */
+  --sun-soft: color-mix(in srgb, var(--sun) 13%, transparent);
 }
 
 .dossier-scrim {

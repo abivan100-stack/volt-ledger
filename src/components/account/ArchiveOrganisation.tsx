@@ -1,7 +1,17 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import { canArchiveOrganisation } from '../../lib/permissions'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../ui/AlertDialog'
 import './ArchiveOrganisation.css'
 
 /**
@@ -45,67 +55,85 @@ function ArchiveOrganisation() {
       // The organisation is gone from the list, so the panel unmounts this.
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : 'The organisation could not be archived.',
+        getApiErrorMessage(caught, 'The organisation could not be archived.'),
       )
       setSubmitting(false)
     }
   }
 
-  if (!open) {
-    return (
-      <section className="archive-organisation">
-        <button className="mono archive-open" type="button" onClick={() => setOpen(true)}>
-          ARCHIVE ORGANISATION
-        </button>
-      </section>
-    )
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (submitting) return
+    if (nextOpen) {
+      setOpen(true)
+      setError(null)
+      return
+    }
+    close()
   }
 
   return (
     <section className="archive-organisation">
-      <form className="archive-form" onSubmit={handleSubmit} noValidate>
-        <p className="archive-warning">
-          Archiving <strong>{organisation.name}</strong> removes every member&apos;s access and
-          soft-deletes its simulation runs and results. Ledger and audit history are retained for
-          provenance. You can restore it for a limited time afterwards; once that window closes the
-          simulation data is deleted permanently. Pending invitations are revoked and are not
-          reissued by a restore.
-        </p>
-
-        <label className="account-field">
-          <span className="mono account-field-label">
-            {`TYPE "${organisation.slug}" TO CONFIRM`}
-          </span>
-          <input
-            className="account-input mono"
-            type="text"
-            name="archiveConfirmation"
-            autoComplete="off"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-          />
-        </label>
-
-        {error !== null && (
-          <p className="account-error" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="archive-actions">
-          <button
-            className="mono archive-confirm"
-            type="submit"
-            disabled={submitting}
-            aria-busy={submitting}
-          >
-            {submitting ? 'ARCHIVE ORGANISATION…' : 'ARCHIVE ORGANISATION'}
+      <AlertDialog open={open} onOpenChange={handleOpenChange}>
+        <AlertDialogTrigger asChild>
+          <button className="mono archive-open" type="button">
+            ARCHIVE ORGANISATION
           </button>
-          <button className="mono archive-cancel" type="button" onClick={close}>
-            CANCEL
-          </button>
-        </div>
-      </form>
+        </AlertDialogTrigger>
+        <AlertDialogContent
+          onEscapeKeyDown={(event) => {
+            if (submitting) event.preventDefault()
+          }}
+        >
+          <form className="archive-form" onSubmit={handleSubmit} noValidate>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive organisation?</AlertDialogTitle>
+              <AlertDialogDescription className="archive-warning">
+                Archiving <strong>{organisation.name}</strong> removes every member&apos;s access and
+                soft-deletes its simulation runs and results. Ledger and audit history are retained for
+                provenance. You can restore it for a limited time afterwards; once that window closes the
+                simulation data is deleted permanently. Pending invitations are revoked and are not
+                reissued by a restore.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <label className="account-field">
+              <span className="mono account-field-label">
+                {`TYPE "${organisation.slug}" TO CONFIRM`}
+              </span>
+              <input
+                className="account-input mono"
+                type="text"
+                name="archiveConfirmation"
+                autoComplete="off"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+              />
+            </label>
+
+            {error !== null && (
+              <p className="account-error" role="alert">
+                {error}
+              </p>
+            )}
+
+            <AlertDialogFooter className="archive-actions">
+              <button
+                className="mono archive-confirm"
+                type="submit"
+                disabled={submitting}
+                aria-busy={submitting}
+              >
+                {submitting ? 'ARCHIVE ORGANISATION…' : 'ARCHIVE ORGANISATION'}
+              </button>
+              <AlertDialogCancel asChild>
+                <button className="mono archive-cancel" type="button" disabled={submitting}>
+                  CANCEL
+                </button>
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }

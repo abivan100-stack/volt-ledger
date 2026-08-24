@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { closeAccount } from '../../api/session'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../ui/AlertDialog'
 import './CloseAccount.css'
 
 /**
@@ -13,21 +23,13 @@ import './CloseAccount.css'
  * identifier that no longer reaches a person.
  */
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === 'ACCOUNT_OWNS_ORGANISATIONS') return error.message
-    return error.message
-  }
-  return 'The account could not be closed.'
-}
-
 interface CloseAccountProps {
   /** Called once the account is closed, so the session can be discarded. */
   onClosed?: () => void
 }
 
 function CloseAccount({ onClosed }: CloseAccountProps) {
-  const [confirming, setConfirming] = useState(false)
+  const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,56 +38,61 @@ function CloseAccount({ onClosed }: CloseAccountProps) {
     setError(null)
     try {
       await closeAccount()
+      setOpen(false)
       onClosed?.()
     } catch (caught) {
-      setError(messageFor(caught))
-      setConfirming(false)
+      setError(getApiErrorMessage(caught, 'The account could not be closed.'))
+      setOpen(false)
     } finally {
       setClosing(false)
     }
   }
 
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (closing) return
+    setOpen(nextOpen)
+    if (nextOpen) setError(null)
+  }
+
   return (
     <div className="close-account">
-      {!confirming && (
-        <button
-          className="mono close-account-action"
-          type="button"
-          onClick={() => {
-            setConfirming(true)
-            setError(null)
+      <AlertDialog open={open} onOpenChange={handleOpenChange}>
+        <AlertDialogTrigger asChild>
+          <button className="mono close-account-action" type="button">
+            CLOSE ACCOUNT
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent
+          onEscapeKeyDown={(event) => {
+            if (closing) event.preventDefault()
           }}
         >
-          CLOSE ACCOUNT
-        </button>
-      )}
-
-      {confirming && (
-        <div className="close-account-confirm" role="group" aria-label="Confirm closing the account">
-          <p className="close-account-warning">
-            This cannot be undone, and no one can undo it for you. Your name and address are removed
-            and you are signed out everywhere. Settlement records keep the identifier that accepted
-            them, which will no longer lead back to you.
-          </p>
-          <button
-            className="mono close-account-action close-account-confirmed"
-            type="button"
-            onClick={() => void handleClose()}
-            disabled={closing}
-            aria-busy={closing}
-          >
-            {closing ? 'CLOSE ACCOUNT…' : 'YES, CLOSE MY ACCOUNT'}
-          </button>
-          <button
-            className="mono account-secondary-action"
-            type="button"
-            onClick={() => setConfirming(false)}
-            disabled={closing}
-          >
-            KEEP MY ACCOUNT
-          </button>
-        </div>
-      )}
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close your account?</AlertDialogTitle>
+            <AlertDialogDescription className="close-account-warning">
+              This cannot be undone, and no one can undo it for you. Your name and address are removed
+              and you are signed out everywhere. Settlement records keep the identifier that accepted
+              them, which will no longer lead back to you.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="close-account-actions">
+            <button
+              className="mono close-account-action close-account-confirmed"
+              type="button"
+              onClick={() => void handleClose()}
+              disabled={closing}
+              aria-busy={closing}
+            >
+              {closing ? 'CLOSE ACCOUNT…' : 'YES, CLOSE MY ACCOUNT'}
+            </button>
+            <AlertDialogCancel asChild>
+              <button className="mono account-secondary-action" type="button" disabled={closing}>
+                KEEP MY ACCOUNT
+              </button>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {error !== null && (
         <p className="account-error" role="alert">

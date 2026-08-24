@@ -3,6 +3,7 @@ import type { ClientSession, Db, Filter, MongoClient } from 'mongodb'
 import { env } from '../config/env.js'
 import { getMongoClient } from './mongo.js'
 import { getVoltCollections, type VoltCollections } from './collections.js'
+import { isRoleManagementAllowed } from '../memberships/permissions.js'
 import {
   ANONYMISED_NAME,
   anonymisedEmail,
@@ -221,6 +222,8 @@ export interface MembershipRepository {
   /** Active memberships across every organisation the user belongs to. */
   listForUser(userId: string): Promise<MembershipDocument[]>
   listForOrganisation(organisationId: string): Promise<MembershipDocument[]>
+  /** Keeps the denormalised member directory aligned with Better Auth. */
+  syncEmail(userId: string, email: string): Promise<void>
   updateRole(organisationId: string, userId: string, role: MembershipRole, actorUserId: string): Promise<MembershipDocument | null>
   remove(organisationId: string, userId: string, actorUserId: string): Promise<MembershipDocument | null>
   transferOwnership(
@@ -353,6 +356,39 @@ export interface VoltRepositories {
 }
 
 export const invitationTtlMs = 7 * 24 * 60 * 60 * 1000
+
+function invitationDeliveryKey(invitationId: string): string {
+  return `organisation-invitation:${invitationId}`
+}
+
+function invitationIdFromDelivery(delivery: EmailDeliveryDocument): string | null {
+  if (delivery.invitationId) return delivery.invitationId
+  const prefix = 'organisation-invitation:'
+  return delivery.idempotencyKey.startsWith(prefix) ? delivery.idempotencyKey.slice(prefix.length) : null
+}
+
+function invitationDeliveryFilter(invitationIds: string[]): Filter<EmailDeliveryDocument> {
+  return {
+    $or: [
+      { invitationId: { $in: invitationIds } },
+      { idempotencyKey: { $in: invitationIds.map(invitationDeliveryKey) } },
+    ],
+  }
+}
+
+async function cancelPendingInvitationDeliveries(
+  collections: VoltCollections,
+  invitationIds: string[],
+  now: Date,
+  session?: ClientSession,
+): Promise<void> {
+  if (invitationIds.length === 0) return
+  await collections.emailDeliveries.updateMany(
+    { ...invitationDeliveryFilter(invitationIds), status: 'pending' },
+    { $set: { status: 'cancelled', lockedUntil: null, updatedAt: now } },
+    session ? { session } : undefined,
+  )
+}
 
 function normaliseSlug(value: string): string {
   const slug = value.trim().toLowerCase()
@@ -730,10 +766,19 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
           { $set: { deletedAt: now, updatedAt: now } },
           options,
         )
+        const pendingInvitations = await collections.organisationInvitations
+          .find({ organisationId: id, status: 'pending', deletedAt: null }, { session })
+          .toArray()
         await collections.organisationInvitations.updateMany(
-          { organisationId: id, status: 'pending', deletedAt: null },
+          { _id: { $in: pendingInvitations.map((invitation) => invitation._id) } },
           { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
           options,
+        )
+        await cancelPendingInvitationDeliveries(
+          collections,
+          pendingInvitations.map((invitation) => invitation._id),
+          now,
+          session,
         )
         await collections.organisationInvitations.updateMany(
           { organisationId: id, deletedAt: null },
@@ -807,18 +852,27 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
     listForOrganisation(organisationId) {
       return collections.memberships.find({ organisationId, deletedAt: null }).sort({ createdAt: 1 }).toArray()
     },
+    async syncEmail(userId, email) {
+      await collections.memberships.updateMany(
+        { userId, deletedAt: null },
+        { $set: { email: normaliseInvitationEmail(email), updatedAt: new Date() } },
+      )
+    },
     async updateRole(organisationId, userId, role, actorUserId) {
       assertMembershipRole(role)
       const session = client.startSession()
       try {
         let updated: MembershipDocument | null = null
         await session.withTransaction(async () => {
-          const current = await collections.memberships.findOne(
-            { organisationId, userId, deletedAt: null },
-            { session },
-          )
+          const [actor, current] = await Promise.all([
+            collections.memberships.findOne({ organisationId, userId: actorUserId, deletedAt: null }, { session }),
+            collections.memberships.findOne({ organisationId, userId, deletedAt: null }, { session }),
+          ])
           if (!current) return
           if (current.role === 'owner' || role === 'owner') throw new Error('OWNER_PROTECTED')
+          if (!actor || !isRoleManagementAllowed(actor.role, current.role, role)) {
+            throw new Error('MEMBERSHIP_ROLE_FORBIDDEN')
+          }
           if (current.role === role) {
             updated = current
             return
@@ -857,12 +911,15 @@ function createMembershipRepository(collections: VoltCollections, client: MongoC
       try {
         let removed: MembershipDocument | null = null
         await session.withTransaction(async () => {
-          const current = await collections.memberships.findOne(
-            { organisationId, userId, deletedAt: null },
-            { session },
-          )
+          const [actor, current] = await Promise.all([
+            collections.memberships.findOne({ organisationId, userId: actorUserId, deletedAt: null }, { session }),
+            collections.memberships.findOne({ organisationId, userId, deletedAt: null }, { session }),
+          ])
           if (!current) return
           if (current.role === 'owner') throw new Error('OWNER_PROTECTED')
+          if (!actor || !isRoleManagementAllowed(actor.role, current.role)) {
+            throw new Error('MEMBERSHIP_ROLE_FORBIDDEN')
+          }
 
           const now = new Date()
           const result = await collections.memberships.updateOne(
@@ -1609,7 +1666,8 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
       if (input.emailDelivery) {
         const delivery: EmailDeliveryDocument = {
           _id: randomUUID(),
-          idempotencyKey: `organisation-invitation:${document._id}`,
+          invitationId: document._id,
+          idempotencyKey: invitationDeliveryKey(document._id),
           kind: 'organisation_invitation',
           to: document.email,
           organisationName: input.emailDelivery.organisationName,
@@ -1639,9 +1697,18 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
       return { invitation: document, token }
     },
     async expirePending(now = new Date()) {
+      const expired = await collections.organisationInvitations
+        .find({ status: 'pending', deletedAt: null, expiresAt: { $lte: now } })
+        .toArray()
+      if (expired.length === 0) return 0
       const result = await collections.organisationInvitations.updateMany(
-        { status: 'pending', deletedAt: null, expiresAt: { $lte: now } },
+        { _id: { $in: expired.map((invitation) => invitation._id) } },
         { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
+      )
+      await cancelPendingInvitationDeliveries(
+        collections,
+        expired.map((invitation) => invitation._id),
+        now,
       )
       return result.modifiedCount
     },
@@ -1683,6 +1750,9 @@ function createInvitationRepository(collections: VoltCollections, client: MongoC
         { _id: invitationId, organisationId, status: 'pending', deletedAt: null },
         { $set: { status: 'revoked', revokedAt: now, updatedAt: now } },
       )
+      if (result.modifiedCount === 1) {
+        await cancelPendingInvitationDeliveries(collections, [invitationId], now)
+      }
       return result.modifiedCount === 1
     },
     async accept(token, userId, userEmail) {
@@ -1784,7 +1854,8 @@ function createEmailDeliveryRepository(collections: VoltCollections): EmailDeliv
   return {
     async claimNext(now = new Date(), leaseMs = 5 * 60 * 1000) {
       const lockedUntil = new Date(now.getTime() + leaseMs)
-      return collections.emailDeliveries.findOneAndUpdate(
+      while (true) {
+        const claimed = await collections.emailDeliveries.findOneAndUpdate(
         {
           $or: [
             { status: 'pending', nextAttemptAt: { $lte: now } },
@@ -1803,7 +1874,23 @@ function createEmailDeliveryRepository(collections: VoltCollections): EmailDeliv
           sort: { nextAttemptAt: 1, createdAt: 1 },
           returnDocument: 'after',
         },
-      )
+        )
+        if (!claimed) return null
+
+        const invitationId = invitationIdFromDelivery(claimed)
+        const invitation = invitationId
+          ? await collections.organisationInvitations.findOne({ _id: invitationId, status: 'pending', deletedAt: null })
+          : null
+        if (invitation && invitation.expiresAt.getTime() > now.getTime()) return claimed
+
+        // A delivery can outlive an invitation during a deploy or from an older
+        // document that predates invitationId. Do not send a link that cannot
+        // be accepted; terminal cancellation also keeps it out of future polls.
+        await collections.emailDeliveries.updateOne(
+          { _id: claimed._id, status: 'processing' },
+          { $set: { status: 'cancelled', lockedUntil: null, updatedAt: now } },
+        )
+      }
     },
 
     async markSent(id, now = new Date()) {
@@ -1925,6 +2012,11 @@ function createAccountRepository(
           }
 
           const now = new Date()
+          const user = await db.collection('user').findOne({ _id: userId as never }, { session })
+          const userEmail = typeof user?.email === 'string' ? user.email : null
+          const acceptedInvitations = await collections.organisationInvitations
+            .find({ acceptedByUserId: userId }, { session })
+            .toArray()
 
           for (const membership of memberships) {
             await collections.memberships.updateOne(
@@ -1943,6 +2035,45 @@ function createAccountRepository(
                 metadata: { previousRole: membership.role },
                 createdAt: now,
               },
+              { session },
+            )
+          }
+
+          // A membership tombstone is retained as audit evidence, but its email
+          // must not turn the ledger's opaque user ID back into an identity.
+          // Include already-released memberships too: a user may have left an
+          // organisation before closing their account.
+          await collections.memberships.updateMany(
+            { userId },
+            { $set: { email: null, updatedAt: now } },
+            { session },
+          )
+
+          // Accepted invitations and their outbox rows form another direct
+          // userId -> email link. Keep the invitation/audit history, but make
+          // the address anonymous at the same time as the Better Auth row.
+          const anonymised = anonymisedEmail(userId)
+          if (acceptedInvitations.length > 0) {
+            await collections.organisationInvitations.updateMany(
+              { acceptedByUserId: userId },
+              { $set: { email: anonymised, updatedAt: now } },
+              { session },
+            )
+          }
+
+          const deliveryScopes: Filter<EmailDeliveryDocument>[] = []
+          if (acceptedInvitations.length > 0) {
+            deliveryScopes.push({
+              idempotencyKey: {
+                $in: acceptedInvitations.map((invitation) => `organisation-invitation:${invitation._id}`),
+              },
+            })
+          }
+          if (userEmail) deliveryScopes.push({ to: userEmail })
+          if (deliveryScopes.length > 0) {
+            await collections.emailDeliveries.updateMany(
+              { $or: deliveryScopes },
+              { $set: { to: anonymised, updatedAt: now } },
               { session },
             )
           }

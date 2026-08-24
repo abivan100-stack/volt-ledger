@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import type { HouseholdStatus } from '../../lib/householdStatus'
 import {
@@ -12,6 +13,7 @@ import {
   type StageSize,
 } from '../../lib/energyNetwork'
 import type { CSSVars } from '../ui/cssVars'
+import HouseholdBrief from './HouseholdBrief'
 import './EnergyNetwork.css'
 
 const STATUS_COPY: Record<NetworkStatus, string> = {
@@ -73,6 +75,7 @@ function EnergyNetwork() {
   const gradientPrefix = useId().replace(/:/g, '')
   const [stage, setStage] = useState<StageSize>({ width: 0, height: 0 })
   const [hovered, setHovered] = useState<number | null>(null)
+  const [selectedHouseIndex, setSelectedHouseIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const element = stageRef.current
@@ -103,6 +106,17 @@ function EnergyNetwork() {
     [nodes, settledTrades, stage],
   )
   const status = useMemo(() => networkStatus(households), [households])
+  const selectedHousehold = selectedHouseIndex == null ? null : households[selectedHouseIndex]
+
+  function selectHouse(index: number) {
+    setSelectedHouseIndex(index)
+  }
+
+  function handleNodeKeyDown(event: KeyboardEvent<HTMLLIElement>, index: number) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    selectHouse(index)
+  }
 
   return (
     <section
@@ -178,9 +192,13 @@ function EnergyNetwork() {
               onPointerLeave={() => setHovered(null)}
               onFocus={() => setHovered(index)}
               onBlur={() => setHovered(null)}
+              onClick={() => selectHouse(index)}
+              onKeyDown={(event) => handleNodeKeyDown(event, index)}
               tabIndex={0}
-              role="group"
-              aria-label={`${node.name}, ${ROLE_WORD[node.status]} ${netLabel(node.status, node.net)}`}
+              role="button"
+              aria-expanded={selectedHouseIndex === index}
+              aria-controls={selectedHouseIndex === index ? 'network-household-brief' : undefined}
+              aria-label={`Open snapshot for ${node.name}, ${ROLE_WORD[node.status]} ${netLabel(node.status, node.net)}`}
             >
               <span aria-hidden="true" className="net-node-chip">
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" className="net-node-glyph">
@@ -202,6 +220,15 @@ function EnergyNetwork() {
           ))}
         </ul>
       </div>
+      <AnimatePresence initial={false}>
+        {selectedHousehold && (
+          <HouseholdBrief
+            key={selectedHousehold.id}
+            household={selectedHousehold}
+            onClose={() => setSelectedHouseIndex(null)}
+          />
+        )}
+      </AnimatePresence>
 
     </section>
   )

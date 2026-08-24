@@ -1,0 +1,48 @@
+.volt-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--font-mono, monospace);
+  transition: colors 150ms ease;
+}
+
+.volt-badge-default {
+  background-color: var(--color-ink, #17140f);
+  color: var(--color-paper, #f2eee4);
+}
+
+.volt-badge-volt {
+  background-color: rgba(13, 102, 37, 0.12);
+  color: var(--color-volt, #0d6625);
+  border-color: rgba(13, 102, 37, 0.25);
+}
+
+.volt-badge-sun {
+  background-color: rgba(178, 106, 18, 0.12);
+  color: var(--color-sun, #b26a12);
+  border-color: rgba(178, 106, 18, 0.25);
+}
+
+.volt-badge-destructive {
+  background-color: rgba(163, 30, 23, 0.12);
+  color: var(--color-void, #a31e17);
+  border-color: rgba(163, 30, 23, 0.25);
+}
+
+.volt-badge-outline {
+  border-color: var(--color-rule-2, #beb49b);
+  color: var(--color-ink, #17140f);
+  background-color: transparent;
+}
+
+.volt-badge-secondary {
+  background-color: var(--color-paper-2, #e9e2d2);
+  color: var(--color-ink-soft, #6b6454);
+}

@@ -208,6 +208,7 @@ function createRepositories(options: StubOptions = {}): OrganisationRouteReposit
     },
     memberships: {
       find: async () => current,
+      listForUser: async () => [current],
       listForOrganisation: async () => [current, membership('viewer')],
       updateRole: async () => membership('operator'),
       remove: async () => true,

@@ -1,0 +1,111 @@
+.volt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 100ms ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+  outline: none;
+  font-family: var(--font-sans, inherit);
+}
+
+.volt-btn:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.volt-btn:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Variants */
+.volt-btn-default {
+  background-color: var(--color-ink, #17140f);
+  color: var(--color-paper, #f2eee4);
+}
+.volt-btn-default:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-0.5px);
+}
+
+.volt-btn-volt {
+  background-color: var(--color-volt, #0d6625);
+  color: #ffffff;
+}
+.volt-btn-volt:hover:not(:disabled) {
+  background-color: var(--color-bolt, #1a6b2e);
+}
+
+.volt-btn-destructive {
+  background-color: var(--color-void, #a31e17);
+  color: #ffffff;
+}
+.volt-btn-destructive:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.volt-btn-outline {
+  border-color: var(--color-rule-2, #beb49b);
+  background-color: transparent;
+  color: var(--color-ink, #17140f);
+}
+.volt-btn-outline:hover:not(:disabled) {
+  background-color: var(--color-paper-2, #e9e2d2);
+}
+
+.volt-btn-secondary {
+  background-color: var(--color-paper-2, #e9e2d2);
+  color: var(--color-ink, #17140f);
+  border-color: var(--color-rule, #dad2bf);
+}
+.volt-btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-card, #fcfaf3);
+}
+
+.volt-btn-ghost {
+  background-color: transparent;
+  color: var(--color-ink, #17140f);
+}
+.volt-btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-paper-2, #e9e2d2);
+}
+
+.volt-btn-link {
+  color: var(--color-volt, #0d6625);
+  background-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  padding: 0 !important;
+  height: auto !important;
+}
+
+/* Sizes */
+.volt-btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.volt-btn-md {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+.volt-btn-lg {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+
+.volt-btn-icon {
+  height: 34px;
+  width: 34px;
+  padding: 0;
+}

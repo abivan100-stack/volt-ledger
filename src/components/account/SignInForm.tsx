@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ApiError } from '../../api/errors'
+import { ApiError, getApiErrorMessage } from '../../api/errors'
 import { useSessionStore } from '../../store/useSessionStore'
 import PasswordField from './PasswordField'
 import './SignInForm.css'
@@ -11,13 +11,10 @@ import './SignInForm.css'
  * unhelpful failure for both.
  */
 function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 403) {
-      return 'This address has not been verified yet. We have emailed you a fresh verification code — sign up again with this address to enter it.'
-    }
-    return error.message
+  if (error instanceof ApiError && error.status === 403) {
+    return 'This address has not been verified yet. A fresh verification code was requested — sign up again with this address to enter it.'
   }
-  return 'Sign in could not be completed.'
+  return getApiErrorMessage(error, 'Sign in could not be completed.')
 }
 
 function SignInForm() {

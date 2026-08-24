@@ -1,0 +1,148 @@
+.impact-summary {
+  margin: 42px 0;
+  border: 1px solid var(--rule-2);
+  background: var(--card);
+  box-shadow: 0 34px 70px -50px color-mix(in srgb, var(--ink) 46%, transparent);
+}
+
+.impact-summary-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 28px 22px;
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.impact-summary-label {
+  margin: 0 0 8px;
+  color: var(--sun);
+}
+
+.impact-summary-title {
+  margin: 0;
+  font-size: clamp(30px, 4.2vw, 46px);
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+}
+
+.impact-summary-proof {
+  margin: 0;
+  color: var(--settle);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.impact-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.impact-summary-metric {
+  min-height: 144px;
+  padding: 22px 24px;
+  border-right: 1px solid var(--rule-2);
+  border-bottom: 1px solid var(--rule-2);
+}
+
+.impact-summary-metric:nth-child(3n) {
+  border-right: 0;
+}
+
+.impact-summary-metric:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+.impact-summary-metric-label {
+  color: var(--ink-soft);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.impact-summary-metric-value {
+  margin-top: 13px;
+  color: var(--ink);
+  font-size: clamp(22px, 2.8vw, 31px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.impact-summary-metric-caption {
+  margin-top: 10px;
+  color: var(--ink-soft);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 1.55;
+}
+
+.impact-summary-note {
+  margin: 0;
+  padding: 14px 28px;
+  border-top: 1px solid var(--rule-2);
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .impact-summary-heading {
+    display: block;
+    padding: 22px 20px 18px;
+  }
+
+  .impact-summary-proof {
+    margin-top: 16px;
+    text-align: left;
+  }
+
+  .impact-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .impact-summary-metric {
+    min-height: 130px;
+    padding: 19px 18px;
+  }
+
+  .impact-summary-metric:nth-child(3n) {
+    border-right: 1px solid var(--rule-2);
+  }
+
+  .impact-summary-metric:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .impact-summary-metric:nth-last-child(-n + 3) {
+    border-bottom: 1px solid var(--rule-2);
+  }
+
+  .impact-summary-metric:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .impact-summary-note {
+    padding: 13px 20px;
+  }
+}
+
+@media (max-width: 420px) {
+  .impact-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .impact-summary-metric,
+  .impact-summary-metric:nth-child(2n),
+  .impact-summary-metric:nth-child(3n) {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule-2);
+  }
+
+  .impact-summary-metric:last-child {
+    border-bottom: 0;
+  }
+}

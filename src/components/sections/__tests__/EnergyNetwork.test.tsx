@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import EnergyNetwork from '../EnergyNetwork'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 import { shortName } from '../../../lib/energyNetwork'
@@ -139,20 +139,30 @@ describe('EnergyNetwork', () => {
     expect(container.querySelectorAll('.net-feeder-loop')).toHaveLength(10)
   })
 
-  it('supports keyboard focus with one non-duplicated accessible label per node', () => {
+  it('supports keyboard focus and opening one concise household snapshot per node', async () => {
     measureStage(600, 450)
     const { container } = render(<EnergyNetwork />)
-    const nodes = screen.getAllByRole('group')
+    const nodes = screen.getAllByRole('button')
 
     expect(nodes).toHaveLength(10)
     expect(nodes[0].getAttribute('tabindex')).toBe('0')
-    expect(nodes[0].getAttribute('aria-label')).toMatch(/Nikil Sundaram/)
+    expect(nodes[0].getAttribute('aria-label')).toMatch(/Open snapshot for Nikil Sundaram/)
     expect(nodes[0].querySelector('.sr-only')).toBeNull()
 
     fireEvent.focus(nodes[0])
     expect(container.querySelector('.net-stage')?.hasAttribute('data-hovering')).toBe(true)
     fireEvent.blur(nodes[0])
     expect(container.querySelector('.net-stage')?.hasAttribute('data-hovering')).toBe(false)
+
+    fireEvent.click(nodes[0])
+    expect(screen.getByRole('heading', { name: 'Nikil Sundaram' })).toBeTruthy()
+    expect(nodes[0].getAttribute('aria-expanded')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: /close nikil sundaram snapshot/i }))
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Nikil Sundaram' })).toBeNull())
+
+    fireEvent.keyDown(nodes[1], { key: 'Enter' })
+    expect(screen.getByRole('heading', { name: 'Prem Ramesh' })).toBeTruthy()
   })
 
   it('renders the permanent web without ResizeObserver support', () => {

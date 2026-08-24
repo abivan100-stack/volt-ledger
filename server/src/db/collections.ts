@@ -121,6 +121,14 @@ const collectionSpecs: CollectionSpec[] = [
         key: { organisationId: 1, status: 1, createdAt: -1 },
         name: 'simulation_runs_organisation_status_created_at',
       },
+      {
+        // The worker claims across every organisation at once; without this the
+        // claim query scans the whole collection. The leading `status` bounds
+        // both claim branches and the `startedAt` column serves the stale-lease
+        // branch, with `createdAt` covering the oldest-first sort.
+        key: { status: 1, startedAt: 1, createdAt: 1 },
+        name: 'simulation_runs_claim_queue',
+      },
     ],
   },
   {

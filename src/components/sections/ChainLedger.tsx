@@ -21,6 +21,7 @@ function ChainLedger() {
   const startEdit = useEnergyStore((state) => state.startEdit)
   const setEditValue = useEnergyStore((state) => state.setEditValue)
   const commitEdit = useEnergyStore((state) => state.commitEdit)
+  const runTamperTest = useEnergyStore((state) => state.runTamperTest)
   const cancelEdit = useEnergyStore((state) => state.cancelEdit)
   const restoreChain = useEnergyStore((state) => state.restoreChain)
   const dayType = useEnergyStore((state) => state.dayType)
@@ -38,6 +39,7 @@ function ChainLedger() {
   const viewedTotalCredit = archive?.totalCredit ?? totalCreditToday
   const viewedCompromised = archive?.compromised ?? compromised
   const viewedInvalidCount = archive?.invalidCount ?? invalidCount
+  const canRunTamperTest = isCurrent && viewedChain.length > 0 && !viewedCompromised
 
   const rows = viewedChain.slice(-10).reverse()
 
@@ -82,8 +84,18 @@ function ChainLedger() {
         <h2 className="serif chain-title">
           The chain <span className="chain-title-sub">· sha-256 sealed</span>
         </h2>
-        <div className="mono chain-tamper-hint">TAMPER TEST — CLICK ANY kWh AND RETYPE IT</div>
+        <div className="mono chain-tamper-hint">INTEGRITY TEST — RUN THE DEMO, OR EDIT ANY kWh</div>
         <div className="chain-export-actions">
+          {isCurrent && (
+            <button
+              type="button"
+              onClick={runTamperTest}
+              disabled={!canRunTamperTest}
+              className="mono chain-tamper-button"
+            >
+              RUN TAMPER TEST
+            </button>
+          )}
           <button type="button" onClick={exportCsv} className="mono chain-export-button">
             EXPORT CSV
           </button>
@@ -125,7 +137,7 @@ function ChainLedger() {
       {viewedCompromised && <div className="chain-void-stamp">INTEGRITY VOID</div>}
 
       <div data-reveal className="chain-card">
-        <div className={`chain-status chain-status-${status.variant}`}>
+        <div className={`chain-status chain-status-${status.variant}`} role="status" aria-live="polite">
           <div className="mono chain-status-text">
             <span className="chain-status-dot" />
             {status.text}

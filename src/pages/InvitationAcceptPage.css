@@ -3,9 +3,22 @@
   border-bottom: 1px solid var(--rule-2);
 }
 
-.invite-page-inner {
+/* Same narrowing as AccountPage.css: nothing here is wider than 460px, so
+   the site's 1200px section width — sized for marketing-page grids — leaves
+   this page looking like a stray column rather than a settings page. */
+.invite-page .invite-page-inner {
+  max-width: 640px;
   padding-top: 72px;
   padding-bottom: 96px;
+}
+
+/* Same card recipe as .member-row and every other bordered panel in this
+   app — see AccountPage.css, which this page mirrors exactly. */
+.invite-page-card {
+  padding: 40px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
 }
 
 .invite-page-kicker {
@@ -24,8 +37,18 @@
 }
 
 @media (max-width: 760px) {
-  .invite-page-inner {
+  /*
+   * Matches the base rule's own specificity (.invite-page prefixed) — the
+   * same mistake as AccountPage.css had: a bare .invite-page-inner here has
+   * strictly lower specificity than the desktop rule above and can never
+   * win, at any viewport, media query or not.
+   */
+  .invite-page .invite-page-inner {
     padding-top: 56px;
     padding-bottom: 72px;
+  }
+
+  .invite-page-card {
+    padding: 24px;
   }
 }

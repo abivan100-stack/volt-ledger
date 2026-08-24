@@ -152,6 +152,27 @@ describe('Volt Mongo repositories', () => {
     })
   })
 
+  it('keeps active membership directory emails in sync with the identity record', async () => {
+    const repositories = createVoltRepositories(createMemoryDb(), {} as MongoClient)
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_123',
+      email: 'old@example.com',
+      role: 'operator',
+    })
+    await repositories.memberships.create({
+      organisationId: 'org_456',
+      userId: 'user_123',
+      email: 'old@example.com',
+      role: 'viewer',
+    })
+
+    await repositories.memberships.syncEmail('user_123', ' New@Example.COM ')
+
+    expect((await repositories.memberships.listForOrganisation('org_123'))[0]?.email).toBe('new@example.com')
+    expect((await repositories.memberships.listForOrganisation('org_456'))[0]?.email).toBe('new@example.com')
+  })
+
   it('queues invitation email data in the same transaction as the invitation', async () => {
     let transactionCount = 0
     const client = {
@@ -184,6 +205,7 @@ describe('Volt Mongo repositories', () => {
     expect(created.token).toBe('raw-token-for-transaction-test')
     expect(deliveries).toHaveLength(1)
     expect(deliveries[0]).toMatchObject({
+      invitationId: created.invitation._id,
       idempotencyKey: `organisation-invitation:${created.invitation._id}`,
       to: 'friend@example.com',
       status: 'pending',
@@ -197,6 +219,7 @@ describe('Volt Mongo repositories', () => {
     const now = new Date('2030-01-01T00:00:00.000Z')
     const document: EmailDeliveryDocument = {
       _id: 'delivery_1',
+      invitationId: 'invitation_1',
       idempotencyKey: 'organisation-invitation:invitation_1',
       kind: 'organisation_invitation',
       to: 'friend@example.com',
@@ -212,6 +235,22 @@ describe('Volt Mongo repositories', () => {
       updatedAt: now,
       sentAt: null,
     }
+    await (db.collection(collectionNames.organisationInvitations) as ReturnType<typeof createMemoryCollection>).insertOne({
+      _id: 'invitation_1',
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      tokenHash: 'token-hash',
+      status: 'pending',
+      invitedByUserId: 'user_123',
+      expiresAt: new Date(now.getTime() + 60_000),
+      acceptedByUserId: null,
+      acceptedAt: null,
+      revokedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
     await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>).insertOne(document)
 
     const claimed = await repositories.emailDeliveries.claimNext(now, 60_000)
@@ -222,6 +261,30 @@ describe('Volt Mongo repositories', () => {
     expect(reclaimed?.attemptCount).toBe(2)
     expect(await repositories.emailDeliveries.markSent('delivery_1', now)).toBe(true)
     expect(await repositories.emailDeliveries.claimNext(new Date(now.getTime() + 3_000))).toBeNull()
+  })
+
+  it('cancels an undelivered invitation email once the invitation is revoked', async () => {
+    const db = createMemoryDb()
+    const client = {
+      startSession: () => ({
+        withTransaction: async (operation: () => Promise<void>) => operation(),
+        endSession: async () => undefined,
+      }),
+    } as unknown as MongoClient
+    const repositories = createVoltRepositories(db, client)
+    const created = await repositories.invitations.create({
+      organisationId: 'org_123',
+      email: 'friend@example.com',
+      role: 'operator',
+      invitedByUserId: 'owner_123',
+      emailDelivery: { encryptedUrl: 'encrypted-payload', organisationName: 'Solar Commons' },
+    })
+
+    expect(await repositories.invitations.revoke('org_123', created.invitation._id)).toBe(true)
+    expect(await repositories.emailDeliveries.claimNext()).toBeNull()
+    const delivery = await (db.collection(collectionNames.emailDeliveries) as ReturnType<typeof createMemoryCollection>)
+      .findOne({ invitationId: created.invitation._id })
+    expect(delivery).toMatchObject({ status: 'cancelled' })
   })
 
   it('accepts an invitation and creates the membership in one transaction', async () => {
@@ -327,6 +390,12 @@ describe('Volt Mongo repositories', () => {
       }),
     } as unknown as MongoClient
     const repositories = createVoltRepositories(createMemoryDb(), client)
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_owner',
+      email: 'owner@example.com',
+      role: 'owner',
+    })
     const created = await repositories.memberships.create({
       organisationId: 'org_123',
       userId: 'user_456',
@@ -340,14 +409,18 @@ describe('Volt Mongo repositories', () => {
     expect(removed).toMatchObject({ _id: created._id, role: 'viewer' })
     expect(await repositories.memberships.find('org_123', 'user_456')).toBeNull()
 
-    await repositories.memberships.create({
-      organisationId: 'org_123',
-      userId: 'user_owner',
-      email: 'owner@example.com',
-      role: 'owner',
-    })
     await expect(repositories.memberships.remove('org_123', 'user_owner', 'user_owner')).rejects.toThrow(
       'OWNER_PROTECTED',
+    )
+
+    await repositories.memberships.create({
+      organisationId: 'org_123',
+      userId: 'user_admin',
+      email: 'admin@example.com',
+      role: 'admin',
+    })
+    await expect(repositories.memberships.updateRole('org_123', 'user_admin', 'viewer', 'user_admin')).rejects.toThrow(
+      'MEMBERSHIP_ROLE_FORBIDDEN',
     )
   })
 

@@ -143,6 +143,24 @@ describe('changeRole', () => {
     expect(useMembershipStore.getState().members).toEqual([OWNER, OPERATOR])
   })
 
+  it('does not apply a completed role change to a newly selected organisation', async () => {
+    listMock.mockResolvedValueOnce([OWNER, OPERATOR])
+    await useMembershipStore.getState().load(ORG_A)
+
+    let release: (value: Membership) => void = () => {}
+    updateRoleMock.mockReturnValue(new Promise<Membership>((resolve) => { release = resolve }))
+    const changing = useMembershipStore.getState().changeRole(OPERATOR.userId, 'viewer')
+
+    const otherMember = { ...OPERATOR, role: 'viewer' as const }
+    listMock.mockResolvedValueOnce([OWNER, otherMember])
+    await useMembershipStore.getState().load(ORG_B)
+    release({ ...OPERATOR, role: 'viewer' })
+    await changing
+
+    expect(useMembershipStore.getState().organisationId).toBe(ORG_B)
+    expect(useMembershipStore.getState().members).toEqual([OWNER, otherMember])
+  })
+
   it('refuses to act when no organisation is selected', async () => {
     await expect(useMembershipStore.getState().changeRole('user-op', 'viewer')).rejects.toThrow(
       /No organisation is selected/,

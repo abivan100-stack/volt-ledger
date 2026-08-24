@@ -1,0 +1,14 @@
+.volt-tooltip-content {
+  z-index: 50;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid var(--color-rule-2, #beb49b);
+  background-color: var(--color-ink, #17140f);
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--color-paper, #f2eee4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}

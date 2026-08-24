@@ -17,6 +17,7 @@ export const colors = {
   sun: '#B26A12',
   settle: '#245C43',
   volt: '#0d6625',
+  bolt: '#1A6B2E',
   void: '#A31E17',
 } as const
 

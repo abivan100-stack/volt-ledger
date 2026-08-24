@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { resendVerificationEmail, signUpWithEmail, verifyEmailOtp } from '../../api/auth'
-import { ApiError } from '../../api/errors'
+import { ApiError, getApiErrorMessage } from '../../api/errors'
 import PasswordField from './PasswordField'
 import VerificationCodeField from './VerificationCodeField'
 import './SignUpForm.css'
@@ -13,11 +13,6 @@ const VERIFICATION_CODE_LENGTH = 6
 
 /** Mirrors VERIFICATION_CODE_TTL_SECONDS on the API, in minutes. */
 const VERIFICATION_CODE_TTL_MINUTES = 10
-
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  return 'The account could not be created.'
-}
 
 function SignUpForm() {
   const [name, setName] = useState('')
@@ -68,7 +63,7 @@ function SignUpForm() {
       await resendVerificationEmail({ email: registeredEmail })
       setCode('')
       setVerifyError(null)
-      setResendMessage('A new code has been sent.')
+      setResendMessage('A new code was requested. If it does not arrive shortly, try again.')
     } catch (caught) {
       setResendError(caught instanceof ApiError ? caught.message : 'The code could not be sent.')
     } finally {
@@ -93,7 +88,7 @@ function SignUpForm() {
       // happened instead of implying the visitor is signed in.
       setRegisteredEmail(email)
     } catch (caught) {
-      setError(messageFor(caught))
+      setError(getApiErrorMessage(caught, 'The account could not be created.'))
     } finally {
       setSubmitting(false)
     }
@@ -113,7 +108,8 @@ function SignUpForm() {
     return (
       <form className="account-form" onSubmit={handleVerify} noValidate>
         <p className="account-confirmation-note" role="status">
-          We sent a {VERIFICATION_CODE_LENGTH}-digit code to <strong>{registeredEmail}</strong>.
+          We requested a {VERIFICATION_CODE_LENGTH}-digit code for <strong>{registeredEmail}</strong>. If it does
+          not arrive shortly, use “Send a new code”.
         </p>
 
         <VerificationCodeField

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError } from '../../api/errors'
+import { getApiErrorMessage } from '../../api/errors'
 import { isWithinRecoveryWindow, recoveryWindowLabel } from '../../lib/retention'
 import { useOrganisationStore } from '../../store/useOrganisationStore'
 import './RestoreOrganisation.css'
@@ -88,7 +88,7 @@ function ArchivedEntry({ organisation }: ArchivedEntryProps) {
       // The entry leaves the archived list, so this unmounts.
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : 'The organisation could not be restored.',
+        getApiErrorMessage(caught, 'The organisation could not be restored.'),
       )
       setRestoring(false)
     }

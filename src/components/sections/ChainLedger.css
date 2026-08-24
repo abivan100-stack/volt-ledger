@@ -223,6 +223,31 @@
   max-width: 78ch;
 }
 
+.chain-tamper-button {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--void);
+  background: color-mix(in srgb, var(--void) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--void) 62%, var(--rule-2));
+  border-radius: 2px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.chain-tamper-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--void) 10%, transparent);
+}
+
+.chain-tamper-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.chain-tamper-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .chain-empty-state {
   padding: 30px 22px;
   color: var(--ink-soft);

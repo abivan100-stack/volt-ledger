@@ -14,14 +14,16 @@ function AccountPage() {
       <Header />
       <main className="account-page" id="main">
         <div className="container account-page-inner">
-          <p className="mono account-page-kicker">VOLT / ACCOUNT</p>
-          <h1 className="serif account-page-heading">Your Volt account</h1>
-          <p className="account-page-body">
-            Signing in gives you organisations, simulation runs, and the server-owned settlement
-            ledger. The public demo needs no account and is unaffected by anything on this page.
-          </p>
-          <AccountPanel />
-          <OrganisationPanel />
+          <div className="account-page-card">
+            <p className="mono account-page-kicker">VOLT / ACCOUNT</p>
+            <h1 className="serif account-page-heading">Your Volt account</h1>
+            <p className="account-page-body">
+              Signing in gives you organisations, simulation runs, and the server-owned settlement
+              ledger. The public demo needs no account and is unaffected by anything on this page.
+            </p>
+            <AccountPanel />
+            <OrganisationPanel />
+          </div>
         </div>
       </main>
     </>

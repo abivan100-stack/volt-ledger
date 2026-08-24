@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError } from '../api/errors'
+import { ApiError, getApiErrorMessage } from '../api/errors'
 import {
   createSimulationRun,
   getSimulationQuota,
@@ -12,6 +12,7 @@ import {
   type SimulationRun,
 } from '../api/simulations'
 import { useOrganisationStore } from './useOrganisationStore'
+import { requireOrganisationId } from './organisationScope'
 import { useSessionStore } from './useSessionStore'
 
 /**
@@ -40,6 +41,7 @@ export interface SimulationState {
   quota: SimulationQuota | null
   error: string | null
   pendingLoad: Promise<void> | null
+  requestGeneration: number
   selectedRunId: string | null
   results: SimulationResults | null
   resultsStatus: ResultsStatus
@@ -64,20 +66,11 @@ const EMPTY: Omit<
   quota: null,
   error: null,
   pendingLoad: null,
+  requestGeneration: 0,
   selectedRunId: null,
   results: null,
   resultsStatus: 'idle',
   resultsError: null,
-}
-
-function messageFor(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  return fallback
-}
-
-function requireOrganisationId(organisationId: string | null): string {
-  if (!organisationId) throw new Error('No organisation is selected')
-  return organisationId
 }
 
 export const useSimulationStore = create<SimulationState>()((set, get) => ({
@@ -87,21 +80,25 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
     const state = get()
     if (state.pendingLoad && state.organisationId === organisationId) return state.pendingLoad
 
-    set({ organisationId, status: 'loading', error: null })
+    const requestGeneration =
+      state.organisationId === organisationId ? state.requestGeneration : state.requestGeneration + 1
+    const isCurrent = () =>
+      get().organisationId === organisationId && get().requestGeneration === requestGeneration
+    set({ organisationId, status: 'loading', error: null, requestGeneration })
     const loading = Promise.all([
       listSimulationRuns(organisationId, { limit: 20 }),
       getSimulationQuota(organisationId),
     ])
       .then(([runs, quota]) => {
-        if (get().organisationId !== organisationId) return
+        if (!isCurrent()) return
         set({ status: 'ready', runs, quota, error: null })
       })
       .catch((error: unknown) => {
-        if (get().organisationId !== organisationId) return
-        set({ status: 'error', error: messageFor(error, 'The simulations could not be loaded') })
+        if (!isCurrent()) return
+        set({ status: 'error', error: getApiErrorMessage(error, 'The simulations could not be loaded') })
       })
       .finally(() => {
-        if (get().organisationId === organisationId) set({ pendingLoad: null })
+        if (isCurrent()) set({ pendingLoad: null })
       })
 
     set({ pendingLoad: loading })
@@ -111,14 +108,17 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
   refreshQuota: async () => {
     const organisationId = get().organisationId
     if (!organisationId) return
+    const requestGeneration = get().requestGeneration
     const quota = await getSimulationQuota(organisationId)
-    if (get().organisationId !== organisationId) return
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
     set({ quota })
   },
 
   submit: async (input) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     const run = await createSimulationRun(organisationId, input)
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return run
     set((state) => ({ runs: [run, ...state.runs], selectedRunId: run.id }))
     // One unit of the daily allowance has just been spent.
     await get().refreshQuota()
@@ -128,6 +128,7 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
   refreshActiveRuns: async () => {
     const organisationId = get().organisationId
     if (!organisationId) return
+    const requestGeneration = get().requestGeneration
 
     const active = get().runs.filter(isActiveRun)
     if (active.length === 0) return
@@ -139,7 +140,7 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
     )
 
     // The organisation may have changed while these were in flight.
-    if (get().organisationId !== organisationId) return
+    if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration) return
 
     const byId = new Map(
       refreshed.filter((run): run is SimulationRun => run !== null).map((run) => [run.id, run]),
@@ -155,13 +156,14 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
 
   loadResults: async (runId) => {
     const organisationId = requireOrganisationId(get().organisationId)
+    const requestGeneration = get().requestGeneration
     set({ selectedRunId: runId, resultsStatus: 'loading', resultsError: null })
     try {
       const results = await getSimulationResults(organisationId, runId, { limit: 2_000 })
-      if (get().selectedRunId !== runId) return
+      if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration || get().selectedRunId !== runId) return
       set({ results, resultsStatus: 'ready', resultsError: null })
     } catch (error) {
-      if (get().selectedRunId !== runId) return
+      if (get().organisationId !== organisationId || get().requestGeneration !== requestGeneration || get().selectedRunId !== runId) return
       // "Not complete yet" is a normal state for a queued run, not a failure.
       if (error instanceof ApiError && error.code === 'SIMULATION_NOT_COMPLETE') {
         set({ results: null, resultsStatus: 'pending', resultsError: null })
@@ -170,12 +172,12 @@ export const useSimulationStore = create<SimulationState>()((set, get) => ({
       set({
         results: null,
         resultsStatus: 'error',
-        resultsError: messageFor(error, 'The results could not be loaded'),
+        resultsError: getApiErrorMessage(error, 'The results could not be loaded'),
       })
     }
   },
 
-  reset: () => set({ ...EMPTY }),
+  reset: () => set((state) => ({ ...EMPTY, requestGeneration: state.requestGeneration + 1 })),
 }))
 
 useOrganisationStore.subscribe((state, previous) => {

@@ -7,6 +7,8 @@ import { DAY_TYPES, type DayType } from './lib/simulation'
 import VoltPage from './pages/VoltPage'
 import NotFoundPage from './pages/NotFoundPage'
 import AppLoading from './components/ui/AppLoading'
+import { TradeNotificationFeed } from './components/sections/TradeNotificationFeed'
+import { JudgeTour } from './components/sections/JudgeTour'
 import './App.css'
 
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
@@ -49,12 +51,6 @@ function App() {
     // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    document.title = location.pathname.startsWith('/ledger')
-      ? 'Volt Ledger — Live Energy Exchange'
-      : 'Volt — Local Energy Ledger'
-  }, [location.pathname])
-
   return (
     <>
       <a href="#main" className="mono skip-link">
@@ -75,6 +71,8 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
+      <TradeNotificationFeed />
+      <JudgeTour />
     </>
   )
 }
