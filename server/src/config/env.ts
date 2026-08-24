@@ -81,8 +81,53 @@ export const envSchema = z
 
 export type Env = z.infer<typeof envSchema>
 
+/**
+ * What each setting is for, in the words someone deploying would need.
+ *
+ * Only the ones with no default appear here: those are the settings a
+ * deployment must supply, and therefore the ones somebody is going to get
+ * wrong at three in the morning while reading a platform's log viewer.
+ */
+const SETTING_HINTS: Record<string, string> = {
+  MONGODB_URI: 'Connection string for a MongoDB replica set, e.g. mongodb+srv://user:password@cluster.mongodb.net/',
+  MONGODB_DB_NAME: 'Database name to use on that cluster, e.g. volt',
+  BETTER_AUTH_SECRET: 'A random string of at least 32 characters. Generate a fresh one per environment.',
+  BETTER_AUTH_URL: "This API's own origin, e.g. https://volt-api.onrender.com. Must be HTTPS when NODE_ENV=production.",
+  WEB_ORIGIN: 'The origin the browser loads the site from, e.g. https://volt-web.onrender.com. Must be HTTPS when NODE_ENV=production, and must match exactly; CORS is pinned to it.',
+}
+
+/**
+ * Turns a schema failure into something an operator can act on.
+ *
+ * Zod's own report is a stack trace over a nested issue array, which in a
+ * platform log viewer says little more than that something was undefined. What
+ * a deployment needs is the name of every setting that is wrong, what is wrong
+ * with it, and what a correct value looks like — all of it, not just the first
+ * one, so a misconfigured environment takes one more deploy to fix rather than
+ * one per missing variable.
+ */
+function describeEnvironmentFailure(error: z.ZodError): string {
+  const lines = error.issues.map((issue) => {
+    const name = issue.path.join('.') || '(root)'
+    const missing = issue.code === 'invalid_type' && issue.message.includes('received undefined')
+    const problem = missing ? 'is required but was not set' : issue.message
+    const hint = SETTING_HINTS[name]
+    return hint ? `  ${name}: ${problem}\n      ${hint}` : `  ${name}: ${problem}`
+  })
+
+  return [
+    `Volt cannot start: ${error.issues.length} environment setting(s) are missing or invalid.`,
+    '',
+    ...lines,
+    '',
+    'Every setting and its default is listed in server/.env.example.',
+  ].join('\n')
+}
+
 export function parseEnvironment(input: unknown): Env {
-  return envSchema.parse(input)
+  const result = envSchema.safeParse(input)
+  if (result.success) return result.data
+  throw new Error(describeEnvironmentFailure(result.error))
 }
 
 export const env = parseEnvironment(process.env)
