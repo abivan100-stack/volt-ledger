@@ -185,7 +185,7 @@ function hasStage(size: StageSize): boolean {
  */
 export function networkFeeders(nodes: NetworkNode[], size: StageSize): NetworkFeeder[] {
   if (nodes.length < 2 || !hasStage(size)) return []
-  const span = nodes.length
+  const span = nodes.length === 2 ? 1 : nodes.length
   const feeders: NetworkFeeder[] = []
   for (let i = 0; i < span; i++) {
     const from = nodes[i]

@@ -58,9 +58,9 @@ export function solarCurve(hour: number, dayType: DayType): number {
   if (!Number.isFinite(hour)) return 0
   if (hour < SOLAR_START_HOUR || hour > SOLAR_END_HOUR) return 0
   const shape = Math.max(0, Math.sin((Math.PI * (hour - SOLAR_START_HOUR)) / SOLAR_DAYLIGHT_HOURS))
-  if (dayType === 'cloudy') return Math.min(1, shape * CLOUDY_SCALE)
-  if (dayType === 'heatwave') return Math.min(1, shape * HEATWAVE_SCALE)
-  return Math.min(1, shape)
+  if (dayType === 'cloudy') return shape * CLOUDY_SCALE
+  if (dayType === 'heatwave') return shape * HEATWAVE_SCALE
+  return shape
 }
 
 function demandShape(hour: number, dayType: DayType): number {

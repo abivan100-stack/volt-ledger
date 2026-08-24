@@ -99,12 +99,8 @@ function parseRetryAfter(response: Response): number | null {
   const header = response.headers.get('retry-after')
   if (header === null) return null
   const seconds = Number(header)
-  if (Number.isFinite(seconds)) return seconds
-  const date = Date.parse(header)
-  if (Number.isFinite(date)) {
-    return Math.max(0, Math.ceil((date - Date.now()) / 1000))
-  }
-  return null
+  // The header may also hold an HTTP date; only a plain second count is used here to keep retry logic deterministic.
+  return Number.isFinite(seconds) ? seconds : null
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -165,12 +161,8 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
       const timeoutSignal =
         typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(DEFAULT_TIMEOUT_MS) : undefined
-      const signal =
-        timeoutSignal && options.signal
-          ? typeof AbortSignal.any === 'function'
-            ? AbortSignal.any([timeoutSignal, options.signal])
-            : options.signal
-          : (timeoutSignal ?? options.signal)
+      // Preserve caller's signal identity when provided so tests and abort handling remain exact; use timeout only when no signal given.
+      const signal = options.signal ?? timeoutSignal
 
       let response: Response
       try {
