@@ -50,8 +50,20 @@ describe('environment URL security', () => {
       NODE_ENV: 'production',
       WEB_ORIGIN: 'https://volt.example',
       BETTER_AUTH_URL: 'https://api.volt.example',
+      TRUST_PROXY: 'true',
     })
 
     expect(result.success).toBe(true)
+  })
+
+  it('rejects missing TRUST_PROXY in production', () => {
+    const result = envSchema.safeParse({
+      ...baseEnvironment,
+      NODE_ENV: 'production',
+      WEB_ORIGIN: 'https://volt.example',
+      BETTER_AUTH_URL: 'https://api.volt.example',
+    })
+
+    expect(result.success).toBe(false)
   })
 })
