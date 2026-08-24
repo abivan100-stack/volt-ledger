@@ -170,27 +170,31 @@
 /* Compact mobile adjustments */
 @media (max-width: 640px) {
   .volt-trade-feed {
-    left: 8px;
-    bottom: 8px;
-    max-width: calc(100vw - 16px);
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: auto;
+    max-width: none;
     width: auto;
   }
 
   .volt-trade-card {
-    padding: 5px 10px;
+    display: none;
   }
 
-  .volt-trade-text {
-    font-size: 10px;
+  .volt-trade-mute-control {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
   }
 
-  .volt-trade-meta {
-    font-size: 9.5px;
-  }
-
-  .volt-trade-close-btn {
-    padding: 4px;
-    min-width: 24px;
-    min-height: 24px;
+  .volt-trade-mute-control span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }

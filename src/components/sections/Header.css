@@ -141,9 +141,17 @@
 }
 
 @media (max-width: 640px) {
+  .header {
+    overflow-x: clip;
+  }
+
   .header-bar {
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
     gap: 8px;
+    padding-top: 10px;
+    padding-bottom: 8px;
   }
 
   .header-logo-word {
@@ -156,27 +164,59 @@
   }
 
   .header-nav {
-    gap: 8px 12px;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    padding-bottom: 2px;
+  }
+
+  .header-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .header-nav > * {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .header-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .header-rate {
+    min-height: 40px;
+    box-sizing: border-box;
     font-size: 10px;
     padding: 2px 6px;
     background: var(--paper-2);
     border-radius: 4px;
   }
 
-  .header-ledger-nav {
-    justify-content: flex-start;
-    gap: 10px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 2px;
+  .header-nav > .volt-btn,
+  .header-nav > .theme-toggle {
+    min-width: 40px;
+    min-height: 40px;
   }
 
-  .header-ledger-nav::-webkit-scrollbar {
-    display: none;
+  .header-ledger-nav {
+    order: initial;
+    width: auto;
+    justify-content: initial;
+    gap: 10px;
+    flex-wrap: nowrap;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .header-ledger-nav .header-link {

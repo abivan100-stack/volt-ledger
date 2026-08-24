@@ -115,6 +115,7 @@
   .simulation-controls-actions {
     width: 100%;
     justify-content: space-between;
+    gap: 10px;
   }
 
   .simulation-speed {
@@ -125,8 +126,14 @@
   .simulation-controls-primary,
   .simulation-controls-reset,
   .simulation-speed-button {
+    min-height: 40px;
     padding: 7px 10px;
     font-size: 10.5px;
-    min-height: 34px;
+  }
+
+  .simulation-controls-primary,
+  .simulation-controls-reset {
+    flex: 1 1 138px;
+    text-align: center;
   }
 }

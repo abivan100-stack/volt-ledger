@@ -86,12 +86,42 @@
 }
 
 @media (max-width: 650px) {
+  .day-type-selector {
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
   .day-type-control {
     width: 100%;
+    flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
+  }
+
+  .day-type-options {
+    width: 100%;
+  }
+
+  .day-type-option,
+  .day-type-share-button {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .day-type-option {
+    padding: 8px 12px;
   }
 
   .day-type-share {
     width: 100%;
+    gap: 8px;
+  }
+
+  .day-type-share-button {
+    width: 100%;
+  }
+
+  .day-type-share-status {
+    line-height: 1.45;
   }
 }
