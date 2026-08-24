@@ -256,3 +256,10 @@
   letter-spacing: 0.08em;
   line-height: 1.6;
 }
+
+.chain-export-scope {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  align-self: center;
+}
