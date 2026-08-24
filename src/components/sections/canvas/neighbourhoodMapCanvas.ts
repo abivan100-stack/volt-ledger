@@ -125,20 +125,23 @@ export function startNeighbourhoodMap(
     const busX0 = colX(0)
     const busX1 = colX(COLS - 1)
 
-    ctx.strokeStyle = `rgba(${ink},0.28)`
-    ctx.lineWidth = 3
+    // Keep one shared conductor centred on the bus. The old three-rail treatment
+    // used `--ink` for its middle stroke, which became a bright stripe in dark
+    // mode and a dark stripe in light mode while the rest of the map changed.
+    // Two coincident rule-token strokes preserve a little depth without making
+    // the wire read as duplicate, competing lines.
+    ctx.strokeStyle = `rgba(${rule},0.34)`
+    ctx.lineWidth = 4
     ctx.beginPath()
     ctx.moveTo(busX0, busY)
     ctx.lineTo(busX1, busY)
     ctx.stroke()
 
-    ctx.strokeStyle = `rgba(${ink},0.12)`
+    ctx.strokeStyle = `rgba(${rule},0.86)`
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(busX0, busY - 4)
-    ctx.lineTo(busX1, busY - 4)
-    ctx.moveTo(busX0, busY + 4)
-    ctx.lineTo(busX1, busY + 4)
+    ctx.moveTo(busX0, busY)
+    ctx.lineTo(busX1, busY)
     ctx.stroke()
 
     if (busX1 + 82 < width) {
