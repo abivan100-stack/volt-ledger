@@ -75,8 +75,23 @@ The membership role that may inspect an organisation's saved Volt data but canno
 _Avoid_: Read-only user
 
 **Demo session**:
-A non-persistent public exploration of a prebuilt synthetic neighbourhood.
-_Avoid_: Anonymous account, trial account
+A public exploration of a prebuilt synthetic neighbourhood, identified by a UUID the browser
+generates and keeps in `localStorage`. It is not an account and carries nothing about the person
+using it. What it settles is recorded — so a reload finds the same history — and expires on its own
+after `DEMO_RETENTION_DAYS`. A session that cannot reach the API, or whose build has no API at all,
+still runs; it simply keeps nothing.
+_Avoid_: Anonymous account, trial account, non-persistent session
+
+**Demo run**:
+One scenario within a demo session, started whenever the visitor resets the simulation. A reset
+restarts the simulated day count at one, so the run is what tells one session's day 1 from the next.
+_Avoid_: Simulation run (that is the authenticated Monte Carlo term)
+
+**Simulated day**:
+One full 24-hour cycle of the demo's own clock, which completes in roughly three real minutes at the
+default speed. Every timeframe the ledger can be exported over — today, the last 7, the last 30, all
+of them — counts in these, never in calendar days.
+_Avoid_: Day (unqualified), calendar day
 
 **Ledger event**:
 An immutable, server-recorded event in Volt's tamper-evident settlement history.

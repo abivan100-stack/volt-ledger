@@ -39,7 +39,8 @@ A simulated solar afternoon on the Nolambur microgrid (Chennai):
 - **Per-household dossier** — Rooftop specifications, generation-versus-demand curves, and the day's trade activity.
 - **Day-type selector** — Switch between Sunny Weekday, Cloudy, Weekend, and Heatwave to see how conditions affect generation, demand, and trading.
 - **Tamper test** — Click any kWh figure and retype it. That row and every row after it immediately fail verification, an `INTEGRITY VOID` stamp appears, and settlement halts. Restore original values to re-verify the chain.
-- **Ledger export** — Download the full chain as CSV, or as a formatted PDF report (summary stats, chain status, paginated table), from the chain header.
+- **Ledger export** — Download the ledger over a span of simulated days — today, the last 7, the last 30, or all time — as CSV or as a formatted PDF report (summary stats, chain status, paginated table). The per-day buttons, labelled **THIS DAY**, still export just the day on screen.
+- **Persisted sessions** — When an API is configured, each settled trade and each closed simulated day is recorded under a session identifier the browser keeps in `localStorage`, so a reload finds the same history and exports can reach back past what the tab still holds. See **Demo persistence**, below.
 - **Shareable scenarios** — Choose a Sunrise, Midday, or Evening start from the ledger controls, or open `/ledger?day=<dayType>&hour=<0-23>` directly. The **COPY SCENARIO LINK** action creates a replayable URL containing the selected day type and start hour.
 
 ### Metrics Dashboard
@@ -131,6 +132,28 @@ VITE_API_BASE_URL=http://localhost:4000
 Anything prefixed with `VITE_` is compiled into the bundle and is public — MongoDB credentials, Better Auth secrets, and Resend keys stay in `server/.env`. Leaving `VITE_API_BASE_URL` unset builds the browser-only demo, which makes no backend calls; `isApiConfigured()` in `src/api/config.ts` reports which mode a build is in.
 
 Session state lives in `src/store/useSessionStore.ts`, separate from the simulation store. `useRestoreSession()` restores it once on mount and settles on `anonymous` without any network call when no API is configured, so the demo routes behave exactly as before. A session that disappears mid-visit is reported through `expire()`, which distinguishes an expired session from a deliberate sign-out; any route answering `401` triggers that centrally, so no caller has to remember to handle it.
+
+### Demo persistence
+
+With `VITE_API_BASE_URL` set, the public demo records what it simulates. Trades are queued as they are sealed and flushed in batches; each simulated day is closed with its per-household totals when the clock rolls over. Everything lands in five collections of the `volt` database, visible in MongoDB Compass alongside the authenticated ones:
+
+| Collection | One row per |
+|---|---|
+| `demo_sessions` | browser, keyed by a `localStorage` UUID |
+| `demo_runs` | scenario reset |
+| `demo_trades` | settled trade, insert-only |
+| `demo_days` | closed simulated day |
+| `demo_household_days` | household, per closed simulated day |
+
+The three endpoints behind it (`POST /api/v1/demo/sessions/:sessionId/trades`, `POST …/days`, `GET …/ledger?timeframe=today|7d|30d|all`) are the only routes in the API that answer without a session, so the server verifies rather than trusts: it recomputes every trade's seal from the payload and keeps the browser's version only for comparison, sums each day's totals from the trades it holds rather than storing a second copy, and refuses any write naming a run the caller does not own. Stored trades are never updated — running the tamper test alters the browser's copy and leaves the stored rows intact, which is the demonstration working rather than a hole in it.
+
+Demo persistence needs a MongoDB **replica set** (any Atlas cluster is one). Each write spans several collections that must agree, which a standalone `mongod` cannot promise, so against one the routes answer `503 DEMO_PERSISTENCE_UNAVAILABLE` and the browser simulates without storing — rather than storing with weaker guarantees than this section describes.
+
+Persistence is strictly additive. With no `VITE_API_BASE_URL` the simulation runs exactly as it always did, and if the server is unreachable mid-visit, trades stay queued for the next attempt while the demo carries on; exports then fall back to what the tab holds and say so on the report. Set `DEMO_PERSISTENCE_ENABLED=false` to switch ingest off without shipping new client code. Every document carries a TTL bounded by `DEMO_RETENTION_DAYS` (default 30) — demo data is disposable by design and must not accumulate in a shared database.
+
+A note on time: **a day here is a simulated day**, not a calendar one. The neighbourhood settles a full 24-hour cycle in roughly three real minutes at the default speed, so "last 7 days" means the last seven simulated days. Filtering on wall-clock time would put an entire visit inside "today".
+
+See `docs/adr/0017-persisted-public-demo-sessions.md` for why the demo's data lives beside the settlement ledger rather than inside it.
 
 ### Account page (`/account`)
 
@@ -386,6 +409,13 @@ Simulation parameters are configurable in `src/store/simSlice.ts` (exposed throu
 | `startHour` | Hour of day the simulation opens on (0–23) |
 | `activity` | Network animation density on the landing page hero |
 
+Demo persistence is configured on the server, in `server/.env`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DEMO_PERSISTENCE_ENABLED` | `true` | When false, the demo ingest routes answer `503` and the browser runs purely in memory |
+| `DEMO_RETENTION_DAYS` | `30` | Days a demo session's rows survive before their TTL indexes remove them |
+
 Day types can be switched at runtime: **Sunny Weekday**, **Cloudy**, **Weekend**, and **Heatwave**. Each alters solar generation curves and demand profiles independently.
 
 `dayType` and `startHour` can also be set for a single page load without touching code — see **Shareable scenarios** under Live Ledger features, above.
@@ -397,6 +427,8 @@ All simulation randomness is deterministic — the simulation math never uses `M
 - **Pure logic layer** (`src/lib/`) contains no React, no DOM access, and no store imports. All simulation math and hash chain logic is framework-agnostic and testable in isolation.
 - **Deterministic simulation** — Every function in the simulation layer is a pure function of `(dayType, hour, householdId)`. No accumulated state across ticks. Querying the same hour twice returns byte-identical values, enabling future replay/scrub features.
 - **Tamper-evident, not tamper-proof** — Nothing prevents editing a block. The hash chain makes edits detectable on re-validation. Because the chain is client-side with no distribution or consensus, it functions as an append-only log with a cryptographic integrity guarantee, not a distributed ledger.
+- **Two ledgers, deliberately apart** — The authenticated settlement ledger (`ledger_events`) is organisation-scoped, hash-linked evidence written only by an authorised member. The demo's ledger is anonymous and lives in its own collections. Admitting demo rows into the first would not extend its guarantee to the demo; it would withdraw it from the ledger.
+- **Derive what can be derived** — The demo's day rollups store no totals. Energy and credit are summed from `demo_trades` on every read, so no stored figure can drift from the trades beneath it, on any deployment and under any interleaving.
 - **Accessibility** — All motion respects `prefers-reduced-motion`. Animations stand down when the operating system requests it.
 - **Responsive** — Layout adapts to mobile viewports without breaking existing functionality.
 
