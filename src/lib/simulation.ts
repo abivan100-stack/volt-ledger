@@ -161,5 +161,5 @@ const RATE_JITTER_AMPLITUDE = 0.05
 export function nextCommunityRate(currentRate: number, supply: number, demand: number, tickCount: number): number {
   const target = Math.min(RATE_MAX, Math.max(RATE_MIN, RATE_BASE + (demand - supply) * RATE_SUPPLY_DEMAND_FACTOR))
   const jitter = (seededUnit(tickCount * RATE_SEED_TICK) - 0.5) * RATE_JITTER_AMPLITUDE
-  return currentRate + (target - currentRate) * RATE_SMOOTHING + jitter
+  return Math.min(RATE_MAX, Math.max(RATE_MIN, currentRate + (target - currentRate) * RATE_SMOOTHING + jitter))
 }
