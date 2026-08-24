@@ -61,6 +61,8 @@ export interface SimSlice {
   rateHistory: number[]
   tickCount: number
   dailyBreakdown: GridDependenceBreakdown
+  _tickHandle: ReturnType<typeof setInterval> | null
+  _tradeHandle: ReturnType<typeof setInterval> | null
 
   tick: () => void
   tryTrade: () => void
@@ -81,11 +83,13 @@ export interface LedgerSlice {
   compromised: boolean
   invalidCount: number
   restoredFlash: boolean
+  _restoredFlashTimeout: ReturnType<typeof setTimeout> | null
 
   commitEdit: () => void
   /** Deliberately changes one visible record to demonstrate chain validation. */
   runTamperTest: () => void
   restoreChain: () => void
+  clearRestoredFlash: () => void
 }
 
 export interface UiSlice {

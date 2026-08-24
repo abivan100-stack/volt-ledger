@@ -10,7 +10,6 @@ import {
 } from '../lib/simulation'
 import { appendBlock, type ChainBlock } from '../lib/hashChain'
 import { dailyGridDependence } from '../lib/gridDependence'
-import { clearRestoredFlashTimer } from './ledgerSlice'
 import type { EnergyStoreState, Household, SimSlice } from './types'
 
 const TICK_INTERVAL_MS = 1000
@@ -158,9 +157,6 @@ function initialScenario(dayType: DayType, startHour: number) {
   }
 }
 
-let tickHandle: ReturnType<typeof setInterval> | undefined
-let tradeHandle: ReturnType<typeof setInterval> | undefined
-
 export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = (set, get) => ({
   config: { simSpeed: 4, startHour: 8, activity: 1 },
   dayType: 'sunny-weekday',
@@ -175,6 +171,8 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
   rateHistory: new Array(RATE_HISTORY_LENGTH).fill(INITIAL_RATE),
   tickCount: 0,
   dailyBreakdown: dailyGridDependence(createInitialHouseholds(), 'sunny-weekday'),
+  _tickHandle: null,
+  _tradeHandle: null,
 
   setDayType: (dayType: DayType) => {
     const state = get()
@@ -200,7 +198,7 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
     const state = get()
     const wasRunning = state.running
     if (wasRunning) state.stop()
-    clearRestoredFlashTimer()
+    get().clearRestoredFlash()
     const scenario = initialScenario(state.dayType, state.config.startHour)
     set({
       ...scenario,
@@ -231,19 +229,18 @@ export const createSimSlice: StateCreator<EnergyStoreState, [], [], SimSlice> = 
       })
     }
     if (!get().running) {
-      tickHandle = setInterval(() => get().tick(), TICK_INTERVAL_MS)
-      tradeHandle = setInterval(() => get().tryTrade(), TRADE_INTERVAL_MS)
-      set({ running: true })
+      const tickHandle = setInterval(() => get().tick(), TICK_INTERVAL_MS)
+      const tradeHandle = setInterval(() => get().tryTrade(), TRADE_INTERVAL_MS)
+      set({ running: true, _tickHandle: tickHandle, _tradeHandle: tradeHandle })
     }
   },
 
   stop: () => {
-    if (tickHandle !== undefined) clearInterval(tickHandle)
-    if (tradeHandle !== undefined) clearInterval(tradeHandle)
-    clearRestoredFlashTimer()
-    tickHandle = undefined
-    tradeHandle = undefined
-    set({ running: false })
+    const state = get()
+    if (state._tickHandle != null) clearInterval(state._tickHandle)
+    if (state._tradeHandle != null) clearInterval(state._tradeHandle)
+    get().clearRestoredFlash()
+    set({ running: false, _tickHandle: null, _tradeHandle: null })
   },
 
   tick: () => {
