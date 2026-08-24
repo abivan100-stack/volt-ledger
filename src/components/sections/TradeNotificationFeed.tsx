@@ -6,17 +6,20 @@ import './TradeNotificationFeed.css'
 export function TradeNotificationFeed() {
   const { notifications, dismiss, isMuted, toggleMute } = useTradeNotifications()
 
+  const shouldShowToggle = notifications.length > 0 || isMuted
+
   return (
     <aside className="volt-trade-feed" aria-live="polite" aria-label="Real-time Trade Ticker">
-      {notifications.length > 0 && (
+      {shouldShowToggle && (
         <button
           type="button"
           onClick={toggleMute}
-          className="volt-trade-mute-control"
-          title={isMuted ? 'Unmute trade notifications' : 'Mute trade notifications'}
+          className={`volt-trade-mute-control ${isMuted ? 'volt-trade-mute-control-muted' : ''}`}
+          title={isMuted ? 'Click to unmute live trade ticker' : 'Click to mute live trade ticker'}
+          aria-label={isMuted ? 'Click to unmute live trade ticker' : 'Click to mute live trade ticker'}
         >
-          {isMuted ? <BellOff size={11} /> : <Bell size={11} />}
-          <span>{isMuted ? 'Muted' : 'Live P2P'}</span>
+          {isMuted ? <BellOff size={11} className="text-void" /> : <Bell size={11} />}
+          <span>{isMuted ? 'Ticker Muted (Click to Unmute)' : 'Live P2P'}</span>
         </button>
       )}
 

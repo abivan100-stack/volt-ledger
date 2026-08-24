@@ -7,6 +7,7 @@ import { appendBlock } from '../../../lib/hashChain'
 
 describe('TradeNotificationFeed', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     useEnergyStore.setState({
       chain: [],
       compromised: false,
@@ -19,7 +20,7 @@ describe('TradeNotificationFeed', () => {
     cleanup()
   })
 
-  it('renders without crashing when empty', () => {
+  it('renders without crashing when empty and unmuted', () => {
     render(<TradeNotificationFeed />)
     expect(screen.queryByText('Live P2P')).toBeNull()
   })
@@ -68,17 +69,28 @@ describe('TradeNotificationFeed', () => {
     expect(screen.getByText(/Chain restored to genesis/i)).toBeTruthy()
   })
 
-  it('allows user to toggle mute button', () => {
+  it('allows user to toggle mute button and unmute even with zero active notifications', () => {
     render(<TradeNotificationFeed />)
 
     act(() => {
       useEnergyStore.setState({ compromised: true, invalidCount: 1 })
     })
 
-    const muteBtn = screen.getByTitle(/mute trade notifications/i)
+    const muteBtn = screen.getByRole('button', { name: /click to mute live trade ticker/i })
     expect(screen.getByText('Live P2P')).toBeTruthy()
 
     fireEvent.click(muteBtn)
-    expect(screen.getByText('Muted')).toBeTruthy()
+    expect(screen.getByText(/Ticker Muted \(Click to Unmute\)/i)).toBeTruthy()
+
+    // Dismiss active notification so 0 notifications remain
+    const closeBtn = screen.getByRole('button', { name: /dismiss notification/i })
+    fireEvent.click(closeBtn)
+
+    // The unmute button remains available and interactive
+    const unmuteBtn = screen.getByRole('button', { name: /click to unmute live trade ticker/i })
+    expect(unmuteBtn).toBeTruthy()
+
+    fireEvent.click(unmuteBtn)
+    expect(screen.queryByText(/Ticker Muted/i)).toBeNull()
   })
 })

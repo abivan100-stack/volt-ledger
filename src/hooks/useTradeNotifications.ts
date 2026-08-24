@@ -17,10 +17,21 @@ export interface TradeNotification {
 
 const MAX_ACTIVE_NOTIFICATIONS = 2
 const AUTO_DISMISS_MS = 4000
+const STORAGE_KEY = 'volt-trade-ticker-muted'
 
 export function useTradeNotifications() {
   const [notifications, setNotifications] = useState<TradeNotification[]>([])
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(STORAGE_KEY) === 'true'
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+    return false
+  })
+
   const prevChainLenRef = useRef<number | null>(null)
   const prevCompromisedRef = useRef<boolean>(false)
   const prevRestoredRef = useRef<boolean>(false)
@@ -35,7 +46,17 @@ export function useTradeNotifications() {
   }, [])
 
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev)
+    setIsMuted((prev) => {
+      const next = !prev
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(STORAGE_KEY, String(next))
+        }
+      } catch {
+        // Ignore storage access errors
+      }
+      return next
+    })
   }, [])
 
   const addNotification = useCallback((item: Omit<TradeNotification, 'id'>) => {

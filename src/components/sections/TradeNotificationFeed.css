@@ -155,6 +155,18 @@
   color: var(--ink);
 }
 
+.volt-trade-mute-control-muted {
+  border-color: var(--void);
+  background-color: var(--card);
+  color: var(--ink);
+  opacity: 0.95;
+}
+
+.volt-trade-mute-control-muted:hover {
+  background-color: var(--paper-2);
+  border-color: var(--volt);
+}
+
 /* Compact mobile adjustments */
 @media (max-width: 640px) {
   .volt-trade-feed {

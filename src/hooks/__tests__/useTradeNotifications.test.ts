@@ -7,6 +7,9 @@ import { appendBlock } from '../../lib/hashChain'
 
 describe('useTradeNotifications', () => {
   beforeEach(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear()
+    }
     vi.useFakeTimers()
     useEnergyStore.setState({
       chain: [],
