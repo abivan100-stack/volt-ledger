@@ -48,7 +48,7 @@ function breakdownFromEnergy(
   residualAfterTrade: number,
   totalBatteryKwh: number,
 ): GridDependenceBreakdown {
-  if (demand <= 0) return { solarPct: 0, batteryPct: 0, tradePct: 0, gridPct: 0 }
+  if (!Number.isFinite(demand) || demand <= 0) return { solarPct: 0, batteryPct: 0, tradePct: 0, gridPct: 0 }
 
   const batteryUsed = Math.min(totalBatteryKwh, residualAfterTrade)
   const gridImport = residualAfterTrade - batteryUsed
