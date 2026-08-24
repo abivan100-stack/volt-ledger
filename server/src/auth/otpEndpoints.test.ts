@@ -59,6 +59,26 @@ describe('isBlockedAuthPath', () => {
     }
   })
 
+  it('is not fooled by a traversal segment that resolves to a blocked route', () => {
+    // Fastify's `/api/auth/*` matches the raw target verbatim, but the `new URL()`
+    // that builds the forwarded request collapses the `..`. Judging the raw string
+    // let a refused route through under a different spelling.
+    expect(isBlockedAuthPath('/api/auth/x/../sign-in/email-otp')).toBe(true)
+    expect(isBlockedAuthPath('/api/auth/email-otp/verify-email/../../sign-in/email-otp')).toBe(true)
+    expect(isBlockedAuthPath('/api/auth/./email-otp/./reset-password')).toBe(true)
+    expect(isBlockedAuthPath('/api/auth//forget-password//email-otp')).toBe(true)
+  })
+
+  it('is not fooled by percent-encoded spellings of a blocked route', () => {
+    expect(isBlockedAuthPath('/api/auth/sign-in/email%2Dotp')).toBe(true)
+    expect(isBlockedAuthPath('/api/auth/x/%2E%2E/sign-in/email-otp')).toBe(true)
+  })
+
+  it('still forwards the routes the app uses when they are written plainly', () => {
+    expect(isBlockedAuthPath('/api/auth/email-otp/verify-email')).toBe(false)
+    expect(isBlockedAuthPath('/api/auth/sign-in/email')).toBe(false)
+  })
+
   it('is not fooled by a query string or a trailing slash', () => {
     expect(isBlockedAuthPath('/api/auth/sign-in/email-otp?redirect=/')).toBe(true)
     expect(isBlockedAuthPath('/api/auth/sign-in/email-otp/')).toBe(true)

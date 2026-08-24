@@ -1,9 +1,16 @@
 .day-type-selector {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 22px 28px;
   flex-wrap: wrap;
   margin-bottom: 40px;
+}
+
+.day-type-control {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
 .day-type-label {
@@ -36,4 +43,55 @@
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
+}
+
+.day-type-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.day-type-share-button {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.day-type-share-button:hover {
+  border-color: var(--sun);
+  color: var(--ink);
+}
+
+.day-type-share-status {
+  color: var(--ink-soft);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.day-type-copy-fallback {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 650px) {
+  .day-type-control {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .day-type-share {
+    width: 100%;
+  }
 }

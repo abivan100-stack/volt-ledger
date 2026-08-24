@@ -53,13 +53,46 @@ export const BLOCKED_OTP_PATHS: readonly string[] = [
 ]
 
 /**
+ * Resolves a request path the way a URL parser does, so the string compared here
+ * is the string the upstream router will act on.
+ *
+ * `/api/auth/x/../sign-in/email-otp` is a blocked route wearing a different
+ * spelling: Fastify's wildcard matches it verbatim, but the `new URL()` that
+ * builds the forwarded request collapses the `..` back to
+ * `/api/auth/sign-in/email-otp`. A blocklist that read the raw path would wave
+ * it through. Percent-escapes are decoded for the same reason — a router that
+ * decodes before matching would otherwise see a route this function did not.
+ *
+ * An undecodable escape resolves to the empty string, which matches nothing and
+ * is therefore refused by the caller's allowlist rather than forwarded blind.
+ */
+function normaliseAuthPath(url: string): string {
+  const raw = url.split('?')[0]?.split('#')[0] ?? ''
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    return ''
+  }
+
+  const segments: string[] = []
+  for (const segment of decoded.split('/')) {
+    if (segment === '' || segment === '.') continue
+    if (segment === '..') {
+      segments.pop()
+      continue
+    }
+    segments.push(segment)
+  }
+  return `/${segments.join('/')}`
+}
+
+/**
  * Whether the proxy should refuse this path.
  *
- * Compares the path only, so a query string cannot smuggle a blocked route
- * past, and normalises a trailing slash because the router treats the two as
- * one endpoint.
+ * Compares the resolved path only, so neither a query string, a trailing slash,
+ * a `..` segment, nor a percent-escape can smuggle a blocked route past.
  */
 export function isBlockedAuthPath(url: string): boolean {
-  const path = (url.split('?')[0] ?? '').replace(/\/+$/, '')
-  return BLOCKED_OTP_PATHS.includes(path)
+  return BLOCKED_OTP_PATHS.includes(normaliseAuthPath(url))
 }

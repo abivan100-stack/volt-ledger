@@ -433,14 +433,24 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     url: '/api/auth/*',
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     handler: async (request, reply) => {
+      // Built before the blocklist runs, so the path that is judged is the exact
+      // path that is forwarded. Fastify's wildcard matches the raw target
+      // verbatim while `new URL()` resolves `..`, so judging the raw string
+      // would let `/api/auth/x/../sign-in/email-otp` reach a refused route.
+      let requestUrl: URL
+      try {
+        requestUrl = new URL(request.raw.url ?? request.url, env.BETTER_AUTH_URL)
+      } catch {
+        return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' })
+      }
+
       // Registering the email-OTP plugin published nine endpoints; the app uses
       // one. The others are refused here rather than left reachable.
-      if (isBlockedAuthPath(request.raw.url ?? request.url)) {
+      if (isBlockedAuthPath(requestUrl.pathname)) {
         return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' })
       }
 
       try {
-        const requestUrl = new URL(request.raw.url ?? request.url, env.BETTER_AUTH_URL)
         const body = request.method === 'GET' || request.body == null ? undefined : JSON.stringify(request.body)
         const authRequest = new Request(requestUrl, {
           method: request.method,
