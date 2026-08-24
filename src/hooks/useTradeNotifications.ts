@@ -15,8 +15,8 @@ export interface TradeNotification {
   tamperedCount?: number
 }
 
-const MAX_ACTIVE_NOTIFICATIONS = 3
-const AUTO_DISMISS_MS = 6000
+const MAX_ACTIVE_NOTIFICATIONS = 2
+const AUTO_DISMISS_MS = 4000
 
 export function useTradeNotifications() {
   const [notifications, setNotifications] = useState<TradeNotification[]>([])
@@ -61,7 +61,7 @@ export function useTradeNotifications() {
         if (!isMuted) {
           addNotification({
             type: 'trade',
-            title: `P2P Energy Trade Executed`,
+            title: `P2P Energy Trade`,
             timestamp: block.payload.t,
             blockId: block.id,
             from: block.payload.from,
@@ -81,7 +81,7 @@ export function useTradeNotifications() {
     if (!prevCompromisedRef.current && compromised && invalidCount > 0) {
       addNotification({
         type: 'tamper',
-        title: `🚨 Ledger Tamper Detected`,
+        title: `Ledger Tamper Detected`,
         timestamp: 'Just now',
         tamperedCount: invalidCount,
       })
@@ -94,7 +94,7 @@ export function useTradeNotifications() {
     if (!prevRestoredRef.current && restoredFlash) {
       addNotification({
         type: 'restore',
-        title: `🛡️ Ledger Verified & Restored`,
+        title: `Ledger Verified & Restored`,
         timestamp: 'Just now',
       })
     }

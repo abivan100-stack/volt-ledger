@@ -21,7 +21,7 @@ describe('TradeNotificationFeed', () => {
 
   it('renders without crashing when empty', () => {
     render(<TradeNotificationFeed />)
-    expect(screen.queryByText('Live Trades')).toBeNull()
+    expect(screen.queryByText('Live P2P')).toBeNull()
   })
 
   it('renders a live trade card when trade is dispatched and dismisses on close click', async () => {
@@ -38,17 +38,15 @@ describe('TradeNotificationFeed', () => {
       useEnergyStore.setState({ chain: [block] })
     })
 
-    expect(screen.getByText('P2P Settled')).toBeTruthy()
-    expect(screen.getByText('Pranav P')).toBeTruthy()
-    expect(screen.getByText('Abivan')).toBeTruthy()
-    expect(screen.getByText('Live Trades')).toBeTruthy()
+    expect(screen.getByText('Live P2P')).toBeTruthy()
+    expect(screen.getByText(/0.85 kWh · ₹4.25/i)).toBeTruthy()
 
     // Test dismissal
     const closeBtn = screen.getByRole('button', { name: /dismiss notification/i })
     fireEvent.click(closeBtn)
 
     await waitFor(() => {
-      expect(screen.queryByText('P2P Settled')).toBeNull()
+      expect(screen.queryByText(/0.85 kWh · ₹4.25/i)).toBeNull()
     })
   })
 
@@ -59,15 +57,15 @@ describe('TradeNotificationFeed', () => {
       useEnergyStore.setState({ compromised: true, invalidCount: 2 })
     })
 
-    expect(screen.getByText('Integrity Alert')).toBeTruthy()
-    expect(screen.getByText(/2 downstream block\(s\) failed/i)).toBeTruthy()
+    expect(screen.getByText(/Tamper Alert:/i)).toBeTruthy()
+    expect(screen.getByText(/2 block\(s\) invalidated/i)).toBeTruthy()
 
     act(() => {
       useEnergyStore.setState({ compromised: false, invalidCount: 0, restoredFlash: true })
     })
 
-    expect(screen.getByText('Verified')).toBeTruthy()
-    expect(screen.getByText(/Hash chain verified back to genesis/i)).toBeTruthy()
+    expect(screen.getByText(/Verified:/i)).toBeTruthy()
+    expect(screen.getByText(/Chain restored to genesis/i)).toBeTruthy()
   })
 
   it('allows user to toggle mute button', () => {
@@ -78,7 +76,7 @@ describe('TradeNotificationFeed', () => {
     })
 
     const muteBtn = screen.getByTitle(/mute trade notifications/i)
-    expect(screen.getByText('Live Trades')).toBeTruthy()
+    expect(screen.getByText('Live P2P')).toBeTruthy()
 
     fireEvent.click(muteBtn)
     expect(screen.getByText('Muted')).toBeTruthy()

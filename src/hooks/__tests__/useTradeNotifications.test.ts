@@ -80,7 +80,7 @@ describe('useTradeNotifications', () => {
     expect(result.current.notifications[0].kwh).toBe(1.5)
 
     act(() => {
-      vi.advanceTimersByTime(6500)
+      vi.advanceTimersByTime(4500)
     })
 
     expect(result.current.notifications.length).toBe(0)
