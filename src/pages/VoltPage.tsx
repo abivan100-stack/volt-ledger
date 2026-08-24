@@ -6,6 +6,7 @@ import Spread from '../components/sections/Spread'
 import HowItWorks from '../components/sections/HowItWorks'
 import LedgerCta from '../components/sections/LedgerCta'
 import ComparisonTable from '../components/sections/ComparisonTable'
+import BusinessModel from '../components/sections/BusinessModel'
 import Footer from '../components/sections/Footer'
 import { scrollToId } from '../utils/scrollToId'
 
@@ -35,6 +36,7 @@ function VoltPage() {
         <HowItWorks />
         <LedgerCta />
         <ComparisonTable />
+        <BusinessModel />
       </main>
       <Footer />
     </>
