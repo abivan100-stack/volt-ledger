@@ -40,6 +40,10 @@ export function fairnessSummary(households: FairnessHousehold[]): FairnessSummar
     netBenefit: netBenefit(household),
   }))
 
+  if (benefits.length === 0) {
+    throw new Error('fairnessSummary requires at least one household')
+  }
+
   let best = benefits[0]
   let worst = benefits[0]
   for (const benefit of benefits) {

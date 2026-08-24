@@ -6,6 +6,7 @@ export const CURRENCY = {
 } as const
 
 export function formatMoney(amount: number): string {
+  if (!Number.isFinite(amount)) return `${CURRENCY.symbol}—`
   const sign = amount < 0 ? '−' : ''
   const magnitude = Math.abs(amount).toLocaleString(CURRENCY.locale, {
     minimumFractionDigits: 2,
@@ -15,6 +16,7 @@ export function formatMoney(amount: number): string {
 }
 
 export function formatClock(minuteOfDay: number): string {
+  if (!Number.isFinite(minuteOfDay)) return '--:--'
   const totalMinutes = ((Math.floor(minuteOfDay) % (24 * 60)) + 24 * 60) % (24 * 60)
   const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
   const minutes = String(totalMinutes % 60).padStart(2, '0')

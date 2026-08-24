@@ -25,14 +25,16 @@ export interface ImpactSummary {
  * payments, bills, or meter data.
  */
 export function impactSummary({ totalKwh, totalCredit, dailyBreakdown }: ImpactSummaryInput): ImpactSummary {
-  const gridBuybackValue = totalKwh * GRID_BUYBACK_RATE_INR_PER_KWH
-  const gridRetailCost = totalKwh * GRID_RETAIL_RATE_INR_PER_KWH
+  const safeKwh = Number.isFinite(totalKwh) ? totalKwh : 0
+  const safeCredit = Number.isFinite(totalCredit) ? totalCredit : 0
+  const gridBuybackValue = safeKwh * GRID_BUYBACK_RATE_INR_PER_KWH
+  const gridRetailCost = safeKwh * GRID_RETAIL_RATE_INR_PER_KWH
 
   return {
-    communitySettlementInr: totalCredit,
-    sellerUpliftInr: totalCredit - gridBuybackValue,
-    buyerSavingInr: gridRetailCost - totalCredit,
-    carbonAvoidedKg: carbonAvoidedKg(totalKwh),
+    communitySettlementInr: safeCredit,
+    sellerUpliftInr: safeCredit - gridBuybackValue,
+    buyerSavingInr: gridRetailCost - safeCredit,
+    carbonAvoidedKg: carbonAvoidedKg(safeKwh),
     autonomyPct: autonomyPct(dailyBreakdown),
   }
 }

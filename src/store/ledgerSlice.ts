@@ -6,11 +6,8 @@ const RESTORED_FLASH_MS = 3000
 const TAMPER_TEST_VISIBLE_BLOCKS = 10
 const TAMPER_TEST_DELTA_KWH = 0.01
 
-let restoredFlashTimeout: ReturnType<typeof setTimeout> | undefined
-
 export function clearRestoredFlashTimer(): void {
-  clearTimeout(restoredFlashTimeout)
-  restoredFlashTimeout = undefined
+  // Kept for backwards compatibility; timers now live in Zustand state.
 }
 
 function tamperChain(chain: LedgerSlice['chain'], id: number, nextKwh: number) {
@@ -29,6 +26,13 @@ export const createLedgerSlice: StateCreator<EnergyStoreState, [], [], LedgerSli
   compromised: false,
   invalidCount: 0,
   restoredFlash: false,
+  _restoredFlashTimeout: null,
+
+  clearRestoredFlash: () => {
+    const t = get()._restoredFlashTimeout
+    if (t != null) clearTimeout(t)
+    set({ _restoredFlashTimeout: null, restoredFlash: false })
+  },
 
   commitEdit: () => {
     const state = get()
@@ -70,10 +74,12 @@ export const createLedgerSlice: StateCreator<EnergyStoreState, [], [], LedgerSli
     )
     const { blocks, invalidCount } = validateChain(restoredChain)
     const afterRestore = invalidCount === 0
-    set({ chain: blocks, compromised: invalidCount > 0, invalidCount, restoredFlash: afterRestore })
+    const prevTimeout = get()._restoredFlashTimeout
+    if (prevTimeout != null) clearTimeout(prevTimeout)
+    set({ chain: blocks, compromised: invalidCount > 0, invalidCount, restoredFlash: afterRestore, _restoredFlashTimeout: null })
     if (afterRestore) {
-      clearRestoredFlashTimer()
-      restoredFlashTimeout = setTimeout(() => set({ restoredFlash: false }), RESTORED_FLASH_MS)
+      const timeout = setTimeout(() => set({ restoredFlash: false, _restoredFlashTimeout: null }), RESTORED_FLASH_MS)
+      set({ _restoredFlashTimeout: timeout })
     }
   },
 })

@@ -18,12 +18,17 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
  * deleted organisation, the safe direction is to understate.
  */
 export function wholeDaysUntil(deadline: Date, now: Date): number {
-  return Math.max(0, Math.floor((deadline.getTime() - now.getTime()) / MS_PER_DAY))
+  const diff = deadline.getTime() - now.getTime()
+  if (!Number.isFinite(diff)) return 0
+  return Math.max(0, Math.floor(diff / MS_PER_DAY))
 }
 
 /** Whether there is still time to act. */
 export function isWithinRecoveryWindow(deadline: Date, now: Date): boolean {
-  return deadline.getTime() > now.getTime()
+  const deadlineMs = deadline.getTime()
+  const nowMs = now.getTime()
+  if (!Number.isFinite(deadlineMs) || !Number.isFinite(nowMs)) return false
+  return deadlineMs > nowMs
 }
 
 /**

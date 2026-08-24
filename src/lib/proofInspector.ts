@@ -34,6 +34,7 @@ function recomputeHashBefore(chain: ChainBlock[], index: number): string {
 }
 
 export function inspectBlock(chain: ChainBlock[], index: number): BlockProof {
+  if (index < 0 || index >= chain.length) throw new RangeError('inspectBlock index out of bounds')
   const block = chain[index]
   const previousRecomputedHash = recomputeHashBefore(chain, index)
   const recomputedHash = hashBlock(previousRecomputedHash, block.payload)

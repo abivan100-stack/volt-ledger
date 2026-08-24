@@ -172,15 +172,21 @@ export const useLedgerStore = create<LedgerState>()((set, get) => ({
     const state = get()
     if (state.pendingLoad && state.organisationId === organisationId) return state.pendingLoad
     if (state.pendingMutation && state.organisationId === organisationId) {
-      return state.pendingMutation.then(async () => {
-        if (get().organisationId !== organisationId) return
-        const pendingLoad = get().pendingLoad
-        if (pendingLoad) {
-          await pendingLoad
-          return
-        }
-        await startFetch(organisationId, set, get)
-      })
+      return state.pendingMutation.then(
+        async () => {
+          if (get().organisationId !== organisationId) return
+          const pendingLoad = get().pendingLoad
+          if (pendingLoad) {
+            await pendingLoad
+            return
+          }
+          await startFetch(organisationId, set, get)
+        },
+        async () => {
+          if (get().organisationId !== organisationId) return
+          await startFetch(organisationId, set, get)
+        },
+      )
     }
     return startFetch(organisationId, set, get)
   },

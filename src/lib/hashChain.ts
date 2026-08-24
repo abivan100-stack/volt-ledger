@@ -29,6 +29,12 @@ export interface ChainBlock {
 export const GENESIS_HASH = 'GENESIS'
 
 export function payloadString(payload: TradePayload): string {
+  if (!Number.isFinite(payload.kwh) || !Number.isFinite(payload.credit)) {
+    throw new Error('Invalid payload: kwh and credit must be finite')
+  }
+  if (/[|\n\r]/.test(payload.from) || /[|\n\r]/.test(payload.to)) {
+    throw new Error('Invalid payload: from/to must not contain | or newline')
+  }
   return `${payload.t}|${payload.from}|${payload.to}|${payload.kwh.toFixed(2)}|${payload.credit.toFixed(2)}`
 }
 

@@ -13,6 +13,9 @@ let handler: UnauthenticatedHandler | null = null
 
 /** Registers the sole handler, replacing any previous one. Returns an unsubscribe. */
 export function setUnauthenticatedHandler(next: UnauthenticatedHandler | null): () => void {
+  if (handler && next && handler !== next) {
+    console.warn('Unauthenticated handler replaced')
+  }
   handler = next
   return () => {
     if (handler === next) handler = null

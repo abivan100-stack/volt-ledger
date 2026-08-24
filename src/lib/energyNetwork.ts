@@ -174,7 +174,7 @@ function chord(a: Point, b: Point, size: StageSize, bow: number): string {
 }
 
 function hasStage(size: StageSize): boolean {
-  return size.width > 0 && size.height > 0
+  return Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0
 }
 
 /**
@@ -230,7 +230,10 @@ export function networkFlows(
   size: StageSize,
 ): NetworkFlow[] {
   if (!hasStage(size)) return []
-  const indexByName = new Map(nodes.map((node, index) => [node.name, index]))
+  const indexByName = new Map<string, number>()
+  for (let i = 0; i < nodes.length; i++) {
+    if (!indexByName.has(nodes[i].name)) indexByName.set(nodes[i].name, i)
+  }
   const netKwhByPair = new Map<string, number>()
 
   for (const trade of trades) {
@@ -254,9 +257,12 @@ export function networkFlows(
   if (!pairs.length) return []
 
   const heaviest = pairs.reduce((max, pair) => Math.max(max, pair.kwh), 0)
-  // Sorted by key rather than by weight: a stable paint order means React never
-  // reorders the paths, which would restart their pulse animations mid-flight.
-  pairs.sort((a, b) => a.key.localeCompare(b.key))
+  // Sorted numerically by key for stable paint order without lexical pitfalls for >9 nodes.
+  pairs.sort((a, b) => {
+    const [aLow, aHigh] = a.key.split('-').map(Number)
+    const [bLow, bHigh] = b.key.split('-').map(Number)
+    return aLow - bLow || aHigh - bHigh
+  })
 
   return pairs.map((pair) => {
     const from = toPixels(nodes[pair.from], size)

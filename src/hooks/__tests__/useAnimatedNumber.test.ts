@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { useAnimatedNumber } from '../useAnimatedNumber'
 import { prefersReducedMotion } from '../../utils/prefersReducedMotion'
 
@@ -9,6 +9,7 @@ vi.mock('../../utils/prefersReducedMotion', () => ({
 }))
 
 afterEach(() => {
+  cleanup()
   vi.unstubAllGlobals()
   vi.mocked(prefersReducedMotion).mockReturnValue(true)
 })

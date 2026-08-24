@@ -41,7 +41,14 @@ export function useTradeNotifications() {
   const invalidCount = useEnergyStore((s) => s.invalidCount)
   const restoredFlash = useEnergyStore((s) => s.restoredFlash)
 
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
   const dismiss = useCallback((id: string) => {
+    const t = timeoutsRef.current.get(id)
+    if (t) {
+      clearTimeout(t)
+      timeoutsRef.current.delete(id)
+    }
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }, [])
 
@@ -64,9 +71,19 @@ export function useTradeNotifications() {
     const notif: TradeNotification = { ...item, id }
     setNotifications((prev) => [notif, ...prev].slice(0, MAX_ACTIVE_NOTIFICATIONS))
 
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       setNotifications((current) => current.filter((n) => n.id !== id))
+      timeoutsRef.current.delete(id)
     }, AUTO_DISMISS_MS)
+    timeoutsRef.current.set(id, timeout)
+  }, [])
+
+  useEffect(() => {
+    const map = timeoutsRef.current
+    return () => {
+      for (const t of map.values()) clearTimeout(t)
+      map.clear()
+    }
   }, [])
 
   // Listen to new trades appended to chain

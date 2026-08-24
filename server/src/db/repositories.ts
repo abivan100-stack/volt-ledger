@@ -539,14 +539,6 @@ async function reserveSimulationQuota(
     ...(session ? { session } : {}),
   }
 
-  const existing = await collections.simulationUsage.findOne(
-    { _id: usageId, organisationId, usageDate },
-    session ? { session } : undefined,
-  )
-  if (existing && existing.runCount >= simulationDailyRunLimit) {
-    throw new Error('SIMULATION_QUOTA_EXCEEDED')
-  }
-
   const usage = await collections.simulationUsage.findOneAndUpdate(filter, update, options)
   if (!usage) throw new Error('SIMULATION_QUOTA_EXCEEDED')
   return usage
@@ -834,7 +826,10 @@ function createOrganisationRepository(collections: VoltCollections, client: Mong
         return true
       }
 
-      if (typeof client.startSession !== 'function') return applySoftDelete()
+      if (typeof client.startSession !== 'function') {
+        if (env.NODE_ENV === 'production') throw new Error('Transactions are required for archive')
+        return applySoftDelete()
+      }
 
       const session = client.startSession()
       try {
@@ -1056,6 +1051,7 @@ function createSimulationRepository(collections: VoltCollections, client: MongoC
       }
 
       if (typeof client.startSession !== 'function') {
+        if (env.NODE_ENV === 'production') throw new Error('Transactions are required for simulation quota')
         await ensureSimulationUsage(collections, input.organisationId, now)
         await reserveSimulationQuota(collections, input.organisationId, now)
         await collections.simulationRuns.insertOne(document)

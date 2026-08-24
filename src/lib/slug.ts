@@ -12,7 +12,7 @@ export const MAX_SLUG_LENGTH = 64
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /** Unicode combining marks, left behind by the NFD decomposition below. */
-const COMBINING_MARKS = /[̀-ͯ]/g
+const COMBINING_MARKS = /[\u0300-\u036f]/g
 
 /** Suggests a slug for a human-entered name. Returns '' when nothing usable remains. */
 export function toSlug(name: string): string {

@@ -56,7 +56,7 @@ function neutraliseFormula(value: string): string {
 
 function escapeCsvField(value: string): string {
   const safe = neutraliseFormula(value)
-  if (/[",\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`
+  if (/[",\n\r]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`
   return safe
 }
 

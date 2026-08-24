@@ -50,9 +50,21 @@ describe('environment URL security', () => {
       NODE_ENV: 'production',
       WEB_ORIGIN: 'https://volt.example',
       BETTER_AUTH_URL: 'https://api.volt.example',
+      TRUST_PROXY: 'true',
     })
 
     expect(result.success).toBe(true)
+  })
+
+  it('rejects missing TRUST_PROXY in production', () => {
+    const result = envSchema.safeParse({
+      ...baseEnvironment,
+      NODE_ENV: 'production',
+      WEB_ORIGIN: 'https://volt.example',
+      BETTER_AUTH_URL: 'https://api.volt.example',
+    })
+
+    expect(result.success).toBe(false)
   })
 })
 
@@ -65,7 +77,7 @@ describe('environment URL security', () => {
  * array, which in a platform log viewer amounts to "something was undefined".
  */
 describe('when the environment is wrong', () => {
-  const { NODE_ENV: _node, ...production } = { ...baseEnvironment, NODE_ENV: 'production' }
+  const { NODE_ENV: _node, ...production } = { ...baseEnvironment, NODE_ENV: 'production', TRUST_PROXY: 'true' }
 
   it('names every setting that is wrong, not just the first', () => {
     let message = ''
@@ -147,6 +159,7 @@ describe('taking the origin from the platform', () => {
   const render = {
     ...baseEnvironment,
     NODE_ENV: 'production',
+    TRUST_PROXY: 'true',
     RENDER_EXTERNAL_URL: 'https://volt.onrender.com',
     BETTER_AUTH_URL: undefined,
     WEB_ORIGIN: undefined,

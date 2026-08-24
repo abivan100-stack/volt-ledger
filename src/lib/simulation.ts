@@ -31,6 +31,7 @@ const FNV_FOLD = 1_000_000
 export function seededUnit(...keys: number[]): number {
   let h = FNV_OFFSET_BASIS
   for (const key of keys) {
+    if (!Number.isFinite(key)) return 0
     h = Math.imul(h ^ Math.floor(key), FNV_PRIME)
     h ^= h >>> 13
   }
@@ -54,6 +55,7 @@ const TICK_INTERVAL_HOURS = 10 / 60
 
 /** Bell-shaped solar capacity factor for `hour` (0-23.99), zero outside ~06:00-18:30. */
 export function solarCurve(hour: number, dayType: DayType): number {
+  if (!Number.isFinite(hour)) return 0
   if (hour < SOLAR_START_HOUR || hour > SOLAR_END_HOUR) return 0
   const shape = Math.max(0, Math.sin((Math.PI * (hour - SOLAR_START_HOUR)) / SOLAR_DAYLIGHT_HOURS))
   if (dayType === 'cloudy') return shape * CLOUDY_SCALE
@@ -120,6 +122,8 @@ export function integrateGenerationAndConsumption(
   dayType: DayType,
   uptoMinute: number,
 ): { gen: number; con: number } {
+  if (!Number.isFinite(pv) || !Number.isFinite(baseLoad) || !Number.isFinite(uptoMinute)) return { gen: 0, con: 0 }
+  // Exclusive upper bound: integrates [0, uptoMinute) in 10-minute steps
   let gen = 0
   let con = 0
   for (let minute = 0; minute < uptoMinute; minute += 10) {
@@ -161,5 +165,5 @@ const RATE_JITTER_AMPLITUDE = 0.05
 export function nextCommunityRate(currentRate: number, supply: number, demand: number, tickCount: number): number {
   const target = Math.min(RATE_MAX, Math.max(RATE_MIN, RATE_BASE + (demand - supply) * RATE_SUPPLY_DEMAND_FACTOR))
   const jitter = (seededUnit(tickCount * RATE_SEED_TICK) - 0.5) * RATE_JITTER_AMPLITUDE
-  return currentRate + (target - currentRate) * RATE_SMOOTHING + jitter
+  return Math.min(RATE_MAX, Math.max(RATE_MIN, currentRate + (target - currentRate) * RATE_SMOOTHING + jitter))
 }

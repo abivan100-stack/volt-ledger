@@ -136,6 +136,7 @@ export const useAuditStore = create<AuditState>()((set, get) => ({
       events: [],
       nextCursor: null,
       pendingLoad: null,
+      loadingMore: false,
       requestGeneration: state.requestGeneration + 1,
     }))
     if (!organisationId) return
