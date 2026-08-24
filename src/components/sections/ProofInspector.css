@@ -165,3 +165,21 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 540px) {
+  .proof-inspector-picker-item {
+    grid-template-columns: 8px 50px 1fr 70px;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 10.5px;
+  }
+
+  .proof-inspector-check {
+    padding: 14px 16px;
+  }
+
+  .proof-inspector-value-row {
+    font-size: 10px;
+    gap: 8px;
+  }
+}

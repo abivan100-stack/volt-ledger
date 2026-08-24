@@ -170,8 +170,27 @@
 /* Compact mobile adjustments */
 @media (max-width: 640px) {
   .volt-trade-feed {
-    left: 12px;
-    bottom: 12px;
-    max-width: calc(100vw - 24px);
+    left: 8px;
+    bottom: 8px;
+    max-width: calc(100vw - 16px);
+    width: auto;
+  }
+
+  .volt-trade-card {
+    padding: 5px 10px;
+  }
+
+  .volt-trade-text {
+    font-size: 10px;
+  }
+
+  .volt-trade-meta {
+    font-size: 9.5px;
+  }
+
+  .volt-trade-close-btn {
+    padding: 4px;
+    min-width: 24px;
+    min-height: 24px;
   }
 }

@@ -29,6 +29,13 @@
   --header-height: 66px;
 }
 
+@media (max-width: 640px) {
+  :root {
+    --container-pad-x: 16px;
+    --header-height: 58px;
+  }
+}
+
 /* Native dark mode follows the user's operating-system preference. The dark
    theme uses neutral charcoal backgrounds and muted accents so the ledger
    reads as a calm, professional surface rather than a warm retro palette. */

@@ -203,6 +203,7 @@
   display: grid;
   grid-template-columns: 64px 1fr 96px 118px 152px;
   gap: 16px;
+  min-width: 540px;
   padding: 12px 22px;
   border-bottom: 1px solid var(--rule-2);
   font-size: 9px;

@@ -165,8 +165,45 @@
 
 @media (max-width: 640px) {
   .volt-judge-overlay {
-    bottom: 12px;
-    width: calc(100vw - 24px);
-    padding: 10px 12px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    padding: 9px 12px;
+    border-radius: 8px;
+  }
+
+  .volt-judge-title {
+    font-size: 12.5px;
+  }
+
+  .volt-judge-subtitle {
+    font-size: 10.5px;
+    line-height: 1.3;
+  }
+
+  .volt-judge-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .volt-judge-timer {
+    font-size: 10px;
+    padding: 1px 5px;
+  }
+
+  .volt-judge-dots {
+    gap: 4px;
+  }
+
+  .volt-judge-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .volt-judge-nav-btns button {
+    height: 28px;
+    font-size: 11px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }

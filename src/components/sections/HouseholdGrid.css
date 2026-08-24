@@ -165,3 +165,19 @@
 .household-card-footer-arrow {
   font-size: 12px;
 }
+
+@media (max-width: 500px) {
+  .household-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 60px;
+  }
+
+  .household-card {
+    padding: 12px 12px 10px;
+  }
+
+  .household-card-name {
+    font-size: 14px;
+  }
+}

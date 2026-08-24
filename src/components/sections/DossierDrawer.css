@@ -386,3 +386,19 @@
   color: var(--ink-soft);
   padding: 8px 0;
 }
+
+@media (max-width: 480px) {
+  .dossier-sheet {
+    width: 100vw;
+    width: 100dvw;
+    border-left: none;
+  }
+
+  .dossier-sheet-header {
+    padding: 16px 18px 14px;
+  }
+
+  .dossier-sheet-body {
+    padding: 18px;
+  }
+}

@@ -73,3 +73,19 @@
     padding: 24px;
   }
 }
+
+@media (max-width: 480px) {
+  .account-page .account-page-inner {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+
+  .account-page-card {
+    padding: 16px 14px;
+  }
+
+  .account-page-body {
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+}

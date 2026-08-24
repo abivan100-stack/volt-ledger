@@ -140,33 +140,47 @@
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .header-bar {
     align-items: center;
+    gap: 8px;
   }
 
   .header-logo-word {
-    font-size: 16px;
+    font-size: 15px;
+    letter-spacing: 0.1em;
   }
 
   .header-logo-suffix {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .header-nav {
-    max-width: 66%;
+    gap: 8px 12px;
   }
 
-  .header-home-link,
   .header-rate {
-    font-size: 9px;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--paper-2);
+    border-radius: 4px;
   }
 
   .header-ledger-nav {
-    justify-content: flex-end;
+    justify-content: flex-start;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .header-ledger-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .header-ledger-nav .header-link {
-    font-size: 9px;
+    font-size: 10px;
+    white-space: nowrap;
   }
 }
