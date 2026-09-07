@@ -11,6 +11,7 @@ import { useEnergyStore } from '../../../store/useEnergyStore'
 import { HOUSEHOLD_COUNT } from '../../../store/simSlice'
 import { readCssVar } from '../../ui/cssVars'
 import { easeInOut } from '../../../lib/easing'
+import { seededUnit } from '../../../lib/simulation'
 
 interface Point {
   x: number
@@ -96,6 +97,7 @@ export function startNeighbourhoodMap(
   const projections: Array<Point | undefined> = new Array(HOUSEHOLD_COUNT)
   let packets: MapPacket[] = []
   let lastSpawn = 0
+  let spawnCount = 0
 
   const layout = () => {
     const padX = Math.max(40, width * 0.06)
@@ -177,11 +179,12 @@ export function startNeighbourhoodMap(
           if (households[i].net < PACKET_IMPORT_THRESHOLD) importers.push(i)
         }
         if (exporters.length && importers.length) {
+          const seed = spawnCount++
           packets.push({
-            a: exporters[Math.floor(Math.random() * exporters.length)],
-            b: importers[Math.floor(Math.random() * importers.length)],
+            a: exporters[Math.floor(seededUnit(seed, 101) * exporters.length)],
+            b: importers[Math.floor(seededUnit(seed, 102) * importers.length)],
             t0: t,
-            dur: 1500 + Math.random() * 500,
+            dur: 1500 + seededUnit(seed, 103) * 500,
           })
         }
       }

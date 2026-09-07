@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import type { AuthService } from '../auth/auth.js'
@@ -160,6 +161,27 @@ describe('the policy the page is served under', () => {
 
     expect(policy).toContain("default-src 'self'")
     expect(policy).toContain("object-src 'none'")
+  })
+
+  it('keeps Vercel CSP in sync with the inline theme bootstrap', async () => {
+    const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
+    const [indexHtml, vercelJson] = await Promise.all([
+      readFile(join(repoRoot, 'index.html'), 'utf8'),
+      readFile(join(repoRoot, 'vercel.json'), 'utf8'),
+    ])
+    const themeScript = indexHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1]
+    expect(themeScript).toBeTruthy()
+
+    const config = JSON.parse(vercelJson) as {
+      headers?: Array<{ headers?: Array<{ key?: string; value?: string }> }>
+    }
+    const policy = config.headers
+      ?.flatMap((entry) => entry.headers ?? [])
+      .find((header) => header.key === 'Content-Security-Policy')?.value
+    expect(policy).toBeTruthy()
+
+    const digest = createHash('sha256').update(themeScript!, 'utf8').digest('base64')
+    expect(policy).toContain(`'sha256-${digest}'`)
   })
 })
 

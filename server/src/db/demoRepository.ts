@@ -305,6 +305,19 @@ export function createDemoRepository(
   ): Promise<void> {
     const run = await demoRuns.findOne({ _id: runId }, { projection: { sessionId: 1 }, session })
     if (run && run.sessionId !== sessionId) throw new DemoRunOwnershipError()
+
+    // TTL indexes run independently for each collection. A child can therefore
+    // briefly outlive its run, and a caller who knows that run id must not be
+    // allowed to recreate it for another session during that window.
+    const orphan = await Promise.all([
+      demoTrades.findOne({ runId, sessionId: { $ne: sessionId } }, { projection: { _id: 1 }, session }),
+      demoDays.findOne({ runId, sessionId: { $ne: sessionId } }, { projection: { _id: 1 }, session }),
+      demoHouseholdDays.findOne(
+        { runId, sessionId: { $ne: sessionId } },
+        { projection: { _id: 1 }, session },
+      ),
+    ])
+    if (orphan.some(Boolean)) throw new DemoRunOwnershipError()
   }
 
   /**

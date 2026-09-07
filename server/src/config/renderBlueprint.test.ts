@@ -63,4 +63,13 @@ describe('Render Blueprint build commands', () => {
     expect(worker).toContain('key: WEB_ORIGIN')
     expect(worker).toContain('key: BETTER_AUTH_URL')
   })
+
+  it('gives the production worker the proxy setting required by startup config', () => {
+    // The shared production group sets NODE_ENV=production. envSchema therefore
+    // rejects a worker that does not receive TRUST_PROXY=true before it imports
+    // any worker code, even though the worker has no HTTP surface.
+    const worker = serviceBlock('  - type: worker')
+
+    expect(worker).toMatch(/key: TRUST_PROXY\s*\n\s*value: "true"/)
+  })
 })

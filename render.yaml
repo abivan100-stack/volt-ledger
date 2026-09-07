@@ -65,6 +65,10 @@ services:
     startCommand: node server/dist/worker.js
     envVars:
       - fromGroup: volt-production-runtime
+      # envSchema requires this in every production process. The worker has no
+      # HTTP surface, but it still imports the same production configuration.
+      - key: TRUST_PROXY
+        value: "true"
       - key: MONGODB_URI
         sync: false
       - key: VOLT_DNS_SERVERS

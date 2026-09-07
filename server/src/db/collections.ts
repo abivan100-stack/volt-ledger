@@ -372,6 +372,151 @@ export function getVoltCollections(db: Db): VoltCollections {
   }
 }
 
+/**
+ * The two ways a requested index can clash with one already there.
+ *
+ * They are not the same clash, and the difference decides what has to be
+ * dropped:
+ *
+ * - `IndexKeySpecsConflict` (86) — an index of that *name* exists with a
+ *   different key. The name is the thing in the way.
+ * - `IndexOptionsConflict` (85) — an index of that *key* exists with different
+ *   options, quite possibly under a different name. The name being asked for
+ *   may not exist at all.
+ *
+ * So neither case may assume the offending index is called what the code wants
+ * to call it; both look it up.
+ */
+const INDEX_CONFLICT_CODES = new Set([85, 86])
+
+function isIndexConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'number' &&
+    INDEX_CONFLICT_CODES.has(error.code)
+  )
+}
+
+/** Whether two index key patterns are the same fields, in the same order. */
+function sameKeyPattern(left: unknown, right: unknown): boolean {
+  if (typeof left !== 'object' || left === null) return false
+  if (typeof right !== 'object' || right === null) return false
+
+  const a = Object.entries(left as Record<string, unknown>)
+  const b = Object.entries(right as Record<string, unknown>)
+  if (a.length !== b.length) return false
+
+  // Field order is part of an index's identity, so this compares positionally.
+  return a.every(([field, direction], position) => {
+    const [otherField, otherDirection] = b[position] ?? []
+    return field === otherField && String(direction) === String(otherDirection)
+  })
+}
+
+/** `IndexNotFound` — the index is already gone, which is where we were headed. */
+function isIndexNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'code' in error && error.code === 27
+  )
+}
+
+function describeCause(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Drops whichever existing index is standing in the way, then builds the wanted
+ * one in its place.
+ *
+ * The index to drop is found by asking the collection what it actually has,
+ * rather than assuming it goes by the name being requested — under an options
+ * conflict it need not. If nothing there explains the clash, the original error
+ * is raised untouched: an unexplained conflict is not something to start
+ * dropping indexes over.
+ *
+ * Dropping and rebuilding is the only way MongoDB offers to redefine an index:
+ * it will not hold two indexes over one key, nor two under one name, so the new
+ * definition cannot be built alongside the old one first. There is therefore a
+ * window in which neither exists. It is not silent — if the rebuild fails, the
+ * error says which index was dropped and on what collection, so the state the
+ * database is actually in is the state that gets reported.
+ */
+async function rebuildConflictingIndex(
+  collection: Collection<never>,
+  index: IndexDescription,
+  cause: unknown,
+): Promise<void> {
+  const existing = await collection.listIndexes().toArray()
+  const clashing =
+    existing.find((candidate) => index.name !== undefined && candidate.name === index.name) ??
+    existing.find((candidate) => sameKeyPattern(candidate.key, index.key))
+
+  // `_id_` cannot be dropped and is never one of ours to redefine.
+  if (clashing?.name === undefined || clashing.name === '_id_') throw cause
+
+  try {
+    await collection.dropIndex(clashing.name)
+  } catch (error) {
+    // The API and the worker start together and both run this. Losing the race
+    // to drop an index is not a failure: the other process wanted it gone too,
+    // and the rebuild below is a no-op once it has put the new one back.
+    if (!isIndexNotFound(error)) throw error
+  }
+
+  try {
+    await collection.createIndexes([index])
+  } catch (error) {
+    throw new Error(
+      `Index "${clashing.name}" on ${collection.collectionName} was dropped so it could be ` +
+        `redefined, and rebuilding it failed. The collection no longer has that index. ` +
+        `Rebuild it before relying on the queries or constraints it served. ` +
+        `Cause: ${describeCause(error)}`,
+      { cause: error },
+    )
+  }
+}
+
+/**
+ * Brings a collection's indexes up to the definitions in this file.
+ *
+ * Creating them is almost always a no-op, so that is tried in one round trip
+ * first. The exception is an index whose definition has changed since it was
+ * built — a new key, or a partial filter that was not there before. MongoDB
+ * refuses that outright, and because the whole batch fails together, one such
+ * index would otherwise stop the process from starting at all: not on a fresh
+ * database, where nothing conflicts, but on every database that already has the
+ * older index, which is to say every real one.
+ *
+ * So a conflict is reconciled rather than raised. Anything else — a bad key, a
+ * failed build — still throws.
+ */
+async function ensureIndexes(
+  collection: Collection<never>,
+  indexes: IndexDescription[],
+): Promise<void> {
+  if (indexes.length === 0) return
+
+  try {
+    await collection.createIndexes(indexes)
+    return
+  } catch (error) {
+    if (!isIndexConflict(error)) throw error
+  }
+
+  // One of them conflicts, and the batch does not say which. Retried one at a
+  // time so the others are still created and the culprit can be dealt with.
+  for (const index of indexes) {
+    try {
+      await collection.createIndexes([index])
+    } catch (error) {
+      if (!isIndexConflict(error)) throw error
+      await rebuildConflictingIndex(collection, index, error)
+    }
+  }
+}
+
 export async function initializeVoltDatabase(db: Db): Promise<void> {
   const existing = new Set(
     (await db.listCollections({}, { nameOnly: true }).toArray()).map(({ name }) => name),
@@ -383,10 +528,9 @@ export async function initializeVoltDatabase(db: Db): Promise<void> {
 
   const collections = getVoltCollections(db)
   await Promise.all(
-    collectionSpecs.map((spec) => {
-      const collection = collections[spec.key]
-      return collection.createIndexes(spec.indexes)
-    }),
+    collectionSpecs.map((spec) =>
+      ensureIndexes(collections[spec.key] as unknown as Collection<never>, spec.indexes),
+    ),
   )
 }
 
