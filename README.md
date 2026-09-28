@@ -2,7 +2,7 @@
 
 A transparent, tamper-evident ledger for peer-to-peer rooftop-solar energy trading.
 
-Built for the **Open Energy Challenge 2026**. All data is simulated — nothing real was metered or billed.
+Built for the **Shark Tank Challenge 2026**. All data is simulated — nothing real was metered or billed.
 
 ![Volt landing page](screenshots/volt-hero.png)
 
@@ -468,4 +468,4 @@ All simulation randomness is deterministic — the simulation math never uses `M
 
 ## License
 
-[MIT](LICENSE) — built for the Open Energy Challenge 2026.
+[MIT](LICENSE) — built for the Shark Tank Challenge 2026.
