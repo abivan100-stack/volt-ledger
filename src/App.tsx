@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useEnergyStore } from './store/useEnergyStore'
 import { usePauseSimOnHidden } from './hooks/usePauseSimOnHidden'
 import { useRestoreSession } from './hooks/useRestoreSession'
@@ -14,7 +14,6 @@ import './App.css'
 const LedgerPage = lazy(() => import('./pages/LedgerPage'))
 const NeighbourhoodPage = lazy(() => import('./pages/NeighbourhoodPage'))
 const SettlementPage = lazy(() => import('./pages/SettlementPage'))
-const ChainPage = lazy(() => import('./pages/ChainPage'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const InvitationAcceptPage = lazy(() => import('./pages/InvitationAcceptPage'))
 
@@ -65,7 +64,7 @@ function App() {
           <Route path="/ledger/neighbourhood" element={<NeighbourhoodPage />} />
           <Route path="/ledger/settlement" element={<SettlementPage />} />
           <Route path="/ledger/fairness" element={<SettlementPage />} />
-          <Route path="/ledger/chain" element={<ChainPage />} />
+          <Route path="/ledger/chain" element={<Navigate to="/ledger/settlement" replace />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/invite/accept" element={<InvitationAcceptPage />} />
           <Route path="*" element={<NotFoundPage />} />

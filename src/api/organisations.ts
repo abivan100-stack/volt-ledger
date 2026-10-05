@@ -68,17 +68,6 @@ export async function createOrganisation(
   return response.organisation
 }
 
-export async function getOrganisation(
-  organisationId: string,
-  options: ResourceOptions = {},
-): Promise<Organisation> {
-  const response = await send<OrganisationResponse>(
-    options,
-    `/api/v1/organisations/${organisationId}`,
-  )
-  return response.organisation
-}
-
 /**
  * Archives an organisation. Owner-only, and soft: active access and working
  * simulation data are removed in one transaction while ledger and audit history

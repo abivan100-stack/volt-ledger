@@ -2,10 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   ApiError,
   getApiErrorMessage,
-  isForbiddenError,
-  isNetworkError,
-  isRateLimitedError,
-  isUnauthenticatedError,
 } from '../errors'
 
 describe('ApiError', () => {
@@ -33,30 +29,6 @@ describe('ApiError', () => {
       issues: [{ path: 'slug', message: 'Invalid' }],
     })
     expect(error.issues).toEqual([{ path: 'slug', message: 'Invalid' }])
-  })
-})
-
-describe('error predicates', () => {
-  it('detects unauthenticated errors', () => {
-    expect(isUnauthenticatedError(new ApiError({ message: 'x', status: 401, code: 'UNAUTHENTICATED' }))).toBe(true)
-    expect(isUnauthenticatedError(new ApiError({ message: 'x', status: 403, code: 'ORGANISATION_ACCESS_DENIED' }))).toBe(false)
-    expect(isUnauthenticatedError(new Error('x'))).toBe(false)
-  })
-
-  it('detects forbidden errors for both organisation codes', () => {
-    expect(isForbiddenError(new ApiError({ message: 'x', status: 403, code: 'ORGANISATION_ACCESS_DENIED' }))).toBe(true)
-    expect(isForbiddenError(new ApiError({ message: 'x', status: 403, code: 'ORGANISATION_ROLE_FORBIDDEN' }))).toBe(true)
-    expect(isForbiddenError(new ApiError({ message: 'x', status: 401, code: 'UNAUTHENTICATED' }))).toBe(false)
-  })
-
-  it('detects rate-limited errors', () => {
-    expect(isRateLimitedError(new ApiError({ message: 'x', status: 429, code: 'SIMULATION_QUOTA_EXHAUSTED' }))).toBe(true)
-    expect(isRateLimitedError(new ApiError({ message: 'x', status: 500, code: 'X' }))).toBe(false)
-  })
-
-  it('detects network errors', () => {
-    expect(isNetworkError(new ApiError({ message: 'x', status: 0, code: 'NETWORK_ERROR' }))).toBe(true)
-    expect(isNetworkError(new ApiError({ message: 'x', status: 500, code: 'X' }))).toBe(false)
   })
 })
 

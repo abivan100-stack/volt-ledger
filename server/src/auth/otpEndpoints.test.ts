@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ALLOWED_OTP_PATH,
   ALLOWED_OTP_PATHS,
   BLOCKED_OTP_PATHS,
   isBlockedAuthPath,
@@ -37,7 +36,7 @@ describe('isBlockedAuthPath', () => {
   })
 
   it('forwards the redemption path the app actually uses', () => {
-    expect(isBlockedAuthPath(ALLOWED_OTP_PATH)).toBe(false)
+    expect(isBlockedAuthPath(ALLOWED_OTP_PATHS[0] as string)).toBe(false)
   })
 
   it('forwards both halves of the email change', () => {

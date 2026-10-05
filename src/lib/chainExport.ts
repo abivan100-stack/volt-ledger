@@ -106,21 +106,3 @@ export function ledgerRangeToCsv(range: LedgerRange): string {
   return [RANGE_CSV_HEADER.join(','), ...rows].join('\n')
 }
 
-/** Renders the per-day totals of a timeframe as CSV. */
-export function ledgerDaysToCsv(range: LedgerRange): string {
-  const header = ['day', 'run', 'dayType', 'trades', 'kwh', 'credit', 'rate', 'compromised', 'open']
-  const rows = range.days.map((day) =>
-    toRow([
-      String(day.simDay),
-      day.runId ?? '',
-      day.dayType ?? '',
-      String(day.tradeCount),
-      day.totalKwh.toFixed(2),
-      day.totalCredit.toFixed(2),
-      day.rate === null ? '' : day.rate.toFixed(2),
-      String(day.compromised),
-      String(day.open),
-    ]),
-  )
-  return [header.join(','), ...rows].join('\n')
-}

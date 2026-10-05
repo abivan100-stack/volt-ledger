@@ -3,7 +3,6 @@ import {
   createWorkerHealth,
   deriveWorkerLiveness,
   describeErrorCode,
-  isWorkerReady,
   WORKER_HEARTBEAT_STALE_AFTER_MS,
 } from './workerHealth.js'
 
@@ -152,22 +151,6 @@ describe('describeErrorCode', () => {
     expect(describeErrorCode('mongodb+srv://user:pw@cluster.example.net')).toBe('UNKNOWN')
     expect(describeErrorCode(null)).toBe('UNKNOWN')
     expect(describeErrorCode({ message: 'secret-bearing text' })).toBe('UNKNOWN')
-  })
-})
-
-describe('isWorkerReady', () => {
-  it('is ready only once a poll has succeeded and none are failing', () => {
-    const health = createWorkerHealth({ now: clock().now })
-    expect(isWorkerReady(health.snapshot())).toBe(false)
-
-    health.pollSucceeded()
-    expect(isWorkerReady(health.snapshot())).toBe(true)
-
-    health.pollFailed(new Error('MONGO_UNAVAILABLE'))
-    expect(isWorkerReady(health.snapshot())).toBe(false)
-
-    health.stop()
-    expect(isWorkerReady(health.snapshot())).toBe(false)
   })
 })
 

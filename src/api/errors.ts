@@ -42,23 +42,3 @@ export class ApiError extends Error {
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback
 }
-
-/** The session is missing or expired — the caller should return to a signed-out state. */
-export function isUnauthenticatedError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.status === 401
-}
-
-/** The user is signed in but their membership or role does not permit the action. */
-export function isForbiddenError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.status === 403
-}
-
-/** A global rate limit or a daily simulation quota was exhausted. */
-export function isRateLimitedError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.status === 429
-}
-
-/** The request never reached the server, so retrying is meaningful. */
-export function isNetworkError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.code === 'NETWORK_ERROR'
-}

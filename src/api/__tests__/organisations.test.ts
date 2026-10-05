@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   archiveOrganisation,
   createOrganisation,
-  getOrganisation,
   listArchivedOrganisations,
   listOrganisations,
   restoreOrganisation,
@@ -69,16 +68,6 @@ describe('createOrganisation', () => {
       signal: undefined,
     })
     expect(created).toEqual(ORGANISATION)
-  })
-})
-
-describe('getOrganisation', () => {
-  it('reads one organisation by id', async () => {
-    const { client, request } = stubClient({ organisation: ORGANISATION })
-    const organisation = await getOrganisation(ORGANISATION.id, { client })
-
-    expect(request).toHaveBeenCalledWith(`/api/v1/organisations/${ORGANISATION.id}`, { signal: undefined })
-    expect(organisation).toEqual(ORGANISATION)
   })
 })
 

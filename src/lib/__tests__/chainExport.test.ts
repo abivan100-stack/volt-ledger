@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { appendBlock, type ChainBlock } from '../hashChain'
-import { chainToCsv, ledgerDaysToCsv, ledgerRangeToCsv } from '../chainExport'
+import { chainToCsv, ledgerRangeToCsv } from '../chainExport'
 import { buildLiveLedgerRange, buildStoredLedgerRange } from '../ledgerRange'
 
 function makeChain(): ChainBlock[] {
@@ -162,61 +162,33 @@ describe('a downloaded file is not a program', () => {
 
   it('leaves a negative number alone, so the arithmetic still works', () => {
     // A credit column beginning with a minus is a number, not an attack.
-    const csv = ledgerDaysToCsv({
-      ...rangeWithName('Pranav P'),
-      days: [
+    const negative = buildStoredLedgerRange({
+      timeframe: 'all',
+      trades: [
         {
           runId: 'run-1',
           simDay: 1,
-          dayType: 'cloudy',
-          totalKwh: 1,
-          totalCredit: -5.5,
-          tradeCount: 1,
-          rate: -2,
-          compromised: false,
-          invalidCount: 0,
-          open: false,
+          blockId: 1,
+          clock: '14:20',
+          fromName: 'Pranav P',
+          toName: 'Abivan',
+          kwh: 1,
+          credit: -5.5,
+          seal: 'seal',
+          previousSeal: 'GENESIS',
+          sealMatchesClient: true,
         },
       ],
+      days: [],
+      totalKwh: 1,
+      totalCredit: -5.5,
+      tradeCount: 1,
+      truncated: false,
+      sealMismatches: 0,
     })
+    const csv = ledgerRangeToCsv(negative)
     expect(csv).toContain('-5.50')
     expect(csv).not.toContain("'-5.50")
   })
 })
 
-describe('ledgerDaysToCsv', () => {
-  it('writes one row per simulated day', () => {
-    const range = buildLiveLedgerRange({
-      timeframe: 'all',
-      history: [
-        {
-          simDay: 1,
-          dayType: 'cloudy',
-          chain: makeChain(),
-          totalKwh: 1,
-          totalCredit: 5.5,
-          rate: 5.2,
-          compromised: true,
-          invalidCount: 2,
-        },
-      ],
-      current: {
-        simDay: 2,
-        dayType: 'heatwave',
-        chain: makeChain(),
-        totalKwh: 1,
-        totalCredit: 5.5,
-        rate: 6.1,
-        compromised: false,
-        invalidCount: 0,
-      },
-    })
-
-    const lines = ledgerDaysToCsv(range).split('\n')
-    expect(lines[0]).toBe('day,run,dayType,trades,kwh,credit,rate,compromised,open')
-    expect(lines).toHaveLength(3)
-    expect(lines[1]).toContain('cloudy')
-    expect(lines[1]).toContain('true')
-    expect(lines[2]).toContain('heatwave')
-  })
-})

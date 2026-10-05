@@ -105,16 +105,6 @@ export function createWorkerHealth(options: { now?: () => Date } = {}): WorkerHe
   }
 }
 
-/**
- * Whether the worker is currently able to take work.
- *
- * Stricter than liveness on purpose: a worker still failing its polls is running
- * but should not be counted on to drain the queue.
- */
-export function isWorkerReady(snapshot: WorkerHealthSnapshot): boolean {
-  return snapshot.status === 'healthy'
-}
-
 export type WorkerLiveness = 'live' | 'stale' | 'stopped'
 
 /**

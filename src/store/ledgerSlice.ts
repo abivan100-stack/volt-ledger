@@ -6,10 +6,6 @@ const RESTORED_FLASH_MS = 3000
 const TAMPER_TEST_VISIBLE_BLOCKS = 10
 const TAMPER_TEST_DELTA_KWH = 0.01
 
-export function clearRestoredFlashTimer(): void {
-  // Kept for backwards compatibility; timers now live in Zustand state.
-}
-
 function tamperChain(chain: LedgerSlice['chain'], id: number, nextKwh: number) {
   const tamperedChain = chain.map((block) =>
     block.id === id ? { ...block, payload: { ...block.payload, kwh: nextKwh }, tampered: true } : block,

@@ -39,9 +39,6 @@ export const ALLOWED_OTP_PATHS: readonly string[] = [
   '/api/auth/email-otp/change-email',
 ]
 
-/** Kept for the tests that name the redemption path directly. */
-export const ALLOWED_OTP_PATH = '/api/auth/email-otp/verify-email'
-
 /** Plugin paths refused at the proxy. */
 export const BLOCKED_OTP_PATHS: readonly string[] = [
   '/api/auth/sign-in/email-otp',
