@@ -263,7 +263,11 @@ export function shouldSummarisePdf(range: LedgerRange): boolean {
   // computed over every trade in the timeframe, so the summary stays complete
   // where a per-trade table could only show the rows that fitted — a document
   // that looks like the whole ledger while being part of it.
-  return range.truncated || range.entries.length > LEDGER_PDF_DETAIL_LIMIT
+  return (
+    range.truncated ||
+    range.entries.length > LEDGER_PDF_DETAIL_LIMIT ||
+    (range.entries.length === 0 && range.days.length > 0)
+  )
 }
 
 /**

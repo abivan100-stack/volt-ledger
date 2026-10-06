@@ -1,8 +1,6 @@
-import type { Config } from 'tailwindcss'
 import { colors, fonts, layout, easing } from './src/theme/tokens'
 
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors,
@@ -19,4 +17,4 @@ export default {
     },
   },
   plugins: [],
-} satisfies Config
+}

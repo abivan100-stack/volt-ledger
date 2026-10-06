@@ -98,9 +98,10 @@ async function sendSmtpEmail(input: {
       messageId: input.idempotencyKey ? `<${input.idempotencyKey}@volt.local>` : undefined,
     })
 
-    if (result.rejected.length > 0) {
+    const rejected = result.rejected ?? []
+    if (rejected.length > 0) {
       throw new EmailDeliveryError(
-        `SMTP rejected recipient: ${result.rejected.join(', ')}`,
+        `SMTP rejected recipient: ${rejected.join(', ')}`,
         'SMTP_RECIPIENT_REJECTED',
         false,
       )

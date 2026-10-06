@@ -244,7 +244,7 @@ export function buildLedgerPdf(range: LedgerRange, meta: LedgerPdfMeta): Blob {
   const notes: string[] = []
   notes.push(
     range.source === 'stored'
-      ? 'Rows read back from the Volt ledger store and re-verified against their server-held seals.'
+      ? 'Ledger records read back from the Volt store; returned settlements were re-verified against server-held seals.'
       // Deliberately does not say why. This module cannot tell an unreachable
       // store from one that answered with nothing, and guessing in print would
       // send a reader looking for a fault that may not exist.

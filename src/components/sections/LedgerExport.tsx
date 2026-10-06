@@ -102,7 +102,7 @@ function LedgerExport() {
     let source: ExportSource = 'unreachable'
     try {
       const snapshot = await fetchDemoLedger(demoSessionId(), timeframe)
-      if (snapshot.tradeCount > 0) {
+      if (snapshot.tradeCount > 0 || snapshot.days.length > 0) {
         return { range: buildStoredLedgerRange(snapshot), source: 'stored' }
       }
       // It answered; it simply has nothing for this timeframe.
@@ -113,8 +113,15 @@ function LedgerExport() {
     return { range: liveRange(), source }
   }
 
-  function describeSource(range: LedgerRange, source: ExportSource): string | null {
-    if (range.entries.length === 0) return 'NOTHING SETTLED IN THIS TIMEFRAME YET.'
+  function describeSource(range: LedgerRange, source: ExportSource, kind: 'csv' | 'pdf'): string | null {
+    if (range.entries.length === 0) {
+      if (source === 'stored' && range.days.length > 0) {
+        return kind === 'pdf'
+          ? 'NO SETTLEMENTS WERE RECORDED; STORED DAY RECORDS ARE INCLUDED.'
+          : 'NO SETTLEMENTS WERE RECORDED; THIS CSV HAS NO TRADE ROWS.'
+      }
+      return 'NOTHING SETTLED IN THIS TIMEFRAME YET.'
+    }
     if (source === 'stored') {
       return range.truncated
         ? `READ THE MOST RECENT ${range.entries.length.toLocaleString('en-IN')} OF ${range.tradeCount.toLocaleString('en-IN')} SETTLEMENTS.`
@@ -153,7 +160,7 @@ function LedgerExport() {
         )
       }
 
-      setNotice(describeSource(range, source))
+      setNotice(describeSource(range, source, kind))
     } catch {
       setError(`${kind.toUpperCase()} EXPORT FAILED. PLEASE TRY AGAIN.`)
     } finally {

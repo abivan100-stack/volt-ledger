@@ -302,6 +302,11 @@ describe('shouldSummarisePdf', () => {
     expect(shouldSummarisePdf(live('all', 3))).toBe(false)
   })
 
+  it('summarises persisted day records when there are no settlements', () => {
+    const base = live('today', 1)
+    expect(shouldSummarisePdf({ ...base, entries: [], tradeCount: 0, days: base.days })).toBe(true)
+  })
+
   it('summarises once the detail stops being readable', () => {
     const base = live('all', 1)
     const entries = Array.from({ length: LEDGER_PDF_DETAIL_LIMIT + 1 }, () => base.entries[0])

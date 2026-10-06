@@ -4,10 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import LedgerExport from '../LedgerExport'
 import { useEnergyStore } from '../../../store/useEnergyStore'
 import { appendBlock, type ChainBlock } from '../../../lib/hashChain'
+import type { LedgerPdfMeta } from '../../../lib/chainPdf'
+import type { LedgerRange } from '../../../lib/ledgerRange'
 
 const fetchDemoLedger = vi.fn()
 const downloadTextFile = vi.fn()
 const downloadBlob = vi.fn()
+const buildLedgerPdf = vi.fn((_range: LedgerRange, _meta: LedgerPdfMeta) => new Blob(['pdf'], { type: 'application/pdf' }))
 
 vi.mock('../../../api/demoLedger', () => ({
   fetchDemoLedger: (...args: unknown[]) => fetchDemoLedger(...args),
@@ -19,7 +22,7 @@ vi.mock('../../../utils/downloadFile', () => ({
 }))
 
 vi.mock('../../../lib/chainPdf', () => ({
-  buildLedgerPdf: () => new Blob(['pdf'], { type: 'application/pdf' }),
+  buildLedgerPdf: (range: LedgerRange, meta: LedgerPdfMeta) => buildLedgerPdf(range, meta),
 }))
 
 /**
@@ -79,6 +82,7 @@ beforeEach(() => {
   fetchDemoLedger.mockReset()
   downloadTextFile.mockReset()
   downloadBlob.mockReset()
+  buildLedgerPdf.mockClear()
   seedStore()
 })
 
@@ -225,6 +229,78 @@ describe('with a ledger store reachable', () => {
     const status = await screen.findByRole('status')
     expect(status.textContent).toMatch(/NOTHING FOR THIS TIMEFRAME YET/i)
     expect(status.textContent).not.toMatch(/COULD NOT BE REACHED/i)
+  })
+
+  it('exports a stored zero-trade day instead of falling back to this session', async () => {
+    fetchDemoLedger.mockResolvedValue({
+      timeframe: 'today',
+      trades: [],
+      days: [
+        {
+          runId: 'run-closed-overnight',
+          simDay: 4,
+          dayType: 'cloudy',
+          totalKwh: 0,
+          totalCredit: 0,
+          tradeCount: 0,
+          closingRate: 5.5,
+          compromised: false,
+          invalidCount: 0,
+          open: false,
+        },
+      ],
+      totalKwh: 0,
+      totalCredit: 0,
+      tradeCount: 0,
+      truncated: false,
+      sealMismatches: 0,
+    })
+
+    render(<LedgerExport />)
+    fireEvent.click(screen.getByRole('button', { name: 'CSV' }))
+
+    await waitFor(() => expect(downloadTextFile).toHaveBeenCalled())
+    expect(downloadTextFile.mock.calls[0][1].split('\n')).toHaveLength(1)
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toMatch(/THIS CSV HAS NO TRADE ROWS/i)
+    expect(status.textContent).not.toMatch(/BUILT FROM THIS SESSION/i)
+  })
+
+  it('includes stored zero-trade days in the PDF day summary', async () => {
+    fetchDemoLedger.mockResolvedValue({
+      timeframe: 'today',
+      trades: [],
+      days: [
+        {
+          runId: 'run-closed-overnight',
+          simDay: 4,
+          dayType: 'cloudy',
+          totalKwh: 0,
+          totalCredit: 0,
+          tradeCount: 0,
+          closingRate: 5.5,
+          compromised: false,
+          invalidCount: 0,
+          open: false,
+        },
+      ],
+      totalKwh: 0,
+      totalCredit: 0,
+      tradeCount: 0,
+      truncated: false,
+      sealMismatches: 0,
+    })
+
+    render(<LedgerExport />)
+    fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
+
+    await waitFor(() => expect(buildLedgerPdf).toHaveBeenCalled())
+    const [range] = buildLedgerPdf.mock.calls[0]!
+    expect(range.source).toBe('stored')
+    expect(range.entries).toHaveLength(0)
+    expect(range.days).toMatchObject([{ simDay: 4, tradeCount: 0, rate: 5.5 }])
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toMatch(/STORED DAY RECORDS ARE INCLUDED/i)
   })
 
   it('says how much of a truncated timeframe it managed to read', async () => {
