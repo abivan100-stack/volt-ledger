@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALLOWED_AUTH_PATHS,
   ALLOWED_OTP_PATHS,
   BLOCKED_OTP_PATHS,
+  isAllowedAuthPath,
   isBlockedAuthPath,
 } from './otpEndpoints.js'
 
@@ -89,6 +91,22 @@ describe('isBlockedAuthPath', () => {
     }
     for (const path of BLOCKED_OTP_PATHS) {
       expect(isBlockedAuthPath(path), path).toBe(true)
+    }
+  })
+
+  it('forwards only the auth routes the frontend calls', () => {
+    for (const path of ALLOWED_AUTH_PATHS) {
+      expect(isAllowedAuthPath(path), path).toBe(true)
+    }
+    // Traversal and encoding tricks resolve before the allowlist is checked.
+    expect(isAllowedAuthPath('/api/auth/x/../sign-in/email')).toBe(true)
+    for (const path of [
+      '/api/auth/sign-in/email-otp',
+      '/api/auth/get-session',
+      '/api/auth/admin/list-users',
+      '/api/auth/email-otp/send-verification-otp',
+    ]) {
+      expect(isAllowedAuthPath(path), path).toBe(false)
     }
   })
 })

@@ -369,6 +369,29 @@ describe('recording demo trades', () => {
     expect(response.json().code).toBe('DEMO_RUN_CONFLICT')
   })
 
+  it('answers 409 when a run-claim race loses the unique run write', async () => {
+    // Another session claiming the same run id between the ownership check and
+    // the upsert surfaces as a duplicate key, not a DemoRunOwnershipError. It
+    // means the same thing — this caller does not own that run — so it answers
+    // the same way instead of a 500.
+    const app = await startApp(
+      createDemoDouble({
+        recordTrades: async () => {
+          throw { code: 11000 }
+        },
+      }),
+    )
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/demo/sessions/${SESSION_ID}/trades`,
+      payload: tradeBatch(),
+    })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json().code).toBe('DEMO_RUN_CONFLICT')
+  })
+
   it('answers 409 when the simulated day has already been closed', async () => {
     const app = await startApp(
       createDemoDouble({
@@ -460,6 +483,25 @@ describe('closing a demo day', () => {
     })
 
     expect(response.json().totalsMatchClient).toBe(false)
+  })
+
+  it('answers 409 when a run-claim race loses the unique run write', async () => {
+    const app = await startApp(
+      createDemoDouble({
+        recordDay: async () => {
+          throw { code: 11000 }
+        },
+      }),
+    )
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/demo/sessions/${SESSION_ID}/days`,
+      payload: dayClose(),
+    })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json().code).toBe('DEMO_RUN_CONFLICT')
   })
 
   it('accepts a household balance that has gone negative', async () => {

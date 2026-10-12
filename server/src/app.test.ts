@@ -150,6 +150,58 @@ describe('Volt API', () => {
     expect(forwardedPath).toBeNull()
   })
 
+  it('refuses an auth route the app does not use', async () => {
+    // The proxy forwards by allowlist: only the sign-in, sign-up, sign-out,
+    // verification and email-change routes the frontend calls may reach Better
+    // Auth. Anything else — including a legitimate Better Auth route the app
+    // never calls, like get-session — is refused rather than forwarded.
+    let forwarded = false
+    const auth: AuthService = {
+      createVerificationCode: async () => '123456',
+      getSession: async () => null,
+      handle: async () => {
+        forwarded = true
+        return new Response(null, { status: 200 })
+      },
+    }
+    const app = await buildApp({ logger: false, auth })
+    apps.push(app)
+
+    for (const url of ['/api/auth/admin/list-users', '/api/auth/get-session']) {
+      const response = await app.inject({ method: 'POST', url, payload: {} })
+      expect(response.statusCode, url).toBe(404)
+      expect(response.json()).toEqual({ error: 'Not found', code: 'NOT_FOUND' })
+    }
+    expect(forwarded).toBe(false)
+  })
+
+  it('rejects a cookie-authenticated auth write from another origin', async () => {
+    // Better Auth checks origins itself, but the API's own hook is the layer
+    // this codebase owns and tests — a cookie on a cross-origin POST to
+    // `/api/auth/*` must be refused here, not left to the upstream default.
+    let forwarded = false
+    const auth: AuthService = {
+      createVerificationCode: async () => '123456',
+      getSession: async () => null,
+      handle: async () => {
+        forwarded = true
+        return new Response(null, { status: 200 })
+      },
+    }
+    const app = await buildApp({ logger: false, auth })
+    apps.push(app)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-out',
+      headers: { origin: 'https://evil.example', cookie: 'better-auth.session_token=abc' },
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(response.json()).toEqual({ error: 'Cross-site request rejected', code: 'CSRF_ORIGIN_MISMATCH' })
+    expect(forwarded).toBe(false)
+  })
+
   it('returns the authenticated user without exposing a session token', async () => {
     const auth: AuthService = {
       handle: async () => new Response(null, { status: 204 }),

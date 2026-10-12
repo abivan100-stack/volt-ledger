@@ -52,7 +52,7 @@ import { encryptDeliveryUrl } from './email/outbox.js'
 import { sendVerificationCodeEmailWithRetry } from './email/verificationDelivery.js'
 import { getAuthenticatedSession, getOrganisationAccess } from './http/authorization.js'
 import { loadStaticSite, type StaticSite } from './http/staticSite.js'
-import { isBlockedAuthPath } from './auth/otpEndpoints.js'
+import { isAllowedAuthPath } from './auth/otpEndpoints.js'
 import { ACCOUNT_OWNS_ORGANISATIONS } from './accounts/closure.js'
 import { purgeCutoff, recoverableUntil } from './retention/policy.js'
 import { deriveWorkerLiveness } from './observability/workerHealth.js'
@@ -483,7 +483,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   app.addHook('onRequest', async (request, reply) => {
     const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
     const cookieAuthenticated = typeof request.headers.cookie === 'string' && request.headers.cookie.length > 0
-    if (stateChanging && request.url.startsWith('/api/v1/') && cookieAuthenticated && !isSameOriginRequest(request)) {
+    // Both the versioned API and the Better Auth proxy: the latter owns its own
+    // origin check too, but a cookie on a cross-origin write must be refused by
+    // this layer rather than left to an upstream default.
+    const guarded = request.url.startsWith('/api/v1/') || request.url.startsWith('/api/auth/')
+    if (stateChanging && guarded && cookieAuthenticated && !isSameOriginRequest(request)) {
       return reply.code(403).send({ error: 'Cross-site request rejected', code: 'CSRF_ORIGIN_MISMATCH' })
     }
   })
@@ -531,9 +535,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' })
       }
 
-      // Registering the email-OTP plugin published nine endpoints; the app uses
-      // one. The others are refused here rather than left reachable.
-      if (isBlockedAuthPath(requestUrl.pathname)) {
+      // Only the routes the frontend calls are forwarded; everything else
+      // under `/api/auth/*` is refused, so a future plugin or provider route
+      // is unreachable by default rather than by blocklist.
+      if (!isAllowedAuthPath(requestUrl.pathname)) {
         return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' })
       }
 
@@ -629,6 +634,15 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
             code: 'DEMO_RUN_CONFLICT',
           })
         }
+        // A run claimed by another session between the ownership check and the
+        // upsert loses the unique run write instead of raising the error above.
+        // It means the same thing, so it answers the same way.
+        if (isDuplicateKeyError(error)) {
+          return reply.code(409).send({
+            error: 'That run belongs to a different demo session',
+            code: 'DEMO_RUN_CONFLICT',
+          })
+        }
         if (error instanceof DemoDayClosedError) {
           return reply.code(409).send({
             error: 'That simulated day has already been closed',
@@ -677,6 +691,15 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       } catch (error) {
         if (error instanceof DemoTransactionsUnavailableError) return demoNeedsTransactions(reply)
         if (error instanceof DemoRunOwnershipError) {
+          return reply.code(409).send({
+            error: 'That run belongs to a different demo session',
+            code: 'DEMO_RUN_CONFLICT',
+          })
+        }
+        // A run claimed by another session between the ownership check and the
+        // upsert loses the unique run write instead of raising the error above.
+        // It means the same thing, so it answers the same way.
+        if (isDuplicateKeyError(error)) {
           return reply.code(409).send({
             error: 'That run belongs to a different demo session',
             code: 'DEMO_RUN_CONFLICT',

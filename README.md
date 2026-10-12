@@ -68,7 +68,7 @@ Live hash recomputation for any selected transaction in the ledger. Shows the bl
 | Build tool | Vite 8 |
 | Language | TypeScript 6 (strict mode) |
 | UI framework | React 18 |
-| Styling | Tailwind CSS 3 with co-located component stylesheets |
+| Styling | Tailwind CSS 4 with co-located component stylesheets |
 | State management | Zustand 5 |
 | Animation | Custom rAF tween (`src/utils/animateProgress.ts`) |
 | Hashing | js-sha256 (synchronous, in-browser) |

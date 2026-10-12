@@ -39,6 +39,20 @@ export const ALLOWED_OTP_PATHS: readonly string[] = [
   '/api/auth/email-otp/change-email',
 ]
 
+/**
+ * Every `/api/auth/*` path the frontend calls, and therefore every path the
+ * proxy forwards. Anything not on this list is refused with a 404 rather than
+ * forwarded to Better Auth: registering a plugin publishes all of its routes
+ * at once, so a blocklist leaves each future route reachable by default.
+ */
+export const ALLOWED_AUTH_PATHS: readonly string[] = [
+  '/api/auth/sign-in/email',
+  '/api/auth/sign-up/email',
+  '/api/auth/send-verification-email',
+  '/api/auth/sign-out',
+  ...ALLOWED_OTP_PATHS,
+]
+
 /** Plugin paths refused at the proxy. */
 export const BLOCKED_OTP_PATHS: readonly string[] = [
   '/api/auth/sign-in/email-otp',
@@ -82,6 +96,16 @@ function normaliseAuthPath(url: string): string {
     segments.push(segment)
   }
   return `/${segments.join('/')}`
+}
+
+/**
+ * Whether the proxy should forward this path.
+ *
+ * Compares the resolved path only, so neither a query string, a trailing slash,
+ * a `..` segment, nor a percent-escape can smuggle a non-allowlisted route past.
+ */
+export function isAllowedAuthPath(url: string): boolean {
+  return ALLOWED_AUTH_PATHS.includes(normaliseAuthPath(url))
 }
 
 /**
