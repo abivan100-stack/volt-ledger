@@ -89,22 +89,19 @@ describe('useTradeNotifications', () => {
     expect(result.current.notifications.length).toBe(0)
   })
 
-  it('triggers notification when ledger integrity is compromised and restored', () => {
+  it('keeps only the latest notification visible, so the stack cannot cover the page', () => {
+    // Two toasts plus the mute pill stacked over live figures and the sim
+    // controls; the feed shows the newest one and drops the rest.
     const { result } = renderHook(() => useTradeNotifications())
 
     act(() => {
       useEnergyStore.setState({ compromised: true, invalidCount: 3 })
     })
-
-    expect(result.current.notifications.length).toBe(1)
-    expect(result.current.notifications[0].type).toBe('tamper')
-    expect(result.current.notifications[0].tamperedCount).toBe(3)
-
     act(() => {
       useEnergyStore.setState({ compromised: false, invalidCount: 0, restoredFlash: true })
     })
 
-    expect(result.current.notifications.length).toBe(2)
+    expect(result.current.notifications.length).toBe(1)
     expect(result.current.notifications[0].type).toBe('restore')
   })
 

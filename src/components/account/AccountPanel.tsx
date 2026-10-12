@@ -28,7 +28,7 @@ function DemoModeNotice() {
   return (
     <p className="account-notice" role="status">
       This build runs in demo mode with no backend, so accounts and organisations are unavailable.
-      The neighbourhood simulation and ledger below work exactly as they do everywhere else.
+      The neighbourhood simulation and ledger need no account either — they work on the ledger pages exactly as they always do.
     </p>
   )
 }

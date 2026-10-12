@@ -89,6 +89,12 @@
   position: relative;
 }
 
+/* Transparent on desktop so the flex row is exactly as before; on narrow
+   screens it becomes the scrollable links row. */
+.header-links {
+  display: contents;
+}
+
 .header-ledger-nav .header-link.active::after {
   content: '';
   position: absolute;
@@ -145,13 +151,46 @@
     overflow-x: clip;
   }
 
+  /* Two rows: logo plus pinned actions, then the scrollable links. The nav
+     dissolves so the tour button and the theme toggle hold the top row while
+     only the links scroll. */
   .header-bar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px 10px;
     padding-top: 10px;
     padding-bottom: 8px;
+  }
+
+  .header-nav {
+    display: contents;
+  }
+
+  .header-links {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px 18px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    padding-bottom: 2px;
+  }
+
+  .header-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .header-links > * {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
   }
 
   .header-logo-word {
@@ -161,29 +200,6 @@
 
   .header-logo-suffix {
     font-size: 17px;
-  }
-
-  .header-nav {
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-    padding-bottom: 2px;
-  }
-
-  .header-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .header-nav > * {
-    flex: 0 0 auto;
-    scroll-snap-align: start;
   }
 
   .header-link {

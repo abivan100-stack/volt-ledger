@@ -50,6 +50,9 @@ function Header() {
           </Link>
         )}
         <nav className="header-nav">
+          {/* Scrolls sideways on narrow screens while the tour button and the
+              theme toggle stay pinned — see the mobile rules in Header.css. */}
+          <div className="header-links">
           {isLedgerPage ? (
             <>
               <Link to="/" className="mono header-link header-home-link">← HOME</Link>
@@ -80,6 +83,7 @@ function Header() {
             <span className="header-rate-dot" />
             ₹{rate.toFixed(2)}/kWh
           </span>
+          </div>
           <JudgeTourLaunchButton />
           <ThemeToggle />
         </nav>

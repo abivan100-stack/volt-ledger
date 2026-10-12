@@ -74,3 +74,18 @@
   color: var(--ink-soft);
   pointer-events: none;
 }
+
+/* The five-column site plan cannot compress to a phone width without stacking
+   every label onto its neighbour. Below 640px the canvas keeps a readable
+   minimum width and the frame scrolls sideways instead — the drawing loop
+   re-measures every frame, so no JavaScript changes are needed. */
+@media (max-width: 640px) {
+  .map-frame {
+    overflow-x: auto;
+  }
+
+  .map-canvas {
+    min-width: 620px;
+    height: 440px;
+  }
+}

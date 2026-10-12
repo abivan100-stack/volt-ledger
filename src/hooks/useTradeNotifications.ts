@@ -15,7 +15,8 @@ export interface TradeNotification {
   tamperedCount?: number
 }
 
-const MAX_ACTIVE_NOTIFICATIONS = 2
+/** One card only: a stack of toasts covered live figures and the sim controls. */
+const MAX_ACTIVE_NOTIFICATIONS = 1
 const AUTO_DISMISS_MS = 4000
 const STORAGE_KEY = 'volt-trade-ticker-muted'
 

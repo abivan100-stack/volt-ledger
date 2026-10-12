@@ -22,7 +22,7 @@ describe('TradeNotificationFeed', () => {
 
   it('renders without crashing when empty and unmuted', () => {
     render(<TradeNotificationFeed />)
-    expect(screen.queryByText('Live P2P')).toBeNull()
+    expect(screen.queryByText('Sim P2P')).toBeNull()
   })
 
   it('renders a live trade card when trade is dispatched and dismisses on close click', async () => {
@@ -39,7 +39,7 @@ describe('TradeNotificationFeed', () => {
       useEnergyStore.setState({ chain: [block] })
     })
 
-    expect(screen.getByText('Live P2P')).toBeTruthy()
+    expect(screen.getByText('Sim P2P')).toBeTruthy()
     expect(screen.getByText(/0.85 kWh · ₹4.25/i)).toBeTruthy()
 
     // Test dismissal
@@ -76,8 +76,8 @@ describe('TradeNotificationFeed', () => {
       useEnergyStore.setState({ compromised: true, invalidCount: 1 })
     })
 
-    const muteBtn = screen.getByRole('button', { name: /click to mute live trade ticker/i })
-    expect(screen.getByText('Live P2P')).toBeTruthy()
+    const muteBtn = screen.getByRole('button', { name: /click to mute simulated trade ticker/i })
+    expect(screen.getByText('Sim P2P')).toBeTruthy()
 
     fireEvent.click(muteBtn)
     expect(screen.getByText(/Ticker Muted \(Click to Unmute\)/i)).toBeTruthy()
@@ -87,7 +87,7 @@ describe('TradeNotificationFeed', () => {
     fireEvent.click(closeBtn)
 
     // The unmute button remains available and interactive
-    const unmuteBtn = screen.getByRole('button', { name: /click to unmute live trade ticker/i })
+    const unmuteBtn = screen.getByRole('button', { name: /click to unmute simulated trade ticker/i })
     expect(unmuteBtn).toBeTruthy()
 
     fireEvent.click(unmuteBtn)
