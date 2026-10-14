@@ -1,6 +1,7 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ElementRef } from 'react'
 import * as ProgressPrimitive from '@radix-ui/react-progress'
-import { cn } from '../../lib/utils'
+import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 import './progress.css'
 
 export const Progress = forwardRef<
@@ -9,7 +10,7 @@ export const Progress = forwardRef<
 >(({ className, value, ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
-    className={cn('volt-progress', className)}
+    className={twMerge(clsx('volt-progress', className))}
     {...props}
   >
     <ProgressPrimitive.Indicator

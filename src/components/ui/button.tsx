@@ -1,7 +1,8 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import type { VariantProps } from 'class-variance-authority'
-import { cn } from '../../lib/utils'
+import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 import { buttonVariants } from './buttonVariants'
 
 export interface ButtonProps
@@ -16,7 +17,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         ref={ref}
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={twMerge(clsx(buttonVariants({ variant, size, className })))}
         {...props}
       />
     )
