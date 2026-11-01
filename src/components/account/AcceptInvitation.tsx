@@ -117,7 +117,7 @@ function AcceptInvitation({ token }: AcceptInvitationProps) {
         className="mono account-submit"
         type="button"
         onClick={() => void handleAccept()}
-        disabled={submitting}
+        disabled={submitting || !session.user.emailVerified}
         aria-busy={submitting}
       >
         {submitting ? 'ACCEPT INVITATION…' : 'ACCEPT INVITATION'}

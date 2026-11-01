@@ -41,6 +41,10 @@ async function startWorker(): Promise<void> {
 
   const repositories = createVoltRepositories(getMongoDb())
 
+  const workerId = process.env.HOSTNAME && !env.WORKER_ID.includes(process.env.HOSTNAME)
+    ? `${env.WORKER_ID}-${process.env.HOSTNAME}`
+    : env.WORKER_ID
+
   try {
     await runSimulationWorker(repositories, {
       signal: controller.signal,
@@ -50,7 +54,7 @@ async function startWorker(): Promise<void> {
       // This process has no HTTP surface, so the heartbeat is the only evidence
       // it is alive. Storage is bound here rather than inside the loop.
       heartbeat: async (snapshot) => {
-        await repositories.workers.recordHeartbeat({ workerId: env.WORKER_ID, ...snapshot })
+        await repositories.workers.recordHeartbeat({ workerId, ...snapshot })
       },
     })
   } finally {

@@ -483,11 +483,11 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   app.addHook('onRequest', async (request, reply) => {
     const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)
     const cookieAuthenticated = typeof request.headers.cookie === 'string' && request.headers.cookie.length > 0
-    // Both the versioned API and the Better Auth proxy: the latter owns its own
-    // origin check too, but a cookie on a cross-origin write must be refused by
-    // this layer rather than left to an upstream default.
-    const guarded = request.url.startsWith('/api/v1/') || request.url.startsWith('/api/auth/')
-    if (stateChanging && guarded && cookieAuthenticated && !isSameOriginRequest(request)) {
+    // Every state-changing route sits under /api/ (the versioned API and the
+    // Better Auth proxy). The proxy owns its own origin check too, but a cookie
+    // on a cross-origin write must be refused by this layer rather than left to
+    // an upstream default.
+    if (stateChanging && request.url.startsWith('/api/') && cookieAuthenticated && !isSameOriginRequest(request)) {
       return reply.code(403).send({ error: 'Cross-site request rejected', code: 'CSRF_ORIGIN_MISMATCH' })
     }
   })
