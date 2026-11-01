@@ -262,7 +262,7 @@
             "type": "string",
             "maxLength": 320,
             "format": "email",
-            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
           },
           "role": {
             "type": "string",
@@ -888,15 +888,11 @@
             "type": "string"
           },
           "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Null when no address was recorded for the membership"
+            "description": "Null when no address was recorded for the membership",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "role": {
             "type": "string",
@@ -1112,26 +1108,18 @@
             "type": "string"
           },
           "resultDigest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set once the run completes"
+            "description": "Set once the run completes",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errorCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set only when the run failed"
+            "description": "Set only when the run failed",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -1545,52 +1533,36 @@
             "description": "Illustrative rupee value; not a payment obligation"
           },
           "previousSeal": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Null only for sequence 1"
+            "description": "Null only for sequence 1",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "canonicalSeal": {
             "type": "string",
             "description": "Server-generated hash linking this event to the previous"
           },
           "adjustmentTargetEventId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set on adjustment events only"
+            "description": "Set on adjustment events only",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "adjustmentReason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set on adjustment events only"
+            "description": "Set on adjustment events only",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "idempotencyKey": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set on adjustment events only"
+            "description": "Set on adjustment events only",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -1697,13 +1669,9 @@
                 "type": "string"
               },
               "resultDigest": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "outcome": {
@@ -1820,15 +1788,11 @@
             "description": "Newest first"
           },
           "nextCursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Opaque position marker; null on the last page"
+            "description": "Opaque position marker; null on the last page",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2010,13 +1974,9 @@
             "maximum": 9007199254740991
           },
           "closingRate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "number",
+              "null"
             ]
           },
           "compromised": {
