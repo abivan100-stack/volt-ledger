@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, backend]
   pull_request:
-    branches: [main]
+    branches: [main, backend]
 
 jobs:
   client:
@@ -61,3 +61,50 @@ jobs:
       # A change to a route or schema must therefore land with its contract diff.
       - name: Validate and diff the OpenAPI document
         run: npm run openapi:check
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Fails on high or critical advisories only. Moderate ones still surface in
+      # the log; raising the bar to them is a separate decision, because
+      # @fastify/static's only offered "fix" is a four-major downgrade.
+      - run: npm audit --audit-level=high
+
+  integration:
+    name: Integration (MongoDB replica set)
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Transactions need a replica set, even a single-node one.
+      - name: Initiate the replica set
+        run: >-
+          docker exec ${{ job.services.mongo.id }} mongosh --quiet --eval
+          'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+      # VOLT_REQUIRE_INTEGRATION is set by the config, so a missing database is a
+      # failure here rather than a silent skip.
+      - run: npm run test:integration
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017/?replicaSet=rs0&directConnection=true
+          MONGODB_TEST_DB_NAME: volt_test_ci
