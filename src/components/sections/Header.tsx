@@ -5,7 +5,7 @@ import { isApiConfigured } from '../../api/config'
 import { useEnergyStore } from '../../store/useEnergyStore'
 import { scrollToId, scrollToTop } from '../../utils/scrollToId'
 import ThemeToggle from '../ui/ThemeToggle'
-import { JudgeTourLaunchButton } from './JudgeTour'
+
 import './Header.css'
 
 function handleHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -84,7 +84,6 @@ function Header() {
             ₹{rate.toFixed(2)}/kWh
           </span>
           </div>
-          <JudgeTourLaunchButton />
           <ThemeToggle />
         </nav>
       </div>
