@@ -23,6 +23,8 @@ vi.mock('../../components/sections/Spread', () => ({ default: () => null }))
 vi.mock('../../components/sections/HowItWorks', () => ({ default: () => null }))
 vi.mock('../../components/sections/LedgerCta', () => ({ default: () => null }))
 vi.mock('../../components/sections/ComparisonTable', () => ({ default: () => null }))
+vi.mock('../../components/sections/CommunityRoiCalculator', () => ({ default: () => null }))
+vi.mock('../../components/sections/PolicyComparison', () => ({ default: () => null }))
 vi.mock('../../components/sections/Footer', () => ({ default: () => null }))
 
 afterEach(() => {

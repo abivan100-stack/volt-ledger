@@ -15,7 +15,7 @@ function LedgerCta() {
     <section ref={sectionRef} className="ledger-cta">
       <div className="container ledger-cta-row">
         <div data-reveal className="ledger-cta-copy">
-          <SectionHeading kicker="03" label="Live Ledger" />
+          <SectionHeading kicker="06" label="Live Ledger" />
           <h2 className="serif ledger-cta-heading">Ten households. One shared, tamper-evident record.</h2>
           <p className="ledger-cta-body">
             Open the live ledger to watch a Nolambur street settle through a solar afternoon — real balances, a

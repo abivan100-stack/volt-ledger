@@ -1,11 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="16" fill="#14161A"/>
-  <!-- Subtle circular halo -->
-  <circle cx="32" cy="32" r="23" fill="#FACC15" fill-opacity="0.12"/>
-  
-  <!-- Outer glow/shadow facet -->
-  <path d="M36 10L18 34H32L28 54L46 30H32L36 10Z" fill="#EAB308" stroke="#FDE047" stroke-width="1.2" stroke-linejoin="round"/>
-  
-  <!-- Bright electric yellow lightning bolt core -->
-  <path d="M35 12L20 33H33L29 51L44 31H31L35 12Z" fill="#FACC15"/>
+  <defs>
+    <linearGradient id="volt-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="volt-border" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2D333F"/>
+      <stop offset="100%" stop-color="#1F232B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background tile with subtle dark ledger border -->
+  <rect width="64" height="64" rx="14" fill="#0E1015"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="url(#volt-border)" stroke-width="1.5"/>
+
+  <!-- Crisp, iconic geometric lightning bolt -->
+  <path
+    d="M36.5 9 L18 34.5 H31.5 L27.5 55 L46 29.5 H32.5 Z"
+    fill="url(#volt-amber)"
+    stroke="#FBBF24"
+    stroke-width="0.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Subtle cryptographic node accent -->
+  <circle cx="48" cy="14" r="2.5" fill="#10B981"/>
 </svg>

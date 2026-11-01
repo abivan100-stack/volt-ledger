@@ -215,16 +215,16 @@ export function startNeighbourhoodMap(
           y = busY + (eb - busY) * u
         }
         const alpha = Math.min(1, q / 0.12, (1 - q) / 0.14)
-        const gradient = ctx.createRadialGradient(x, y, 0.5, x, y, 9)
-        gradient.addColorStop(0, `rgba(${sun},${(alpha * 0.55).toFixed(3)})`)
+        const gradient = ctx.createRadialGradient(x, y, 0.5, x, y, 7)
+        gradient.addColorStop(0, `rgba(${sun},${(alpha * 0.28).toFixed(3)})`)
         gradient.addColorStop(1, `rgba(${sun},0)`)
         ctx.fillStyle = gradient
         ctx.beginPath()
-        ctx.arc(x, y, 9, 0, 7)
+        ctx.arc(x, y, 7, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = `rgba(${sun},${alpha.toFixed(3)})`
         ctx.beginPath()
-        ctx.arc(x, y, 2.6, 0, 7)
+        ctx.arc(x, y, 2.2, 0, Math.PI * 2)
         ctx.fill()
         return true
       })
@@ -239,37 +239,37 @@ export function startNeighbourhoodMap(
 
       if (net > ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, net / 2.4)
-        const breathe = options.reducedMotion ? 1 : 0.86 + 0.14 * Math.sin(t / 700 + i)
-        const radius = (houseSize * 0.85 + mag * houseSize * 1.6) * breathe
-        const gradient = ctx.createRadialGradient(cx, cy, houseSize * 0.3, cx, cy, radius)
-        gradient.addColorStop(0, `rgba(${sun},${(0.26 * (0.5 + mag)).toFixed(3)})`)
+        const breathe = options.reducedMotion ? 1 : 0.92 + 0.08 * Math.sin(t / 700 + i)
+        const radius = (houseSize * 0.65 + mag * houseSize * 0.38) * breathe
+        const gradient = ctx.createRadialGradient(cx, cy, houseSize * 0.35, cx, cy, radius)
+        gradient.addColorStop(0, `rgba(${sun},${(0.12 * (0.35 + mag * 0.65)).toFixed(3)})`)
         gradient.addColorStop(1, `rgba(${sun},0)`)
         ctx.fillStyle = gradient
         ctx.beginPath()
-        ctx.arc(cx, cy, radius, 0, 7)
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
         ctx.fill()
       } else if (net < -ACTIVE_NET_THRESHOLD) {
         const mag = Math.min(1, -net / 2)
         const phase = options.reducedMotion ? 0.4 : (t / 1400) % 1
-        const ringRadius = houseSize * (1.35 - phase * 0.72)
-        ctx.strokeStyle = `rgba(${teal},${(0.5 * mag * (1 - phase)).toFixed(3)})`
-        ctx.lineWidth = 1.4
+        const ringRadius = houseSize * (1.25 - phase * 0.55)
+        ctx.strokeStyle = `rgba(${teal},${(0.32 * mag * (1 - phase)).toFixed(3)})`
+        ctx.lineWidth = 1.2
         ctx.beginPath()
-        ctx.arc(cx, cy, ringRadius, 0, 7)
+        ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2)
         ctx.stroke()
       }
 
-      ctx.strokeStyle = `rgba(${ink},0.10)`
-      ctx.lineWidth = 3
+      ctx.strokeStyle = `rgba(${ink},0.12)`
+      ctx.lineWidth = 2.5
       ctx.beginPath()
-      ctx.arc(cx, cy, gaugeRadius, 0, 7)
+      ctx.arc(cx, cy, gaugeRadius, 0, Math.PI * 2)
       ctx.stroke()
 
       const frac = Math.min(1, Math.abs(net) / 2.6)
       if (frac > 0.02) {
         const give = net >= 0
-        ctx.strokeStyle = give ? `rgba(${sun},0.95)` : `rgba(${teal},0.95)`
-        ctx.lineWidth = 3
+        ctx.strokeStyle = give ? `rgba(${sun},0.92)` : `rgba(${teal},0.92)`
+        ctx.lineWidth = 2.5
         ctx.lineCap = 'round'
         ctx.beginPath()
         ctx.arc(cx, cy, gaugeRadius, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2 * (give ? 1 : -1), !give)
@@ -278,8 +278,8 @@ export function startNeighbourhoodMap(
       }
 
       ctx.fillStyle = cardColor
-      ctx.strokeStyle = `rgba(${ink},0.62)`
-      ctx.lineWidth = 1.2
+      ctx.strokeStyle = `rgba(${ink},0.32)`
+      ctx.lineWidth = 1
       ctx.beginPath()
       ctx.rect(cx - houseSize / 2, cy - houseSize / 2, houseSize, houseSize)
       ctx.fill()
@@ -287,9 +287,9 @@ export function startNeighbourhoodMap(
 
       if (h.pv > 0) {
         const panelSize = houseSize * 0.6
-        ctx.fillStyle = `rgba(${sun},0.85)`
+        ctx.fillStyle = `rgba(${sun},0.82)`
         ctx.fillRect(cx - panelSize / 2, cy - panelSize / 2, panelSize, panelSize)
-        ctx.strokeStyle = `rgba(${ink},0.38)`
+        ctx.strokeStyle = `rgba(${ink},0.32)`
         ctx.lineWidth = 0.75
         ctx.beginPath()
         ctx.moveTo(cx - panelSize / 2, cy)
@@ -297,12 +297,12 @@ export function startNeighbourhoodMap(
         ctx.moveTo(cx, cy - panelSize / 2)
         ctx.lineTo(cx, cy + panelSize / 2)
         ctx.stroke()
-        ctx.strokeStyle = `rgba(${ink},0.24)`
+        ctx.strokeStyle = `rgba(${ink},0.18)`
         ctx.strokeRect(cx - panelSize / 2, cy - panelSize / 2, panelSize, panelSize)
       } else {
         ctx.fillStyle = `rgba(${ink},0.22)`
         ctx.beginPath()
-        ctx.arc(cx, cy, 3.5, 0, 7)
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2)
         ctx.fill()
       }
     }

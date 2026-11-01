@@ -7,12 +7,18 @@
   border-radius: 2px;
   padding: 14px 24px;
   display: inline-block;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
-.primary-link-button:hover {
+
+.primary-link-button:hover,
+a.primary-link-button:hover {
   background: var(--sun);
   border-color: var(--sun);
+  color: var(--paper);
 }
-.primary-link-button:active {
+
+.primary-link-button:active,
+a.primary-link-button:active {
   transform: translateY(1px);
 }

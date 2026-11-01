@@ -11,7 +11,7 @@ function BusinessModel() {
   return (
     <section id="business-model" ref={sectionRef} className="business-model">
       <div className="container business-model-container">
-        <SectionHeading kicker="05" label="Business Model" />
+        <SectionHeading kicker="07" label="Business Model" />
         <h2 data-reveal className="serif business-model-heading">
           A street pays for trust. Not for electrons.
         </h2>

@@ -70,6 +70,7 @@
 .account-submit:hover:not(:disabled) {
   background: var(--sun);
   border-color: var(--sun);
+  color: var(--paper);
 }
 
 .account-submit:disabled {

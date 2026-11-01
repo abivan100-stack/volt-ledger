@@ -1,0 +1,150 @@
+.policy-section {
+  padding: 72px 0 80px;
+  border-top: 1px solid var(--rule-2);
+  background: var(--paper);
+}
+
+.policy-container {
+  max-width: var(--container-max);
+}
+
+.policy-heading {
+  font-size: clamp(34px, 4.4vw, 54px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 12px 0 16px;
+}
+
+.policy-heading em {
+  font-style: italic;
+  color: var(--sun);
+}
+
+.policy-intro {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 680px;
+  margin: 0 0 36px;
+}
+
+.policy-table {
+  width: 100%;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  background: var(--card);
+  overflow: hidden;
+  margin-bottom: 36px;
+  box-shadow: 0 18px 44px -28px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.policy-row {
+  display: grid;
+  grid-template-columns: 240px 1fr 1fr;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--rule);
+  align-items: center;
+  font-size: 13.5px;
+}
+
+.policy-row:last-child {
+  border-bottom: none;
+}
+
+.policy-header-row {
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule-2);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.policy-col-volt {
+  color: var(--sun);
+  font-weight: 600;
+}
+
+.policy-cell-dim {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.policy-cell-tangedco {
+  color: var(--ink-soft);
+  line-height: 1.45;
+  padding-right: 16px;
+}
+
+.policy-cell-volt {
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.policy-row-highlight {
+  background: color-mix(in srgb, var(--sun) 4%, transparent);
+}
+
+.policy-row-highlight .policy-cell-volt {
+  color: var(--sun);
+  font-weight: 600;
+}
+
+.policy-citations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.policy-citation-card {
+  border: 1px solid var(--rule-2);
+  background: var(--card);
+  padding: 22px 24px;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.policy-citation-tag {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--settle);
+  font-weight: 600;
+}
+
+.policy-citation-title {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0;
+}
+
+.policy-citation-text {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .policy-section {
+    padding: 48px 0 56px;
+  }
+
+  .policy-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 16px 18px;
+  }
+
+  .policy-header-row {
+    display: none;
+  }
+
+  .policy-citations {
+    grid-template-columns: 1fr;
+  }
+}

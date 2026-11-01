@@ -290,16 +290,16 @@
    rather than a glow. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .net-node::before {
-    width: calc(var(--net-chip) * 1.7);
-    height: calc(var(--net-chip) * 1.7);
-    background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 12%, transparent) 0%, transparent 58%);
+    width: calc(var(--net-chip) * 1.4);
+    height: calc(var(--net-chip) * 1.4);
+    background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 8%, transparent) 0%, transparent 60%);
   }
 }
 
 :root[data-theme='dark'] .net-node::before {
-  width: calc(var(--net-chip) * 1.7);
-  height: calc(var(--net-chip) * 1.7);
-  background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 12%, transparent) 0%, transparent 58%);
+  width: calc(var(--net-chip) * 1.4);
+  height: calc(var(--net-chip) * 1.4);
+  background: radial-gradient(circle, color-mix(in srgb, var(--net-role) 8%, transparent) 0%, transparent 60%);
 }
 
 .net-node-chip {
