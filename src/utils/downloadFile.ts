@@ -6,7 +6,9 @@ function triggerDownload(filename: string, blob: Blob): void {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  // Revoking in the same tick as click() can cancel the download in browsers
+  // that read the blob on a later task (Firefox, Safari). One task is enough.
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 /** Triggers a browser download of in-memory text content — no server round-trip. */
